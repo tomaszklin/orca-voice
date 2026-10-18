@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
 const vitestOxcConfig = { tsconfig: false } as never
@@ -7,6 +8,14 @@ export default defineConfig({
   // Why: the app tsconfig intentionally excludes tests; Vite 8's OXC transform
   // otherwise fails before Vitest can run the test modules.
   oxc: vitestOxcConfig,
+  resolve: {
+    // Orca Voice fork: a silent Node stand-in for the native TTS module.
+    alias: {
+      'expo-speech': fileURLToPath(
+        new URL('./src/test-support/expo-speech-node.ts', import.meta.url)
+      )
+    }
+  },
   test: {
     pool: 'threads',
     environment: 'node',

@@ -1,0 +1,156 @@
+# Orca Voice — prywatna wersja Orca Mobile z czytaniem odpowiedzi
+
+Fork [stablyai/orca](https://github.com/stablyai/orca) (licencja MIT), gałąź `voice`.
+Zmieniona jest **tylko aplikacja na telefon**. Desktop zostaje oficjalny i aktualizuje się sam.
+
+Powód (2026-10-18): Orca nie ma czytania odpowiedzi agenta na głos (prośba
+[#15817](https://github.com/stablyai/orca/issues/15817) bez odzewu). Obejście przez ntfy + SpeakThat!
+czyta zawsze i natychmiast, a właściciel chce sam decydować, kiedy słucha.
+
+> **Ważne: większość ekranów Orca Mobile to strona pobierana z desktopu.** Lista workspace'ów,
+> sesja/czat, pliki i review przychodzą z komputera (ekran „Downloading the latest app from Dom”;
+> lista tras w `%LOCALAPPDATA%\Programs\orca\resources\app.asar.unpacked\out\mobile-web\manifest.json`).
+> APK nie może do nich dodać przycisków — dlatego wersja 1 (przycisk przy odpowiedzi na liście,
+> 2026-10-18) była niewidoczna. Wersja 2 czyta przez **natywną warstwę** nad nawigacją, niezależną
+> od pobieranego widoku. Natywne w APK są m.in. ustawienia i transport RPC.
+
+## Co dodaje (wersja 2, 2026-10-18)
+
+- **Settings → Chat UI → „Auto-read new replies”** — gdy włączone, każda nowa odpowiedź agenta
+  jest czytana na głos zaraz po zakończeniu tury, na dowolnym ekranie (lista, czat). Domyślnie
+  wyłączone. Działa przy otwartej aplikacji (brak usługi w tle).
+- Jak: `useAutoReadReplies` co 15 s (do 2026-10-18: 3 s) pyta każdy połączony host o `worktree.ps` przez natywnego
+  klienta RPC, `findNewReplies` wybiera nowe odpowiedzi (pomija podagentów i to, co było przed
+  włączeniem przełącznika).
+- **Przycisk „Stop”** u góry ekranu, widoczny tylko podczas czytania.
+- Czytany tekst: bez bloków kodu i tabel (zamiast nich krótka informacja, po polsku na polskim
+  telefonie), bez linków, emoji, formatowania; ścieżki plików skrócone do nazwy.
+- Głos: systemowy syntezator mowy Androida (ten sam, który ustawiono dla SpeakThat!).
+- **Nie ma** przycisku „odtwórz” pod każdą odpowiedzią w czacie — czat jest stroną z desktopu.
+  Wymagałoby to podmiany widoku na komputerze albo własnej kopii czatu w APK (zob. historia rozmowy
+  2026-10-18; właściciel wybrał na razie auto-czytanie).
+
+Do biegania z wygaszonym ekranem dalej służy tryb głosowy na komputerze (ntfy + SpeakThat!) —
+zob. `~/.claude/hooks/voice/`.
+
+## Przycisk „Read” w czacie + wbudowana strona (build 4, 2026-10-18)
+
+**Stan: działa na telefonie właściciela (potwierdzone 2026-10-18, build 4).** Auto-czytanie
+(opcja) jeszcze nie — w buildzie 3 przy włączonym przełączniku nic nie czytało; diagnostyka w
+Settings → Chat UI pokaże, czy problem jest w odpytywaniu `worktree.ps`, czy w wykrywaniu nowych odpowiedzi.
+
+Właściciel chce: auto-czytanie jako opcja + **niezależnie** przycisk „Read” pod każdą odpowiedzią.
+Czat to strona z desktopu, więc APK niesie **własną kopię strony** i serwuje ją zamiast desktopowej.
+
+- **Baza forka = wydanie desktopu.** Gałąź `voice` stoi na tagu `v1.4.229` (wersja Orki na
+  komputerze), żeby wbudowana strona mówiła tym samym protokołem co desktop. Manifest strony
+  porównany z desktopowym: te same trasy, granty, `runtimeProtocolVersion` 3 / min 2, `pageVersion` 1.
+  Gdy desktop się zaktualizuje i coś przestanie działać: przenieść forka na nowy tag i przebudować.
+- **Mostek:** jeden czasownik `native.speech.control` (`{action:'speak', id, markdown}` |
+  `{action:'stop'}`) — `bridge/bridge-speech-verbs.ts`, wpis w `bridge-native-verbs.ts`, obsługa
+  `platform/native-speech.ts` ← `use-native-device-verbs.ts`. Jeden, nie dwa, bo trasa sesji ma
+  limit 16 grantów. W `config/scripts/mobile-web-page-routes.mjs` jako `optionalGrants` trasy
+  sesji — oficjalna powłoka dalej serwuje czat, tylko bez przycisku.
+- **Przycisk:** `components/MobileReplyReadButton.tsx` w `session/MobileNativeChatMessage.tsx`
+  (obok kopiowania, tylko odpowiedzi asystenta, nie podczas pisania). Mówienie przez
+  `platform/reply-speech.ts` (natywnie) / `reply-speech.web.ts` (strona → mostek).
+- **Wbudowana strona:** `voice/build-page.mjs` buduje ją esbuildem z zależności `mobile/` (~2 s,
+  ~8,4 MB), `build-apk.ps1` kopiuje do `android/app/src/main/assets/voice-page/`.
+  `mobile-web-shell/embedded-bundle-source.ts` czyta ją z `asset:///voice-page/…`;
+  `mobile-web-shell-session-effects.ts` (`readManifest`, `download`) bierze ją zamiast desktopowej.
+- **Przełącznik:** Settings → Chat UI → „Built-in chat page (Read buttons)”, domyślnie włączony
+  (`speech/built-in-page-preference.ts`, klucz `orca:voiceBuiltInPage`). Wyłączony = strona z
+  desktopu. Zmiana działa dla ekranów otwartych później.
+- Odrzucone: łatanie zainstalowanego desktopu (asar z listą plików po hashach → pełny repack,
+  restart Orki, powtarzać po każdej aktualizacji).
+## Czytanie przy zgaszonym ekranie (build 5–7, 2026-10-18)
+
+**Stan: działa na telefonie właściciela (potwierdzone 2026-10-18, build 7).** Od buildu 7 usługa
+nie jest zatrzymywana przy odmontowaniu komponentu, wraca przy każdym powrocie Orki na ekran, a po
+ubiciu samej usługi przez system wraca sama (START_STICKY; po śmierci całego procesu kończy się, bo
+nie ma JS, który by tykał). Settings → Chat UI pokazuje stan usługi i ostatnie tyknięcie. Hook
+trybu głosowego na komputerze ma `push: false` — ntfy i SpeakThat! nie są już potrzebne.
+
+Właściciel wybrał czytanie w tle w samej Orce i zamierza usunąć ntfy + SpeakThat!. Po wygaszeniu
+ekranu blokują je trzy rzeczy: Android zamraża proces, React Native wstrzymuje zegary JS, a
+transport sam zamyka relay po 30 s w tle (`mobile-relay-background-grace.ts`).
+
+- Moduł natywny `mobile/modules/orca-voice-background` (Kotlin): `ReadAloudService` — usługa
+  pierwszoplanowa typu `mediaPlayback` z cichym, stałym powiadomieniem, częściowy wake lock i
+  „tyknięcie” co 15 s przekazywane do JS jako zdarzenie `onTick` (zdarzeń nie wstrzymuje tło).
+  Zamyka się po zdjęciu Orki z listy ostatnich aplikacji.
+- `speech/background-reading.ts`: przełącznik Settings → Chat UI → „Keep reading with the screen
+  off” (domyślnie włączony, działa tylko przy włączonym auto-czytaniu; klucz
+  `orca:voiceBackgroundReading`), start/stop usługi, odpytywanie na tyknięciach.
+- `speech/background-reading-state.ts` + `transport/host-logical-client.ts`: gdy usługa działa,
+  połączenie z desktopem jest traktowane jak na pierwszym planie (nie zamyka się po 30 s).
+- Koszt: bateria (wake lock + odpytywanie `worktree.ps` co 15 s; od 2026-10-19, wcześniej co 3 s — właściciel wybrał oszczędność baterii kosztem do 15 s opóźnienia).
+- **Błąd naprawiony w buildzie 6:** auto-czytanie czekało na `state === 'done'`, a sesja agenta z
+  zadaniem w tle (serwer, budowanie) zostaje `working` także po zakończonej turze — z odpowiedzią
+  już w `lastAssistantMessage` (sprawdzone logiem `orca worktree ps --json` co 2 s). Teraz
+  sygnałem jest nowa niepusta wartość `lastAssistantMessage`, bez względu na stan.
+
+## Budowanie
+
+```powershell
+pwsh -File E:\Projects\OrcaVoice\voice\build-apk.ps1
+```
+
+Wynik: `voice\dist\orca-voice-<wersja>.apk` (ok. 55 MB, tylko arm64). Pierwsze budowanie trwa
+długo (Gradle pobiera zależności, kompiluje C++), kolejne kilka minut.
+
+Dwie poprawki pod Windows, wbudowane w skrypt (bez nich kompilacja C++ `react-native-worklets`
+kończy się „ninja: manifest 'build.ninja' still dirty after 100 tries” — za długie ścieżki):
+- `node_modules` w układzie płaskim (`pnpm_config_node_linker=hoisted`; lockfile bez zmian),
+- CMake 3.31.6 z ninja 1.12 (`sdkmanager "cmake/3.31.6"`) wskazany w `android/local.properties`.
+Skrypt robi `expo prebuild --clean`, więc katalog `mobile/android/` jest za każdym razem generowany od nowa.
+
+## Przesłanie na telefon
+
+Telefon łączy się z komputerem przez **ZeroTier** (IP komputera w tej sieci: `172.24.212.29`,
+stan 2026-10-18). Plik ma ok. 55 MB — za dużo na ntfy.
+
+```powershell
+& "C:\Program Files\nodejs\node.exe" E:\Projects\OrcaVoice\voice\serve-apk.mjs 172.24.212.29
+```
+
+Wypisuje jednorazowy link (losowy token), który otwiera się w przeglądarce telefonu. Serwer słucha
+tylko na adresie ZeroTier i wyłącza się po 30 minutach. Używa **systemowego** Node, bo tylko on ma
+regułę w zaporze Windowsa (profil Public, na którym jest karta ZeroTier); bez uprawnień
+administratora nie da się dodać nowej reguły.
+
+**Podpis:** wydanie jest podpisane publicznym kluczem debug z szablonu React Native — tak samo jak
+oficjalne APK Orca Mobile (sprawdzone 2026-10-18). Dlatego ta wersja instaluje się **na** oficjalną,
+z zachowaniem parowania. Powrót do oryginału: zainstalować oficjalne APK z wydań na GitHubie.
+
+## Narzędzia (lokalne, poza gitem)
+
+`.voice-tools/` — Node 24.22.0 (portable, sprawdzona suma SHA256) i pnpm 12.8.1. Globalny Node
+w systemie to 20.x i zostaje nietknięty. Java: Microsoft JDK 17. Android SDK:
+`%LOCALAPPDATA%\Android\Sdk` (Gradle sam dociąga brakujące NDK/CMake).
+
+## Aktualizacja z upstream
+
+Fork ma stać na **tagu wersji desktopu**, którą właściciel ma zainstalowaną (wersja: pole
+`desktopVersion` w `%LOCALAPPDATA%\Programs\orca\resources\app.asar.unpacked\out\mobile-web\manifest.json`).
+Protokół telefon ↔ desktop toleruje różnice wersji (zmiany addytywne), więc nie trzeba gonić
+każdej aktualizacji — przebudować, gdy coś przestanie działać albo przyda się nowa funkcja:
+
+1. `git fetch --tags origin`, potem przenieść zmiany forka na nowy tag (stash → `git checkout -B voice vX.Y.Z` → stash pop).
+2. Konflikt w `mobile/pnpm-lock.yaml` → wziąć wersję z tagu i `pnpm add expo-speech@~<wersja>`
+   (z `pnpm_config_node_linker=hoisted`).
+3. Testy: `pnpm exec vitest run src/speech src/settings src/session src/mobile-web-shell src/platform`.
+4. `pwsh -File voice\build-apk.ps1`, potem `serve-apk.mjs` i instalacja na telefonie.
+
+Uwaga: aplikacja może zaproponować aktualizację do nowszej wersji oficjalnej — jej instalacja
+usuwa czytanie (wraca oryginał).
+
+## Testy — stan 2026-10-18 (build 4)
+
+Zmiany forka mają testy w `src/speech/*.test.ts`; zaktualizowane listy grantów w
+`page-route-policy.test.ts` i `bridge-host-init.test.ts`; przycisk Read jest zamockowany globalnie
+w `vitest.setup.ts`, żeby nie ruszać mocków w testach czatu Orki. Testy czatu, mostka, ustawień i
+mowy przechodzą. Na tym Windowsie **niezależnie od zmian** (sprawdzone na czystym tagu) nie
+przechodzi 70 testów w `rpc-recording/*` i `native-document-bundle` oraz kilka plików, którym
+brakuje zależności głównego workspace'u (`zod`, `oxc-parser`…). `tsc --noEmit`: 7 błędów, wszystkie
+w plikach spoza zmian (brak tych samych zależności).

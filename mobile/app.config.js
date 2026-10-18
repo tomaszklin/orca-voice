@@ -13,6 +13,8 @@ const APS_ENVIRONMENT =
 
 module.exports = ({ config }) => ({
   ...config,
+  // Orca Voice fork: build number set by voice/build-apk.ps1, shown in About and Chat UI settings.
+  extra: { ...config.extra, voiceBuild: process.env.ORCA_VOICE_BUILD ?? null },
   ios: {
     ...config.ios,
     entitlements: { ...config.ios?.entitlements, 'aps-environment': APS_ENVIRONMENT }

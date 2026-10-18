@@ -4,6 +4,10 @@ import { createStableLogicalRpcClient } from './stable-logical-rpc-client'
 import type { ConnectionLogSink, HostProfile } from './types'
 import { directPathForEndpoint } from './mobile-direct-endpoint-probe'
 import { startMobileEndpointLifecycle } from './mobile-endpoint-lifecycle'
+import {
+  backgroundReadingActive,
+  subscribeBackgroundReading
+} from '../speech/background-reading-state'
 
 export function openHostLogicalClient(host: HostProfile, onLog: ConnectionLogSink): RpcClient {
   // Why: the stable facade owns app-visible RPC/subscription state while the
@@ -17,12 +21,20 @@ export function openHostLogicalClient(host: HostProfile, onLog: ConnectionLogSin
   }
 
   const endpointLifecycle = startMobileEndpointLifecycle(logical, host, onLog)
-  endpointLifecycle.setForeground(AppState.currentState === 'active')
+  // Orca Voice fork: while the background reader runs, the link stays foreground so it is not
+  // dropped 30 seconds after the screen goes off.
+  const isForeground = (state = AppState.currentState) =>
+    state === 'active' || backgroundReadingActive()
+  endpointLifecycle.setForeground(isForeground())
   const appStateSubscription = AppState.addEventListener('change', (state) => {
-    endpointLifecycle.setForeground(state === 'active')
+    endpointLifecycle.setForeground(isForeground(state))
   })
+  const unsubscribeBackgroundReading = subscribeBackgroundReading(() =>
+    endpointLifecycle.setForeground(isForeground())
+  )
   const closeLogical = logical.close
   logical.close = () => {
+    unsubscribeBackgroundReading()
     appStateSubscription.remove()
     endpointLifecycle.stop()
     closeLogical()

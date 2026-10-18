@@ -163,6 +163,8 @@ export const MOBILE_WEB_PAGE_ROUTES = [
       'native.audio.read',
       'native.audio.stop'
     ],
-    optionalGrants: ['externalNavigation']
+    // Orca Voice fork: `native.speech.control` is the chat's Read button. Optional, so a shell
+    // without the verb still serves this screen and the page simply draws no Read button.
+    optionalGrants: ['externalNavigation', 'native.speech.control']
   }
 ]

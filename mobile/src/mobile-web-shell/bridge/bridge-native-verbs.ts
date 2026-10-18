@@ -16,6 +16,7 @@ import {
   mediaReleaseResultSchema
 } from './bridge-media-verbs'
 import { PAGE_STORAGE_MAX_KEY_CHARS } from '../page-storage-keys'
+import { speechControlParamsSchema, speechControlResultSchema } from './bridge-speech-verbs'
 
 /**
  * The shell-answered request seam: what a `native.` method is, and every verb there is.
@@ -44,7 +45,8 @@ export const BRIDGE_NATIVE_VERB_NAMES = [
   'native.audio.start',
   'native.audio.read',
   'native.audio.stop',
-  'native.storage.read'
+  'native.storage.read',
+  'native.speech.control'
 ] as const
 
 export type BridgeNativeVerb = (typeof BRIDGE_NATIVE_VERB_NAMES)[number]
@@ -136,6 +138,11 @@ export const BRIDGE_NATIVE_VERBS: Readonly<Record<BridgeNativeVerb, BridgeNative
   'native.storage.read': {
     params: storageReadParamsSchema,
     result: storageReadResultSchema
+  },
+  // Orca Voice fork: read a reply aloud. Its shapes live in `bridge-speech-verbs.ts`.
+  'native.speech.control': {
+    params: speechControlParamsSchema,
+    result: speechControlResultSchema
   }
 }
 

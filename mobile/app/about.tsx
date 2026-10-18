@@ -13,7 +13,9 @@ function getVersionLabel(): string {
     Platform.OS === 'ios'
       ? Constants.expoConfig?.ios?.buildNumber
       : String(Constants.expoConfig?.android?.versionCode ?? '')
-  return build ? `v${version} (${build})` : `v${version}`
+  const voiceBuild = Constants.expoConfig?.extra?.voiceBuild
+  const label = build ? `v${version} (${build})` : `v${version}`
+  return voiceBuild ? `${label} · voice build ${voiceBuild}` : label
 }
 
 export default function NativeAboutRoute() {

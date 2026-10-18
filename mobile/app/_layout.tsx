@@ -12,6 +12,7 @@ import * as Linking from 'expo-linking'
 import { colors } from '../src/theme/mobile-theme'
 import { OrcaLogo } from '../src/components/OrcaLogo'
 import { RpcClientProvider } from '../src/transport/client-context'
+import { ReplyReaderOverlay } from '../src/speech/ReplyReaderOverlay'
 import { getNotificationNavigationTarget } from '../src/notifications/notification-routing'
 import { useOpenNotificationRoute } from '../src/notifications/use-open-notification-route'
 import {
@@ -242,6 +243,7 @@ export default function RootLayout() {
             <Stack.Screen name="h" options={{ headerShown: false }} />
           </Stack>
         </SideSafeArea>
+        <ReplyReaderOverlay />
       </View>
     </RpcClientProvider>
   )

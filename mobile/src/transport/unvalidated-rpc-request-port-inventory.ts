@@ -69,6 +69,9 @@ export const UNVALIDATED_RPC_REQUEST_PORT_OWNERS: readonly UnvalidatedRpcRequest
 
 /** Call sites awaiting migration to a typed operation. Grouped by the feature area that owns them. */
 export const UNVALIDATED_RPC_REQUEST_PORT_PENDING: readonly UnvalidatedRpcRequestPortEntry[] = [
+  // src/speech/ — Orca Voice fork: auto-read polls worktree.ps and reads only the agent rows,
+  // tolerating any shape it does not recognise.
+  { file: 'src/speech/use-auto-read-replies.ts', references: 1 },
   // app/h/[hostId]/ — Expo route screens
   // Holdout behind two gates. The first is the mount: the screen reads
   // `expo-router.useFocusEffect` and `react-native.ScrollView`, neither is a substituted member, so

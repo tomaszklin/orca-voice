@@ -1,4 +1,9 @@
-import { fetchMobileWebBundle } from '../transport/mobile-web-bundle-fetch'
+import {
+  fetchMobileWebBundle,
+  type MobileWebBundleFetchProgress
+} from '../transport/mobile-web-bundle-fetch'
+import { readBuiltInPageEnabled } from '../speech/built-in-page-preference'
+import { fetchEmbeddedBundle, readEmbeddedManifest } from './embedded-bundle-source'
 import { mobileWebBundleManifestRead } from '../transport/mobile-web-bundle-operations'
 import { runRpcOperation } from '../transport/rpc-operation'
 import type { RpcClient } from '../transport/rpc-client'
@@ -52,6 +57,11 @@ export async function openCache(
   }
 }
 
+/** Orca Voice fork: the built-in page's manifest when it should be served, otherwise null. */
+async function embeddedManifestInUse() {
+  return (await readBuiltInPageEnabled()) ? readEmbeddedManifest() : null
+}
+
 /** No client is no link, and the gates are about to say so. */
 const NO_CONNECTION: MobileWebShellUpdateFailureCause = { reason: 'no-connection', hostCode: null }
 /** Bytes that arrived whole and verified, refused by this phone's own disk. */
@@ -70,8 +80,11 @@ export async function readManifest(
     return
   }
   try {
-    const opened = await runRpcOperation(client, mobileWebBundleManifestRead, null)
-    const manifest = opened.manifest
+    // Orca Voice fork: the built-in page, when it is switched on and this build carries one, is
+    // read in place of the desktop's. The reducer judges it exactly as it would the desktop's.
+    const manifest =
+      (await embeddedManifestInUse()) ??
+      (await runRpcOperation(client, mobileWebBundleManifestRead, null)).manifest
     send({
       type: 'manifest-read',
       flow,
@@ -111,11 +124,12 @@ export async function download(args: {
   // Past the fetch, a throw is the store's: the bytes had already verified.
   let fetchedWhole = false
   try {
-    const fetched = await fetchMobileWebBundle({
-      client,
-      signal: controller.signal,
-      onProgress: (progress) => send({ type: 'fetch-progress', flow, ...progress })
-    })
+    const onProgress = (progress: MobileWebBundleFetchProgress) =>
+      send({ type: 'fetch-progress', flow, ...progress })
+    const fetched =
+      (await embeddedManifestInUse()) !== null
+        ? await fetchEmbeddedBundle(onProgress)
+        : await fetchMobileWebBundle({ client, signal: controller.signal, onProgress })
     // The bytes are in; the session they were for may not be. The fetch throws on an abort it sees,
     // but an abort landing between its last read and this line would otherwise still write a
     // generation for a host screen nobody is on any more.
