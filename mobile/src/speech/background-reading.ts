@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
-import { AppState, Platform } from 'react-native'
+import { AppState } from 'react-native'
 import {
   DEFAULT_BACKGROUND_READING,
   loadBackgroundReading,
@@ -7,6 +7,7 @@ import {
 } from '../storage/speech-preferences'
 import { setBackgroundReadingActive } from './background-reading-state'
 import { recordSpeechDiagnostics } from './speech-diagnostics'
+import { voiceNativeModule } from './voice-native-module'
 
 /**
  * Orca Voice fork: reading replies aloud with the screen off.
@@ -20,33 +21,7 @@ import { recordSpeechDiagnostics } from './speech-diagnostics'
 // Matches the auto-reader's polling interval (`use-auto-read-replies.ts`).
 const TICK_MS = 15_000
 
-type NativeBackground = {
-  start(title: string, text: string, tickMs: number): boolean
-  stop(): boolean
-  isRunning(): boolean
-  addListener(event: 'onTick', listener: () => void): { remove(): void }
-}
-
-let nativeModule: NativeBackground | null | undefined
-
-function background(): NativeBackground | null {
-  if (nativeModule === undefined) {
-    nativeModule = null
-    if (Platform.OS === 'android') {
-      try {
-        // Required lazily so tests and other platforms never load the native module system.
-        // oxlint-disable-next-line typescript/no-require-imports
-        const core = require('expo-modules-core') as {
-          requireOptionalNativeModule<T>(name: string): T | null
-        }
-        nativeModule = core.requireOptionalNativeModule<NativeBackground>('OrcaVoiceBackground')
-      } catch {
-        nativeModule = null
-      }
-    }
-  }
-  return nativeModule
-}
+const background = voiceNativeModule
 
 // --- The user's choice (Settings → Chat UI), persisted. ---
 

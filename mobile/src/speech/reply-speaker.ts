@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
-import * as Speech from 'expo-speech'
 import { recordSpeechDiagnostics } from './speech-diagnostics'
+import { speakUtterance, stopUtterances } from './tts-engine'
 import { splitForSpeech, toSpeechText } from './speech-text'
 
 type Utterance = { id: string; chunks: string[] }
@@ -27,7 +27,7 @@ function playChunk(utterance: Utterance, index: number): void {
   // Why: callbacks of an utterance cut off by stop() can still arrive after the next one
   // started, so each one checks it still owns the speaker before advancing.
   const owns = () => current === utterance
-  Speech.speak(utterance.chunks[index], {
+  speakUtterance(utterance.chunks[index], {
     onStart: () => recordSpeechDiagnostics({ lastSpokenAt: Date.now() }),
     onDone: () => {
       if (!owns()) {
@@ -60,7 +60,7 @@ export function speakReply(id: string, markdown: string, mode: 'interrupt' | 'qu
   if (mode === 'interrupt') {
     queue = []
     current = null
-    void Speech.stop()
+    stopUtterances()
   } else {
     queue = queue.filter((utterance) => utterance.id !== id)
   }
@@ -73,7 +73,7 @@ export function speakReply(id: string, markdown: string, mode: 'interrupt' | 'qu
 export function stopSpeaking(): void {
   queue = []
   current = null
-  void Speech.stop()
+  stopUtterances()
   emit()
 }
 

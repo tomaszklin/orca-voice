@@ -5,19 +5,23 @@ import androidx.core.content.ContextCompat
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
-/** Orca Voice fork: starts and stops [ReadAloudService] and forwards its ticks to JS. */
+/**
+ * Orca Voice fork: starts and stops [ReadAloudService], forwards its ticks to JS, and speaks
+ * through [ReadAloudSpeech].
+ */
 class OrcaVoiceBackgroundModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("OrcaVoiceBackground")
 
-    Events("onTick")
+    Events("onTick", "onSpeech")
 
-    OnStartObserving {
+    // Wired at creation rather than on first observer: a module instance exists only while the
+    // app's JS runs, which is exactly what the sticky service checks the ticker listener for.
+    OnCreate {
       ReadAloudTicker.listener = { sendEvent("onTick", emptyMap<String, Any>()) }
-    }
-
-    OnStopObserving {
-      ReadAloudTicker.listener = null
+      ReadAloudSpeech.listener = { event, id, message ->
+        sendEvent("onSpeech", mapOf("event" to event, "id" to id, "message" to message))
+      }
     }
 
     /** False when Android refused the service, e.g. a start attempted from the background. */
@@ -42,8 +46,20 @@ class OrcaVoiceBackgroundModule : Module() {
 
     Function("isRunning") { ReadAloudService.isRunning }
 
+    /** Queues one utterance; its progress comes back as `onSpeech` events carrying the id. */
+    Function("speak") { id: String, text: String ->
+      val context = appContext.reactContext ?: return@Function false
+      ReadAloudSpeech.speak(context, id, text)
+      true
+    }
+
+    Function("stopSpeech") {
+      ReadAloudSpeech.stop()
+    }
+
     OnDestroy {
       ReadAloudTicker.listener = null
+      ReadAloudSpeech.listener = null
     }
   }
 }
