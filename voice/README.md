@@ -89,6 +89,11 @@ transport sam zamyka relay po 30 s w tle (`mobile-relay-background-grace.ts`).
   zadaniem w tle (serwer, budowanie) zostaje `working` także po zakończonej turze — z odpowiedzią
   już w `lastAssistantMessage` (sprawdzone logiem `orca worktree ps --json` co 2 s). Teraz
   sygnałem jest nowa niepusta wartość `lastAssistantMessage`, bez względu na stan.
+- **Poprawka w buildzie 10 (2026-10-19):** auto-czytanie czytało też wyniki narzędzi (wyszukiwanie w
+  internecie, czytane pliki) — host w trakcie tury wpisuje je do `lastAssistantMessage`
+  (`PostToolUse`). Teraz bramką jest `mainAgent.state === 'done'` (stan samego głównego agenta;
+  przy zadaniu w tle wiersz jest `working`, a `mainAgent` już `done` — sprawdzone logiem
+  `orca worktree ps --json`); starsze hosty bez `mainAgent` → stan wiersza.
 
 ## Własny silnik mowy (build 9, 2026-10-19)
 
