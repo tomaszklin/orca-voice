@@ -37,11 +37,14 @@ export function findNewReplies(
     if (agent.parentPaneKey) {
       continue
     }
-    // Not gated on `state === 'done'`: a session whose agent left a background task running (a
-    // dev server, a long build) keeps reporting `working` after its turn has ended, with the reply
-    // already in `lastAssistantMessage`. The host clears that field when a new turn starts and
-    // fills it when one ends, so a new non-empty value is the signal.
-    const finished = agent.lastAssistantMessage ? agent.lastAssistantMessage : null
+    // The main agent's own state, not the row's: a session whose agent left a background task
+    // running (a dev server, a long build) keeps the row `working` after its turn has ended, while
+    // `mainAgent.state` is already `done`. And it must be `done`: mid-turn the host also puts tool
+    // output (web search results, a file it read) in `lastAssistantMessage`, which is not a reply.
+    // Hosts too old to send `mainAgent` fall back to the row's state.
+    const turnState = agent.mainAgent?.state ?? agent.state
+    const finished =
+      turnState === 'done' && agent.lastAssistantMessage ? agent.lastAssistantMessage : null
     const seen = next.get(agent.paneKey)
     if (seen === undefined) {
       next.set(agent.paneKey, finished ?? '')

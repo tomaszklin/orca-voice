@@ -54,15 +54,34 @@ describe('findNewReplies', () => {
     expect(next.newReplies).toEqual([{ paneKey: 'pane-1', message: 'C' }])
   })
 
-  it('reads a reply that lands while the row still says working (a background task is running)', () => {
+  it('reads a reply that lands while a background task keeps the row working', () => {
     const first = findNewReplies(new Map([['pane-1', 'A']]), [
       agent({ state: 'working', lastAssistantMessage: null })
     ])
     const ended = findNewReplies(first.baseline, [
-      agent({ state: 'working', lastAssistantMessage: 'B' })
+      agent({
+        state: 'working',
+        mainAgent: { state: 'done', stateStartedAt: 1 },
+        lastAssistantMessage: 'B'
+      })
     ])
     expect(first.newReplies).toEqual([])
     expect(ended.newReplies).toEqual([{ paneKey: 'pane-1', message: 'B' }])
+  })
+
+  it('never reads tool output the host shows while the main agent is still working', () => {
+    const toolOutput = findNewReplies(new Map([['pane-1', 'A']]), [
+      agent({
+        state: 'working',
+        mainAgent: { state: 'working', stateStartedAt: 1 },
+        lastAssistantMessage: 'search results: 10 camping stoves…'
+      })
+    ])
+    const rowOnly = findNewReplies(new Map([['pane-1', 'A']]), [
+      agent({ state: 'working', lastAssistantMessage: 'file contents…' })
+    ])
+    expect(toolOutput.newReplies).toEqual([])
+    expect(rowOnly.newReplies).toEqual([])
   })
 
   it('keeps panes of different hosts apart', () => {
