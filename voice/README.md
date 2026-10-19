@@ -90,6 +90,19 @@ transport sam zamyka relay po 30 s w tle (`mobile-relay-background-grace.ts`).
   już w `lastAssistantMessage` (sprawdzone logiem `orca worktree ps --json` co 2 s). Teraz
   sygnałem jest nowa niepusta wartość `lastAssistantMessage`, bez względu na stan.
 
+## Własny silnik mowy (build 9, 2026-10-19)
+
+**Stan: działa (potwierdzone przez właściciela 2026-10-19, build 9).**
+
+W samochodzie (Bluetooth) przycisk Read milczał, a muzyka z YouTube grała dalej bez ściszenia —
+expo-speech gra z domyślnymi atrybutami i nie prosi o fokus audio. Po odłączeniu od auta też nie
+działało (prawdopodobnie zawieszony silnik TTS po przełączeniu wyjścia; niezweryfikowane).
+`modules/orca-voice-background/.../ReadAloudSpeech.kt`: własny `TextToSpeech` z atrybutami
+`USAGE_ASSISTANCE_NAVIGATION_GUIDANCE` + `CONTENT_TYPE_SPEECH` (jak komunikaty Map Google),
+fokus `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` na czas kolejki, przebudowa silnika po błędzie.
+JS: `speech/tts-engine.ts` (zdarzenia `onSpeech` po id), `speech/voice-native-module.ts`;
+expo-speech zostaje jako zapas, gdy modułu brak.
+
 ## Budowanie
 
 ```powershell
