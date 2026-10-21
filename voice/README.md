@@ -111,6 +111,39 @@ fokus `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` na czas kolejki, przebudowa silnika p
 JS: `speech/tts-engine.ts` (zdarzenia `onSpeech` po id), `speech/voice-native-module.ts`;
 expo-speech zostaje jako zapas, gdy modułu brak.
 
+## Wszystkie wiadomości, menu „Read aloud”, odporne czytanie (build 11, 2026-10-21)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Zgłoszenia właściciela z 2026-10-21:
+- **Czytanie urywało się po kilku sekundach** (Stop + Read od razu pomagało). Przyczyny nie
+  ustalono (brak logów z telefonu). Zmiany: odpowiedź idzie w kawałkach ≤ 300 znaków
+  (`SPEECH_PIECE_LENGTH` w `speech/reply-speaker.ts`), kawałek przerwany przez silnik jest
+  powtarzany raz. `ReadAloudSpeech.kt` liczy wypowiedzi po id, nie licznikiem: spóźnione
+  `onStop` starej wypowiedzi nie zwalnia już fokusu ani nie wyłącza silnika nowej; `onStop`, o
+  który nie prosiliśmy, idzie do JS jako błąd (wcześniej czytnik czekał w nieskończoność);
+  fokus trzymany 1,5 s po ostatnim kawałku, żeby muzyka nie podgłaśniała się między kawałkami.
+  **Dziennik czytnika** (ostatnie 15 zdarzeń: start, błąd z kodem, kto zatrzymał) jest w
+  Settings → Read aloud pod przełącznikami — przy następnym urwaniu poprosić o zrzut ekranu.
+- **Pomijane wiadomości:** `worktree.ps` niesie tylko wiadomość kończącą turę (hook Stop
+  Claude'a; w trakcie tury `lastAssistantMessage` to wynik narzędzia), więc wiadomości pisane w
+  trakcie pracy nigdy nie były czytane. `speech/chat-message-feeds.ts`: dla każdego głównego
+  agenta ten sam strumień `nativeChat.subscribe`, który czyta czat (sesja z `session.tabs.list`
+  → `agentStatus.providerSession`); każdy dopisany wiersz asystenta z tekstem jest czytany
+  (rozumowanie ma rolę `reasoning` i jest pomijane). Pierwszy snapshot to historia — czytane z
+  niego są tylko wiadomości bieżącej tury (`mainAgent.stateStartedAt`). Gdy strumień działa,
+  odpowiedź końcowa z `worktree.ps` jest pomijana (czyta ją strumień); już przeczytana nie jest
+  czytana drugi raz. Sesje strukturalne (`agent-session`) i agenci bez transkryptu na hoście
+  zostają przy odpowiedziach końcowych.
+- **Wybór „What to read”** (klucz `orca:voiceReadScope`): `all` (domyślnie) — wszystkie
+  wiadomości; `all-on-screen` — wszystkie przy otwartej Orce, końcowe przy zgaszonym ekranie;
+  `replies` — tylko końcowe (zachowanie do buildu 10).
+- **Odpytywanie:** co 3 s przy otwartej Orce, co 15 s w tle.
+- **Menu Settings → Read aloud** (`speech/read-aloud-settings-screen.tsx`, trasa
+  `app/read-aloud-settings.tsx`) — wszystkie opcje czytania; Chat UI wrócił do wersji z tagu.
+  Dyktowanie zostaje w oficjalnym menu „Voice”.
+- Hook trybu głosowego na komputerze pozwala podawać ważne linki (czytane jako opis albo „link”).
+
 ## Budowanie
 
 ```powershell

@@ -99,6 +99,13 @@ export const RPC_SUBSCRIPTION_SITES: readonly RpcSubscriptionSite[] = [
     release: 'params',
     coverage: { kind: 'recorded', family: 'session.native-chat-page' }
   },
+  // Orca Voice fork: auto-read follows every main agent's chat to read messages written mid-turn.
+  {
+    file: 'src/speech/chat-message-feeds.ts',
+    method: 'nativeChat.subscribe',
+    release: 'params',
+    coverage: { kind: 'unwritten-scenario' }
+  },
   // The structured agent session's event stream. Mountable: its listener guards the payload, and
   // the hold that precedes it is a plain request. What is missing is the scenario.
   {

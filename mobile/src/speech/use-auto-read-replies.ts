@@ -7,6 +7,8 @@ import type { RpcClient } from '../transport/rpc-client'
 import { useAutoReadRepliesPreference } from './auto-read-preference'
 import { useBackgroundReadingPreference, useBackgroundReadingService } from './background-reading'
 import { backgroundReadingActive } from './background-reading-state'
+import { createChatMessageFeeds, type AgentPane } from './chat-message-feeds'
+import { useReadScopePreference } from './read-scope-preference'
 import { speakReply } from './reply-speaker'
 import { recordSpeechDiagnostics } from './speech-diagnostics'
 
@@ -59,18 +61,22 @@ export function findNewReplies(
   return { baseline: next, newReplies }
 }
 
+/** A worktree.ps agent row keyed across hosts, with what a chat feed needs to find its chat. */
+export type AutoReadAgentRow = RuntimeWorktreeAgentRow & {
+  rawPaneKey: string
+  worktreeId: string | null
+}
+
 /** The agent rows of one worktree.ps reply, with pane keys made unique across hosts. */
-export function agentRowsFromWorktreePs(
-  hostId: string,
-  result: unknown
-): RuntimeWorktreeAgentRow[] {
+export function agentRowsFromWorktreePs(hostId: string, result: unknown): AutoReadAgentRow[] {
   const worktrees = (result as { worktrees?: unknown } | null)?.worktrees
   if (!Array.isArray(worktrees)) {
     return []
   }
-  const rows: RuntimeWorktreeAgentRow[] = []
+  const rows: AutoReadAgentRow[] = []
   for (const worktree of worktrees) {
     const agents = (worktree as { agents?: unknown } | null)?.agents
+    const worktreeId = (worktree as { worktreeId?: unknown } | null)?.worktreeId
     if (!Array.isArray(agents)) {
       continue
     }
@@ -81,17 +87,35 @@ export function agentRowsFromWorktreePs(
       rows.push({
         ...agent,
         paneKey: `${hostId}:${agent.paneKey}`,
-        parentPaneKey: agent.parentPaneKey ? `${hostId}:${agent.parentPaneKey}` : null
+        parentPaneKey: agent.parentPaneKey ? `${hostId}:${agent.parentPaneKey}` : null,
+        rawPaneKey: agent.paneKey,
+        worktreeId: typeof worktreeId === 'string' ? worktreeId : null
       })
     }
   }
   return rows
 }
 
-async function readAgentRows(
-  hostId: string,
-  client: RpcClient
-): Promise<RuntimeWorktreeAgentRow[]> {
+/** The main agents' panes a chat feed can follow. */
+function agentPanes(rows: readonly AutoReadAgentRow[]): AgentPane[] {
+  return rows.flatMap((row) => {
+    if (row.parentPaneKey || !row.worktreeId) {
+      return []
+    }
+    const working = (row.mainAgent?.state ?? row.state) === 'working'
+    const turnStartedAt = working ? (row.mainAgent?.stateStartedAt ?? row.stateStartedAt) : null
+    return [
+      {
+        paneKey: row.paneKey,
+        rawPaneKey: row.rawPaneKey,
+        worktreeId: row.worktreeId,
+        turnStartedAt
+      }
+    ]
+  })
+}
+
+async function readAgentRows(hostId: string, client: RpcClient): Promise<AutoReadAgentRow[]> {
   const response = await client.sendRequest('worktree.ps', {})
   if (!response.ok) {
     throw new Error(`worktree.ps refused: ${response.error.code}`)
@@ -109,6 +133,12 @@ export function useAutoReadReplies(): void {
   const rpc = useRpcClientContext()
   const { autoRead } = useAutoReadRepliesPreference()
   const { backgroundReading } = useBackgroundReadingPreference()
+  const { readScope } = useReadScopePreference()
+  // Read at message time, so changing the choice or leaving the screen applies at once.
+  const readScopeRef = useRef(readScope)
+  useEffect(() => {
+    readScopeRef.current = readScope
+  }, [readScope])
   const baselineRef = useRef<ReplyBaseline>(new Map())
   // The background service's ticks reach the current poll through this, since JS timers stop
   // firing once Orca is off screen.
@@ -126,6 +156,16 @@ export function useAutoReadReplies(): void {
     let cancelled = false
     let inFlight = false
     let lastPollAt = 0
+    const readsEveryMessage = () =>
+      readScopeRef.current === 'all' ||
+      (readScopeRef.current === 'all-on-screen' && AppState.currentState === 'active')
+    const feeds = createChatMessageFeeds((paneKey, messageId, text) => {
+      if (!readsEveryMessage()) {
+        return false
+      }
+      speakReply(`${paneKey}#${messageId}`, text, 'queue')
+      return true
+    })
 
     const poll = async () => {
       const now = Date.now()
@@ -170,7 +210,33 @@ export function useAutoReadReplies(): void {
           ...(lastError ? { lastError } : {})
         })
         for (const reply of newReplies) {
-          speakReply(reply.paneKey, withoutNativeChatVisualDirectiveLines(reply.message), 'queue')
+          const message = withoutNativeChatVisualDirectiveLines(reply.message)
+          // The feed reads this pane's messages itself, the final one included.
+          if (
+            feeds.heard(reply.paneKey, message) ||
+            (readsEveryMessage() && feeds.covers(reply.paneKey))
+          ) {
+            continue
+          }
+          speakReply(reply.paneKey, message, 'queue')
+        }
+        if (readScopeRef.current === 'replies') {
+          feeds.closeAll()
+        } else {
+          await Promise.all(
+            connected.map(({ hostId, client }, index) => {
+              const hostRows = rows[index]
+              return hostRows
+                ? feeds
+                    .sync(hostId, client, agentPanes(hostRows), Date.now())
+                    .catch(() => undefined)
+                : undefined
+            })
+          )
+          // A feed opened while auto-read was being switched off would outlive the cleanup.
+          if (cancelled) {
+            feeds.closeAll()
+          }
         }
       } catch (error) {
         recordSpeechDiagnostics({
@@ -188,6 +254,7 @@ export function useAutoReadReplies(): void {
     return () => {
       cancelled = true
       clearInterval(timer)
+      feeds.closeAll()
       pollRef.current = () => undefined
     }
   }, [autoRead, rpc])

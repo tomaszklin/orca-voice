@@ -19,6 +19,11 @@ const READ_SCOPES: { scope: ReadScope; label: string; sublabel: string }[] = [
     sublabel: 'Also what the agent writes while it is still working'
   },
   {
+    scope: 'all-on-screen',
+    label: 'Every message on screen, final replies off screen',
+    sublabel: 'Everything while Orca is open; only the turn-ending answer with the screen off'
+  },
+  {
     scope: 'replies',
     label: 'Final replies only',
     sublabel: 'Only the answer that ends a turn, as in notifications'
