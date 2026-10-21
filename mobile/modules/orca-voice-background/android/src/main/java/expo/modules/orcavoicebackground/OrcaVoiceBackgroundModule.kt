@@ -6,8 +6,8 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 /**
- * Orca Voice fork: starts and stops [ReadAloudService], forwards its ticks to JS, and speaks
- * through [ReadAloudSpeech].
+ * Orca Voice fork: starts and stops [ReadAloudService], forwards its ticks to JS, speaks
+ * through [ReadAloudSpeech], and installs updates through [UpdateInstaller].
  */
 class OrcaVoiceBackgroundModule : Module() {
   override fun definition() = ModuleDefinition {
@@ -56,6 +56,12 @@ class OrcaVoiceBackgroundModule : Module() {
 
     Function("stopSpeech") {
       ReadAloudSpeech.stop()
+    }
+
+    /** Downloads a build from the home server and opens the installer; false if one is running. */
+    Function("installUpdate") { url: String ->
+      val context = appContext.reactContext ?: return@Function false
+      UpdateInstaller.start(context, url)
     }
 
     /** What the notification's Mute button shows; the mute itself lives in JS. */

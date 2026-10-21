@@ -3,10 +3,21 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
   <uses-permission android:name="android.permission.WAKE_LOCK" />
+  <!-- Orca Voice fork: installs its own builds from the home server. -->
+  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
   <application>
     <service
       android:name="expo.modules.orcavoicebackground.ReadAloudService"
       android:exported="false"
       android:foregroundServiceType="mediaPlayback" />
+    <provider
+      android:name="expo.modules.orcavoicebackground.UpdateFileProvider"
+      android:authorities="${applicationId}.orcavoice.updates"
+      android:exported="false"
+      android:grantUriPermissions="true">
+      <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/orca_voice_update_paths" />
+    </provider>
   </application>
 </manifest>

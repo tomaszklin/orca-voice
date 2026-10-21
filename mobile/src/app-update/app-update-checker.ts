@@ -37,6 +37,8 @@ export type AppUpdateCheckerDeps = {
   loadPreferences: () => Promise<AppUpdatePreferences>
   saveCheck: (checkedAt: number, latest: KnownAppUpdate | null) => Promise<void>
   saveDismissedVersion: (version: string) => Promise<void>
+  /** Orca Voice fork: a channel whose versions are not semver (its own build numbers). */
+  isNewer?: (candidate: string, installed: string) => boolean
 }
 
 export function createAppUpdateChecker(deps: AppUpdateCheckerDeps) {
@@ -54,7 +56,7 @@ export function createAppUpdateChecker(deps: AppUpdateCheckerDeps) {
     const available =
       latest &&
       deps.installedVersion &&
-      isNewerReleaseVersion(latest.version, deps.installedVersion)
+      (deps.isNewer ?? isNewerReleaseVersion)(latest.version, deps.installedVersion)
         ? latest
         : null
     return {

@@ -194,7 +194,34 @@ kończy się „ninja: manifest 'build.ninja' still dirty after 100 tries” —
 - CMake 3.31.6 z ninja 1.12 (`sdkmanager "cmake/3.31.6"`) wskazany w `android/local.properties`.
 Skrypt robi `expo prebuild --clean`, więc katalog `mobile/android/` jest za każdym razem generowany od nowa.
 
-## Przesłanie na telefon
+## Aktualizacje z serwera HAL (od buildu 15, 2026-10-21)
+
+Właściciel chciał, żeby „Check for updates” w aplikacji szukał naszych buildów, jak HAL 9000 z
+projektu SmartHome (`E:\Projects\SmartHome\09-aplikacja-hal.md`).
+
+```powershell
+pwsh -File E:\Projects\OrcaVoice\voice\build-apk.ps1
+pwsh -File E:\Projects\OrcaVoice\voice\publish-apk.ps1
+```
+
+- `publish-apk.ps1` kopiuje przez SSH (dodatek Terminal & SSH w Home Assistant, klucz
+  `~/.ssh/smarthome_ed25519`, ten sam co HAL) do `/homeassistant/www/orca-voice/`:
+  `orca-voice-<wersja>-b<N>.apk`, `orca-voice.apk` (zawsze najnowszy), na końcu `version.json`
+  `{build, version, file, date}`; zostają 3 ostatnie APK. HA serwuje to bez logowania tylko w domu i
+  przez ZeroTier: `http://192.168.0.223/local/orca-voice/`, `http://172.24.140.251/local/orca-voice/`.
+  Pobierze to każdy w domowym Wi-Fi — APK nie ma żadnych tokenów (parowanie jest na telefonie).
+- Aplikacja (`app-update/voice-build-update-source.ts`, wstawki w `app-update-runtime.ts` i
+  `app-update-checker.ts`): build z numerem (`extra.voiceBuild`) pyta oba adresy naraz o
+  `version.json` (zamiast GitHuba Orki) i porównuje numery buildów („Orca build 15 is available”).
+  „Update” pobiera APK w aplikacji z postępem w powiadomieniu i otwiera systemowy instalator
+  (`UpdateInstaller.kt`, `UpdateFileProvider`, uprawnienie `REQUEST_INSTALL_PACKAGES`); przy
+  pierwszym razie Android prosi o zgodę na instalowanie z Orki. Sprawdzanie: raz dziennie, przy
+  starcie i przyciskiem „Check for updates”.
+- Builds ≤ 14 pytają jeszcze GitHuba Orki: build 15 trzeba zainstalować ręcznie (link niżej albo
+  `http://172.24.140.251/local/orca-voice/orca-voice.apk`), kolejne przyjdą przez aplikację.
+- Oficjalnych wersji Orki aplikacja już nie zgłasza — nowy tag desktopu sprawdzać ręcznie.
+
+## Przesłanie na telefon (ręcznie)
 
 Telefon łączy się z komputerem przez **ZeroTier** (IP komputera w tej sieci: `172.24.212.29`,
 stan 2026-10-18). Plik ma ok. 55 MB — za dużo na ntfy.
@@ -229,10 +256,9 @@ każdej aktualizacji — przebudować, gdy coś przestanie działać albo przyda
 2. Konflikt w `mobile/pnpm-lock.yaml` → wziąć wersję z tagu i `pnpm add expo-speech@~<wersja>`
    (z `pnpm_config_node_linker=hoisted`).
 3. Testy: `pnpm exec vitest run src/speech src/settings src/session src/mobile-web-shell src/platform`.
-4. `pwsh -File voice\build-apk.ps1`, potem `serve-apk.mjs` i instalacja na telefonie.
+4. `pwsh -File voice\build-apk.ps1`, potem `voice\publish-apk.ps1` (telefon dostanie aktualizację w aplikacji).
 
-Uwaga: aplikacja może zaproponować aktualizację do nowszej wersji oficjalnej — jej instalacja
-usuwa czytanie (wraca oryginał).
+Uwaga: oficjalne APK Orki zainstalowane na tę wersję usuwa czytanie (wraca oryginał).
 
 ## Testy — stan 2026-10-18 (build 4)
 

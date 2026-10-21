@@ -11,6 +11,13 @@ import { appStoreUpdateSource } from './app-store-update-source'
 import { createAppUpdateChecker, type AppUpdateState } from './app-update-checker'
 import type { AppUpdateSource } from './app-update-source'
 import { githubReleaseUpdateSource } from './github-release-update-source'
+import {
+  isNewerVoiceBuild,
+  isVoiceUpdateUrl,
+  voiceBuildLabel,
+  voiceBuildUpdateSource
+} from './voice-build-update-source'
+import { installVoiceUpdate } from './voice-update-install'
 
 /**
  * Invariant: this app does not use expo-updates, so `expoConfig` is the manifest embedded in the
@@ -19,10 +26,14 @@ import { githubReleaseUpdateSource } from './github-release-update-source'
  */
 export const installedAppVersion: string | null = Constants.expoConfig?.version ?? null
 
+// Orca Voice fork: a build that carries its build number updates from the home server instead.
+const extraVoiceBuild: unknown = Constants.expoConfig?.extra?.voiceBuild
+const voiceBuild = typeof extraVoiceBuild === 'string' && extraVoiceBuild ? extraVoiceBuild : null
+
 /** The channel that installed this binary. */
 function resolveAppUpdateSource(): AppUpdateSource | null {
   if (Platform.OS === 'android') {
-    return githubReleaseUpdateSource
+    return voiceBuild ? voiceBuildUpdateSource : githubReleaseUpdateSource
   }
   if (Platform.OS === 'ios') {
     return appStoreUpdateSource
@@ -32,7 +43,8 @@ function resolveAppUpdateSource(): AppUpdateSource | null {
 
 export const appUpdateChecker = createAppUpdateChecker({
   source: resolveAppUpdateSource(),
-  installedVersion: installedAppVersion,
+  installedVersion: voiceBuild ? voiceBuildLabel(voiceBuild) : installedAppVersion,
+  ...(voiceBuild ? { isNewer: isNewerVoiceBuild } : {}),
   now: () => Date.now(),
   setTimer: (run, delayMs) => setTimeout(run, delayMs),
   clearTimer: (handle) => clearTimeout(handle),
@@ -55,5 +67,9 @@ export function useAppUpdateState(): AppUpdateState {
 
 /** Opens the channel's page for the update: the GitHub release (Android) or App Store (iOS). */
 export function openAppUpdate(url: string): void {
+  if (isVoiceUpdateUrl(url)) {
+    installVoiceUpdate(url)
+    return
+  }
   void Linking.openURL(url).catch(() => {})
 }

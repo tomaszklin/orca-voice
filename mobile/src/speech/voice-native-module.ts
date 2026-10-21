@@ -11,6 +11,8 @@ export type VoiceNativeModule = {
   stopSpeech(): void
   /** What the notification's Mute button shows. */
   setMuted(muted: boolean): void
+  /** Starts downloading an update and opening the installer; false when it could not start. */
+  installUpdate(url: string): boolean
   addListener(event: 'onTick' | 'onMuteToggle', listener: () => void): { remove(): void }
   addListener(
     event: 'onSpeech',
