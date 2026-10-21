@@ -196,6 +196,9 @@ Skrypt robi `expo prebuild --clean`, więc katalog `mobile/android/` jest za ka�
 
 ## Aktualizacje z serwera HAL (od buildu 15, 2026-10-21)
 
+**Stan: działa (potwierdzone przez właściciela 2026-10-21: aktualizacja z buildu 15 do testowego 16
+przez „Check for updates” → „Update” → instalator).**
+
 Właściciel chciał, żeby „Check for updates” w aplikacji szukał naszych buildów, jak HAL 9000 z
 projektu SmartHome (`E:\Projects\SmartHome\09-aplikacja-hal.md`).
 
