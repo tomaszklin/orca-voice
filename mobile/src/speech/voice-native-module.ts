@@ -9,8 +9,6 @@ export type VoiceNativeModule = {
   isRunning(): boolean
   speak(id: string, text: string): boolean
   stopSpeech(): void
-  /** The system speech-recognition dialog; the recognised text, or null when cancelled. */
-  recognizeSpeech(): Promise<string | null>
   addListener(event: 'onTick', listener: () => void): { remove(): void }
   addListener(
     event: 'onSpeech',
