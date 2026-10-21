@@ -144,6 +144,28 @@ Zgłoszenia właściciela z 2026-10-21:
   Dyktowanie zostaje w oficjalnym menu „Voice”.
 - Hook trybu głosowego na komputerze pozwala podawać ważne linki (czytane jako opis albo „link”).
 
+## Bez mikrofonu w czacie, czytanie ustępuje dyktowaniu (build 13, 2026-10-21)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+- **Mikrofon w czacie ukryty** (`speech/chat-mic.ts`, wstawka w `session/MobileNativeChatOverlay.tsx`).
+  Dyktowanie Orki wymaga modelu mowy na komputerze, więc przypadkowe dotknięcie otwierało jego
+  konfigurację. Build 12 otwierał zamiast tego systemowe okno rozpoznawania mowy
+  (`RecognizerIntent`) — działało, ale bez wypowiadanej interpunkcji („kropka”) i zamykało się po
+  krótkiej ciszy, w przeciwieństwie do mikrofonu klawiatury. Dyktowania klawiatury aplikacja nie
+  może uruchomić (należy do klawiatury), więc właściciel wybrał usunięcie mikrofonu; build 12
+  cofnięty. Dyktuje z klawiatury (dotknięcie pola tekstu → mikrofon klawiatury).
+  Odrzucone: własne słuchanie w aplikacji (`SpeechRecognizer`, jedno dotknięcie) — inne
+  rozpoznawanie niż w klawiaturze.
+- **Czytanie milknie przy dyktowaniu i rozmowie**, jak odtwarzacz muzyki: `ReadAloudSpeech.kt`
+  słucha zmian fokusu audio; utrata (`LOSS` / `LOSS_TRANSIENT`) zatrzymuje czytanie i wysyła do
+  JS zdarzenie `interrupted` → `stopSpeaking` (kolejka też przepada). Ściszenie
+  (`LOSS_TRANSIENT_CAN_DUCK`, np. dźwięk powiadomienia) nie przerywa.
+- **Nic nie zaczyna czytać, gdy ktoś mówi do mikrofonu:** przed wypowiedzią sprawdzane są aktywne
+  nagrania (`getActiveRecordingConfigurations`, źródła MIC/VOICE_RECOGNITION/VOICE_COMMUNICATION…,
+  bez nasłuchu „Hey Google”); wtedy wypowiedź czeka na zwolnienie mikrofonu (najwyżej 2 min),
+  bo zabranie fokusu przerwałoby dyktowanie. W dzienniku czytnika: „waiting for the microphone”.
+
 ## Budowanie
 
 ```powershell

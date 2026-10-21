@@ -2,10 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UtteranceCallbacks } from './tts-engine'
 
 const spoken: { text: string; handlers: UtteranceCallbacks }[] = []
+const interrupt: { current: (reason: string) => void } = { current: () => undefined }
 
 vi.mock('./tts-engine', () => ({
   speakUtterance: (text: string, handlers: UtteranceCallbacks) => spoken.push({ text, handlers }),
-  stopUtterances: vi.fn()
+  stopUtterances: vi.fn(),
+  onUtterancesInterrupted: (handler: (reason: string) => void) => {
+    interrupt.current = handler
+  }
 }))
 
 const { speakReply, stopSpeaking } = await import('./reply-speaker')
@@ -45,6 +49,14 @@ describe('speakReply', () => {
     last().handlers.onError?.({ message: 'text-to-speech failed (-7)' })
     expect(last().text).not.toBe(first)
     expect(spoken).toHaveLength(3)
+  })
+
+  it('stops reading, queue included, when another app takes the audio', () => {
+    speakReply('a', reply, 'queue')
+    speakReply('b', reply, 'queue')
+    interrupt.current('another app took the audio')
+    last().handlers.onDone?.()
+    expect(spoken).toHaveLength(1)
   })
 
   it('ignores callbacks of a reply that was stopped', () => {

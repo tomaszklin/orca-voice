@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { logSpeechEvent, recordSpeechDiagnostics } from './speech-diagnostics'
-import { speakUtterance, stopUtterances } from './tts-engine'
+import { onUtterancesInterrupted, speakUtterance, stopUtterances } from './tts-engine'
 import { splitForSpeech, toSpeechText } from './speech-text'
 
 // A few sentences per piece: when the engine drops one midway (2026-10-21: replies went quiet
@@ -92,6 +92,9 @@ export function speakReply(id: string, markdown: string, mode: 'interrupt' | 'qu
     playNext()
   }
 }
+
+// Like a music player: dictation or a call ends the reading rather than talking over it.
+onUtterancesInterrupted((reason) => stopSpeaking(reason))
 
 /** `reason` only labels the reader log, so a stop nobody pressed shows where it came from. */
 export function stopSpeaking(reason = 'stop'): void {

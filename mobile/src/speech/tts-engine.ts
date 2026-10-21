@@ -1,4 +1,5 @@
 import * as Speech from 'expo-speech'
+import { logSpeechEvent } from './speech-diagnostics'
 import { voiceNativeModule, type VoiceNativeModule } from './voice-native-module'
 
 export type UtteranceCallbacks = {
@@ -18,6 +19,12 @@ export type UtteranceCallbacks = {
 const callbacks = new Map<string, UtteranceCallbacks>()
 let sequence = 0
 let subscribedTo: VoiceNativeModule | null = null
+let onInterrupted: (reason: string) => void = () => undefined
+
+/** Called when another app took the audio (dictation, a call); the engine has already stopped. */
+export function onUtterancesInterrupted(handler: (reason: string) => void): void {
+  onInterrupted = handler
+}
 
 function ensureSubscribed(native: VoiceNativeModule): void {
   if (subscribedTo === native) {
@@ -25,6 +32,15 @@ function ensureSubscribed(native: VoiceNativeModule): void {
   }
   subscribedTo = native
   native.addListener('onSpeech', ({ event, id, message }) => {
+    if (event === 'interrupted') {
+      callbacks.clear()
+      onInterrupted(message ?? 'another app took the audio')
+      return
+    }
+    if (event === 'waiting') {
+      logSpeechEvent('waiting for the microphone to be free')
+      return
+    }
     const handlers = callbacks.get(id)
     if (!handlers) {
       return

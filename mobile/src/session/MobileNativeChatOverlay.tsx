@@ -13,6 +13,7 @@ import {
   useMobileNativeChatReplyReveals
 } from './mobile-native-chat-reply-reveals'
 import { MobileNativeChatRowOverlaysHost } from './MobileNativeChatRowOverlaysHost'
+import { CHAT_MIC_HIDDEN } from '../speech/chat-mic'
 
 type Props = {
   controller: MobileNativeChatController
@@ -155,7 +156,7 @@ export function MobileNativeChatOverlay({
               attachments={images.attachments}
               onRemoveAttachment={images.removeAttachment}
               isAttaching={images.isAttaching}
-              onMicPress={onMicPress}
+              onMicPress={CHAT_MIC_HIDDEN ? undefined : onMicPress}
               micActive={micActive}
               dictationMode={dictationMode}
               onMicPressIn={onMicPressIn}
