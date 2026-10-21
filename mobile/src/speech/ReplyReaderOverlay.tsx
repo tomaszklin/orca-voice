@@ -24,7 +24,7 @@ export function ReplyReaderOverlay(): React.JSX.Element | null {
         accessibilityLabel="Stop reading reply"
         hitSlop={8}
         style={styles.pill}
-        onPress={stopSpeaking}
+        onPress={() => stopSpeaking('Stop button')}
       >
         <Square size={12} color={colors.textPrimary} />
         <Text style={styles.label}>Stop</Text>

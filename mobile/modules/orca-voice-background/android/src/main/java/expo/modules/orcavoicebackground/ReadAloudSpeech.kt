@@ -5,6 +5,8 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 
@@ -15,11 +17,14 @@ import android.speech.tts.UtteranceProgressListener
  * full volume and some car head units never play the speech at all. Navigation guidance is the
  * usage cars are built around (it is what Google Maps announces with): it rides the same Bluetooth
  * media link and the system ducks other audio while it plays. Focus is held from the first
- * utterance until the queue runs dry.
+ * utterance until the queue runs dry, plus a short grace so music does not swell back between
+ * the pieces of one reply.
  */
 object ReadAloudSpeech : UtteranceProgressListener() {
   /** (event, utteranceId, message): event is "start", "done" or "error". */
   @Volatile var listener: ((String, String, String?) -> Unit)? = null
+
+  private const val FOCUS_GRACE_MS = 1500L
 
   private val attributes: AudioAttributes = AudioAttributes.Builder()
     .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
@@ -31,11 +36,17 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   private var audioManager: AudioManager? = null
   private var focusRequest: AudioFocusRequest? = null
   private var legacyFocusHeld = false
-  private var outstanding = 0
+  // Utterances handed to the engine and not finished yet. Ids, not a count: a stopped
+  // utterance's late onStop must not end the one that replaced it.
+  private val active = mutableSetOf<String>()
   private val pending = mutableListOf<Pair<String, String>>()
   // Set when the engine failed; it is shut down and rebuilt once the queue is empty, because an
   // engine whose service died (an update, a Bluetooth switch) keeps refusing every utterance.
   private var rebuildEngine = false
+  private val handler = Handler(Looper.getMainLooper())
+  private val releaseFocus = Runnable {
+    synchronized(ReadAloudSpeech) { if (active.isEmpty()) abandonFocus() }
+  }
 
   @Synchronized
   fun speak(context: Context, id: String, text: String) {
@@ -54,8 +65,10 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   @Synchronized
   fun stop() {
     pending.clear()
-    outstanding = 0
+    // Forgotten first, so the onStop callbacks this stop causes read as asked for.
+    active.clear()
     tts?.stop()
+    handler.removeCallbacks(releaseFocus)
     abandonFocus()
   }
 
@@ -75,13 +88,12 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   }
 
   private fun enqueue(id: String, text: String) {
+    handler.removeCallbacks(releaseFocus)
     requestFocus()
-    outstanding++
+    active.add(id)
     val result = tts?.speak(text, TextToSpeech.QUEUE_ADD, null, id) ?: TextToSpeech.ERROR
     if (result != TextToSpeech.SUCCESS) {
-      rebuildEngine = true
-      listener?.invoke("error", id, "text-to-speech refused the text")
-      finishOne()
+      fail(id, "text-to-speech refused the text")
     }
   }
 
@@ -90,32 +102,43 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   }
 
   override fun onDone(utteranceId: String) {
-    listener?.invoke("done", utteranceId, null)
-    finishOne()
+    if (finish(utteranceId)) {
+      listener?.invoke("done", utteranceId, null)
+    }
   }
 
   @Deprecated("Deprecated in Java")
   override fun onError(utteranceId: String) {
-    rebuildEngine = true
-    listener?.invoke("error", utteranceId, "text-to-speech failed")
-    finishOne()
+    fail(utteranceId, "text-to-speech failed")
   }
 
   override fun onError(utteranceId: String, errorCode: Int) {
-    rebuildEngine = true
-    listener?.invoke("error", utteranceId, "text-to-speech failed ($errorCode)")
-    finishOne()
+    fail(utteranceId, "text-to-speech failed ($errorCode)")
   }
 
   override fun onStop(utteranceId: String, interrupted: Boolean) {
-    finishOne()
+    // stop() already forgot its ids, so one still active was cut off by something else, and the
+    // reader would otherwise wait for it forever.
+    fail(utteranceId, "text-to-speech was stopped by the system")
   }
 
+  /** Finished before the reader hears of it, so a retry it sends lands on a rebuilt engine. */
+  private fun fail(id: String, message: String) {
+    synchronized(this) { rebuildEngine = true }
+    if (finish(id)) {
+      listener?.invoke("error", id, message)
+    }
+  }
+
+  /** False when the id already finished or was stopped on purpose. */
   @Synchronized
-  private fun finishOne() {
-    outstanding = (outstanding - 1).coerceAtLeast(0)
-    if (outstanding == 0) {
-      abandonFocus()
+  private fun finish(id: String): Boolean {
+    if (!active.remove(id)) {
+      return false
+    }
+    if (active.isEmpty()) {
+      handler.removeCallbacks(releaseFocus)
+      handler.postDelayed(releaseFocus, FOCUS_GRACE_MS)
       if (rebuildEngine) {
         rebuildEngine = false
         tts?.shutdown()
@@ -123,6 +146,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
         ready = false
       }
     }
+    return true
   }
 
   private fun requestFocus() {

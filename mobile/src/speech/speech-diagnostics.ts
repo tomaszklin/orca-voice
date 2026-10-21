@@ -15,6 +15,8 @@ export type SpeechDiagnostics = {
   serviceStartedAt: number | null
   /** The service's last tick to reach JS; stale while the screen is off means ticks are lost. */
   lastTickAt: number | null
+  /** The reader's latest steps, newest first, so a reply that went quiet midway can be traced. */
+  events: readonly string[]
 }
 
 let diagnostics: SpeechDiagnostics = {
@@ -28,7 +30,8 @@ let diagnostics: SpeechDiagnostics = {
   lastNewReplyAt: null,
   service: 'not started',
   serviceStartedAt: null,
-  lastTickAt: null
+  lastTickAt: null,
+  events: []
 }
 const listeners = new Set<() => void>()
 
@@ -42,6 +45,13 @@ export function recordSpeechDiagnostics(patch: Partial<SpeechDiagnostics>): void
 function subscribe(listener: () => void): () => void {
   listeners.add(listener)
   return () => listeners.delete(listener)
+}
+
+const MAX_EVENTS = 15
+
+export function logSpeechEvent(event: string): void {
+  const line = `${new Date().toLocaleTimeString()} ${event}`
+  recordSpeechDiagnostics({ events: [line, ...diagnostics.events].slice(0, MAX_EVENTS) })
 }
 
 export function useSpeechDiagnostics(): SpeechDiagnostics {
@@ -61,6 +71,8 @@ export function describeSpeechDiagnostics(d: SpeechDiagnostics, voiceBuild?: unk
     `Last new reply: ${clock(d.lastNewReplyAt)}`,
     `Last read aloud: ${clock(d.lastSpokenAt)}`,
     `Background service: ${d.service} (started ${clock(d.serviceStartedAt)}, last tick ${clock(d.lastTickAt)})`,
-    `Last error: ${d.lastError ?? 'none'}`
+    `Last error: ${d.lastError ?? 'none'}`,
+    'Reader log:',
+    ...(d.events.length > 0 ? d.events : ['(empty)'])
   ].join('\n')
 }

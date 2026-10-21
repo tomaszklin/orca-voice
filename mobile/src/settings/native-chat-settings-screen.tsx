@@ -1,15 +1,9 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, Switch } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import Constants from 'expo-constants'
 import { ChevronLeft } from 'lucide-react-native'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 import { useMobileDefaultSessionViewPreference } from '../session/use-mobile-default-session-view-preference'
-import { useAutoReadRepliesPreference } from '../speech/auto-read-preference'
-import { useBuiltInPagePreference } from '../speech/built-in-page-preference'
-import { useBackgroundReadingPreference } from '../speech/background-reading'
-import { speakReply } from '../speech/reply-speaker'
-import { describeSpeechDiagnostics, useSpeechDiagnostics } from '../speech/speech-diagnostics'
 
 export default function NativeChatSettingsScreen({ onBack }: { onBack?: () => void }) {
   const router = useRouter()
@@ -17,10 +11,6 @@ export default function NativeChatSettingsScreen({ onBack }: { onBack?: () => vo
 
   const { defaultView, setDefaultView } = useMobileDefaultSessionViewPreference()
   const chatDefault = defaultView === 'chat'
-  const { autoRead, setAutoRead } = useAutoReadRepliesPreference()
-  const { builtInPage, setBuiltInPage } = useBuiltInPagePreference()
-  const { backgroundReading, setBackgroundReading } = useBackgroundReadingPreference()
-  const diagnostics = useSpeechDiagnostics()
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.sm }]}>
@@ -61,79 +51,6 @@ export default function NativeChatSettingsScreen({ onBack }: { onBack?: () => vo
             />
           </View>
         </View>
-
-        <Text style={[styles.groupHeading, styles.groupGap]}>READ REPLIES ALOUD</Text>
-        <Text style={styles.groupDescription}>
-          Replies are read with this device's text-to-speech voice; code blocks and tables are
-          skipped, and a Stop button appears at the top while one is being read. The Read button
-          under each reply comes with the built-in chat page. With auto-read on, each new reply is
-          also read as soon as the agent finishes, on any screen, while Orca is open.
-        </Text>
-        <View style={[styles.section, styles.sectionTopGap]}>
-          <View style={styles.row}>
-            <View style={styles.rowContent}>
-              <Text style={styles.rowLabel}>Built-in chat page (Read buttons)</Text>
-              <Text style={styles.rowSublabel}>
-                {builtInPage
-                  ? 'On — applies to screens opened from now on'
-                  : 'Off — the page your desktop sends, without Read buttons'}
-              </Text>
-            </View>
-            <Switch
-              accessibilityLabel="Built-in chat page"
-              value={builtInPage}
-              onValueChange={setBuiltInPage}
-              trackColor={{ false: colors.bgRaised, true: colors.textSecondary }}
-              thumbColor={colors.textPrimary}
-            />
-          </View>
-          <View style={[styles.row, styles.rowDivider]}>
-            <View style={styles.rowContent}>
-              <Text style={styles.rowLabel}>Auto-read new replies</Text>
-              <Text style={styles.rowSublabel}>{autoRead ? 'On' : 'Off'}</Text>
-            </View>
-            <Switch
-              accessibilityLabel="Auto-read new replies"
-              value={autoRead}
-              onValueChange={setAutoRead}
-              trackColor={{ false: colors.bgRaised, true: colors.textSecondary }}
-              thumbColor={colors.textPrimary}
-            />
-          </View>
-          <View style={[styles.row, styles.rowDivider]}>
-            <View style={styles.rowContent}>
-              <Text style={styles.rowLabel}>Keep reading with the screen off</Text>
-              <Text style={styles.rowSublabel}>
-                {backgroundReading
-                  ? 'On — while auto-read is on, a notification keeps Orca awake (uses more battery)'
-                  : 'Off — auto-read stops when Orca leaves the screen'}
-              </Text>
-            </View>
-            <Switch
-              accessibilityLabel="Keep reading with the screen off"
-              value={backgroundReading}
-              onValueChange={setBackgroundReading}
-              trackColor={{ false: colors.bgRaised, true: colors.textSecondary }}
-              thumbColor={colors.textPrimary}
-            />
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            style={[styles.row, styles.rowDivider]}
-            onPress={() =>
-              speakReply(
-                'settings-test',
-                'Test czytania odpowiedzi. Test reading replies aloud.',
-                'interrupt'
-              )
-            }
-          >
-            <Text style={styles.rowLabel}>Test voice</Text>
-          </Pressable>
-        </View>
-        <Text style={styles.diagnostics} selectable>
-          {describeSpeechDiagnostics(diagnostics, Constants.expoConfig?.extra?.voiceBuild)}
-        </Text>
       </ScrollView>
     </View>
   )
@@ -185,20 +102,6 @@ const styles = StyleSheet.create({
   },
   sectionTopGap: {
     marginTop: spacing.sm
-  },
-  groupGap: {
-    marginTop: spacing.lg
-  },
-  rowDivider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.bgRaised
-  },
-  diagnostics: {
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.xs,
-    fontSize: typography.bodySize - 3,
-    lineHeight: 18,
-    color: colors.textMuted
   },
   row: {
     flexDirection: 'row',

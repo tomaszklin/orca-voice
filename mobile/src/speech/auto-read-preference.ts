@@ -49,7 +49,7 @@ export function useAutoReadRepliesPreference(): {
     enabled = next
     emit()
     if (!next) {
-      stopSpeaking()
+      stopSpeaking('auto-read switched off')
     }
     void saveAutoReadReplies(next).catch(() => undefined)
   }, [])

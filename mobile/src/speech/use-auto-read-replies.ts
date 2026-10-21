@@ -10,10 +10,11 @@ import { backgroundReadingActive } from './background-reading-state'
 import { speakReply } from './reply-speaker'
 import { recordSpeechDiagnostics } from './speech-diagnostics'
 
-// Five times slower than the workspace list's own worktree.ps polling, to spare the battery while
-// the background service keeps reading with the screen off (owner's choice, 2026-10-19): a reply
-// is spoken within about 15 seconds of the agent finishing.
-const POLL_INTERVAL_MS = 15_000
+// On screen, as often as the workspace list's own worktree.ps polling; with the screen off, five
+// times slower to spare the battery while the background service keeps reading (owner's choices,
+// 2026-10-19 and 2026-10-21). A reply is spoken within about 3 or 15 seconds of the agent finishing.
+const FOREGROUND_POLL_MS = 3_000
+const BACKGROUND_POLL_MS = 15_000
 
 export type ReplyBaseline = ReadonlyMap<string, string>
 
@@ -128,11 +129,13 @@ export function useAutoReadReplies(): void {
 
     const poll = async () => {
       const now = Date.now()
-      // The interval and the service ticks both land here; one read per window is enough.
-      if (inFlight || now - lastPollAt < POLL_INTERVAL_MS - 500) {
+      const onScreen = AppState.currentState === 'active'
+      if (!onScreen && !backgroundReadingActive()) {
         return
       }
-      if (AppState.currentState !== 'active' && !backgroundReadingActive()) {
+      // The interval and the service ticks both land here; one read per window is enough.
+      const interval = onScreen ? FOREGROUND_POLL_MS : BACKGROUND_POLL_MS
+      if (inFlight || now - lastPollAt < interval - 500) {
         return
       }
       inFlight = true
@@ -181,7 +184,7 @@ export function useAutoReadReplies(): void {
 
     pollRef.current = () => void poll()
     void poll()
-    const timer = setInterval(() => void poll(), POLL_INTERVAL_MS)
+    const timer = setInterval(() => void poll(), FOREGROUND_POLL_MS)
     return () => {
       cancelled = true
       clearInterval(timer)

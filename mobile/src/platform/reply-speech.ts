@@ -15,7 +15,7 @@ export function useReplySpeech(): ReplySpeech {
     () => ({
       canSpeak: true,
       speak: (id, markdown) => speakReply(id, markdown, 'interrupt'),
-      stop: stopSpeaking
+      stop: () => stopSpeaking('chat asked to stop')
     }),
     []
   )

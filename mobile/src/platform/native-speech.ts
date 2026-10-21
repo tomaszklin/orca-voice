@@ -6,7 +6,7 @@ export async function serveNativeSpeechVerb(params: unknown): Promise<{ accepted
   // The host parsed these against the same schema before dispatching; parsing again types them.
   const call = speechControlParamsSchema.parse(params)
   if (call.action === 'stop') {
-    stopSpeaking()
+    stopSpeaking('page asked to stop')
   } else {
     speakReply(call.id, call.markdown, 'interrupt')
   }

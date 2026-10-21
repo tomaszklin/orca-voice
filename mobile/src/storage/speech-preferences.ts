@@ -48,3 +48,24 @@ export function loadBackgroundReading(): Promise<boolean> {
 export function saveBackgroundReading(enabled: boolean): Promise<void> {
   return saveFlag(BACKGROUND_READING_KEY, enabled)
 }
+
+const READ_SCOPE_KEY = 'orca:voiceReadScope'
+
+/** `replies`: only the answer that ends a turn. `all`: also what the agent writes while working. */
+export type ReadScope = 'replies' | 'all'
+
+// Why: `all` by default — the owner found only turn-ending replies were read (2026-10-21).
+export const DEFAULT_READ_SCOPE: ReadScope = 'all'
+
+export async function loadReadScope(): Promise<ReadScope> {
+  try {
+    const raw = await AsyncStorage.getItem(READ_SCOPE_KEY)
+    return raw === 'replies' || raw === 'all' ? raw : DEFAULT_READ_SCOPE
+  } catch {
+    return DEFAULT_READ_SCOPE
+  }
+}
+
+export function saveReadScope(scope: ReadScope): Promise<void> {
+  return AsyncStorage.setItem(READ_SCOPE_KEY, scope)
+}
