@@ -32,6 +32,15 @@ describe('toSpeechText', () => {
     )
   })
 
+  it('reads source links by their label and bare addresses as a cue', () => {
+    const markdown = [
+      'Sources:',
+      '- [WHO report 2025](https://www.who.int/publications/i/item/9789240000000)',
+      '- <https://example.com/study.pdf>'
+    ].join('\n')
+    expect(toSpeechText(markdown, placeholders)).toBe('Sources: WHO report 2025. link.')
+  })
+
   it('keeps inline code that is not a path', () => {
     expect(toSpeechText('Run `pnpm test` now', placeholders)).toBe('Run pnpm test now.')
   })

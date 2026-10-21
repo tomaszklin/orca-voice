@@ -39,7 +39,7 @@ export function toSpeechText(markdown: string, placeholders = devicePlaceholders
   text = text.replace(/^[ \t]*```[\s\S]*?^[ \t]*```[^\n]*$/gm, `\n${placeholders.code}\n`)
   text = text.replace(/(^[ \t]*\|.*\|[ \t]*(\n|$))+/gm, `${placeholders.table}\n`)
   text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-  text = text.replace(/https?:\/\/\S+/g, placeholders.link)
+  text = text.replace(/<?https?:\/\/[^\s>]+>?/g, placeholders.link)
   text = text.replace(/`([^`\n]+)`/g, (_, code: string) => speakableInlineCode(code))
   text = text.replace(/^[ \t]{0,3}#{1,6}[ \t]*/gm, '')
   text = text.replace(/^[ \t]*(?:[-*+]|\d+[.)])[ \t]+/gm, '')

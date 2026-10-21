@@ -24,7 +24,10 @@ czyta zawsze i natychmiast, a właściciel chce sam decydować, kiedy słucha.
   włączeniem przełącznika).
 - **Przycisk „Stop”** u góry ekranu, widoczny tylko podczas czytania.
 - Czytany tekst: bez bloków kodu i tabel (zamiast nich krótka informacja, po polsku na polskim
-  telefonie), bez linków, emoji, formatowania; ścieżki plików skrócone do nazwy.
+  telefonie), bez emoji i formatowania; ścieżki plików skrócone do nazwy. Link markdown czytany
+  jako sam opis, goły adres (też `<https://…>`, od 2026-10-21) jako słowo „link”. Dlatego hook
+  trybu głosowego od 2026-10-21 pozwala agentowi podawać ważne linki (wcześniej je zakazywał,
+  przez co znikały z odpowiedzi np. przy researchu).
 - Głos: systemowy syntezator mowy Androida (ten sam, który ustawiono dla SpeakThat!).
 - **Nie ma** przycisku „odtwórz” pod każdą odpowiedzią w czacie — czat jest stroną z desktopu.
   Wymagałoby to podmiany widoku na komputerze albo własnej kopii czatu w APK (zob. historia rozmowy
