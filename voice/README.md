@@ -144,6 +144,20 @@ Zgłoszenia właściciela z 2026-10-21:
   Dyktowanie zostaje w oficjalnym menu „Voice”.
 - Hook trybu głosowego na komputerze pozwala podawać ważne linki (czytane jako opis albo „link”).
 
+## Mikrofon w czacie = dyktowanie Androida (build 12, 2026-10-21)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Mikrofon obok pola tekstu w czacie otwierał arkusz konfiguracji dyktowania Orki (wymaga modelu
+mowy na komputerze, którego właściciel nie ma). Teraz otwiera systemowe okno rozpoznawania mowy
+(`RecognizerIntent.ACTION_RECOGNIZE_SPEECH`, to samo co głosowe pisanie z klawiatury, w języku
+telefonu), a rozpoznany tekst dopisuje do szkicu. Strona → powłoka tym samym czasownikiem
+`native.speech.control` (`{action:'listen'}` → `{accepted, text?}`), bez nowego grantu.
+Pliki: `speech/use-system-dictation-mic.ts` (wstawka w `session/MobileNativeChatOverlay.tsx`),
+`platform/system-dictation(.web).ts`, `speech/system-dictation.ts`, funkcja `recognizeSpeech` w
+`OrcaVoiceBackgroundModule.kt`. Strona z desktopu (przełącznik „Built-in chat page” wyłączony)
+zostaje przy dyktowaniu Orki. Mikrofon w trybie terminala bez zmian.
+
 ## Budowanie
 
 ```powershell

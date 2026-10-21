@@ -13,6 +13,7 @@ import {
   useMobileNativeChatReplyReveals
 } from './mobile-native-chat-reply-reveals'
 import { MobileNativeChatRowOverlaysHost } from './MobileNativeChatRowOverlaysHost'
+import { useSystemDictationMic } from '../speech/use-system-dictation-mic'
 
 type Props = {
   controller: MobileNativeChatController
@@ -94,6 +95,11 @@ export function MobileNativeChatOverlay({
   })
   const visuals = useMobileNativeChatVisualRenderer(controller.nativeChatVisualSource)
   const replyReveals = useMobileNativeChatReplyReveals(folded, streaming !== null, sendSurfaceId)
+  // Orca Voice fork: the mic opens the phone's own dictation where it can.
+  const systemMic = useSystemDictationMic(
+    controller.chatComposerText,
+    controller.setChatComposerText
+  )
   if (!controller.showNativeChat) {
     return null
   }
@@ -155,9 +161,9 @@ export function MobileNativeChatOverlay({
               attachments={images.attachments}
               onRemoveAttachment={images.removeAttachment}
               isAttaching={images.isAttaching}
-              onMicPress={onMicPress}
-              micActive={micActive}
-              dictationMode={dictationMode}
+              onMicPress={systemMic?.onPress ?? onMicPress}
+              micActive={systemMic ? systemMic.listening : micActive}
+              dictationMode={systemMic ? 'toggle' : dictationMode}
               onMicPressIn={onMicPressIn}
               onMicPressOut={onMicPressOut}
               inputLockReason={inputLockReason}
