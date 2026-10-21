@@ -166,6 +166,19 @@ Zgłoszenia właściciela z 2026-10-21:
   bez nasłuchu „Hey Google”); wtedy wypowiedź czeka na zwolnienie mikrofonu (najwyżej 2 min),
   bo zabranie fokusu przerwałoby dyktowanie. W dzienniku czytnika: „waiting for the microphone”.
 
+## Tymczasowe wyciszenie auto-czytania (build 14, 2026-10-21)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.** Build 13 potwierdzony przez właściciela
+(2026-10-21: mikrofon ukryty, czytanie milknie przy dyktowaniu).
+
+- Przycisk **Mute / Unmute** w powiadomieniu usługi czytania (`ReadAloudService.kt`, akcja
+  `TOGGLE_MUTE` → zdarzenie `onMuteToggle` do JS) i przełącznik „Mute for now” w Settings → Read
+  aloud. Wyciszenie zatrzymuje bieżące czytanie, nie zmienia ustawienia auto-czytania i żyje tylko
+  w pamięci JS (`speech/auto-read-mute.ts`) — restart Orki zawsze wraca do stanu niewyciszonego.
+  Przycisk Read pod wiadomością dalej czyta.
+- Powiadomienie istnieje tylko przy włączonym „Keep reading with the screen off”. Jest ciche
+  (niski priorytet), więc przycisk może być widoczny dopiero po rozwinięciu powiadomienia.
+
 ## Budowanie
 
 ```powershell
