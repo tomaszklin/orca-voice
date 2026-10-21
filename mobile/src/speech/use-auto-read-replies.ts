@@ -4,6 +4,7 @@ import type { RuntimeWorktreeAgentRow } from '../../../src/shared/runtime-types'
 import { withoutNativeChatVisualDirectiveLines } from '../../../src/shared/native-chat-visual-directive'
 import { useRpcClientContext } from '../transport/client-context'
 import type { RpcClient } from '../transport/rpc-client'
+import { isAutoReadMuted } from './auto-read-mute'
 import { useAutoReadRepliesPreference } from './auto-read-preference'
 import { useBackgroundReadingPreference, useBackgroundReadingService } from './background-reading'
 import { backgroundReadingActive } from './background-reading-state'
@@ -160,7 +161,7 @@ export function useAutoReadReplies(): void {
       readScopeRef.current === 'all' ||
       (readScopeRef.current === 'all-on-screen' && AppState.currentState === 'active')
     const feeds = createChatMessageFeeds((paneKey, messageId, text) => {
-      if (!readsEveryMessage()) {
+      if (!readsEveryMessage() || isAutoReadMuted()) {
         return false
       }
       speakReply(`${paneKey}#${messageId}`, text, 'queue')
@@ -213,6 +214,7 @@ export function useAutoReadReplies(): void {
           const message = withoutNativeChatVisualDirectiveLines(reply.message)
           // The feed reads this pane's messages itself, the final one included.
           if (
+            isAutoReadMuted() ||
             feeds.heard(reply.paneKey, message) ||
             (readsEveryMessage() && feeds.covers(reply.paneKey))
           ) {

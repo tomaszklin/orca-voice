@@ -9,7 +9,9 @@ export type VoiceNativeModule = {
   isRunning(): boolean
   speak(id: string, text: string): boolean
   stopSpeech(): void
-  addListener(event: 'onTick', listener: () => void): { remove(): void }
+  /** What the notification's Mute button shows. */
+  setMuted(muted: boolean): void
+  addListener(event: 'onTick' | 'onMuteToggle', listener: () => void): { remove(): void }
   addListener(
     event: 'onSpeech',
     listener: (payload: { event: string; id: string; message: string | null }) => void

@@ -5,6 +5,7 @@ import Constants from 'expo-constants'
 import { Check, ChevronLeft } from 'lucide-react-native'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 import type { ReadScope } from '../storage/speech-preferences'
+import { setAutoReadMuted, useAutoReadMuted } from './auto-read-mute'
 import { useAutoReadRepliesPreference } from './auto-read-preference'
 import { useBuiltInPagePreference } from './built-in-page-preference'
 import { useBackgroundReadingPreference } from './background-reading'
@@ -38,6 +39,7 @@ export default function ReadAloudSettingsScreen() {
   const { builtInPage, setBuiltInPage } = useBuiltInPagePreference()
   const { backgroundReading, setBackgroundReading } = useBackgroundReadingPreference()
   const { readScope, setReadScope } = useReadScopePreference()
+  const muted = useAutoReadMuted()
   const diagnostics = useSpeechDiagnostics()
 
   return (
@@ -110,6 +112,23 @@ export default function ReadAloudSettingsScreen() {
               accessibilityLabel="Auto-read new messages"
               value={autoRead}
               onValueChange={setAutoRead}
+              trackColor={{ false: colors.bgRaised, true: colors.textSecondary }}
+              thumbColor={colors.textPrimary}
+            />
+          </View>
+          <View style={[styles.row, styles.rowDivider]}>
+            <View style={styles.rowContent}>
+              <Text style={styles.rowLabel}>Mute for now</Text>
+              <Text style={styles.rowSublabel}>
+                {muted
+                  ? 'Muted — until you unmute here or in the notification, or restart Orca'
+                  : 'Also on the reading notification; a restart of Orca unmutes'}
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel="Mute auto-read for now"
+              value={muted}
+              onValueChange={setAutoReadMuted}
               trackColor={{ false: colors.bgRaised, true: colors.textSecondary }}
               thumbColor={colors.textPrimary}
             />

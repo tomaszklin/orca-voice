@@ -13,7 +13,7 @@ class OrcaVoiceBackgroundModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("OrcaVoiceBackground")
 
-    Events("onTick", "onSpeech")
+    Events("onTick", "onSpeech", "onMuteToggle")
 
     // Wired at creation rather than on first observer: a module instance exists only while the
     // app's JS runs, which is exactly what the sticky service checks the ticker listener for.
@@ -22,6 +22,7 @@ class OrcaVoiceBackgroundModule : Module() {
       ReadAloudSpeech.listener = { event, id, message ->
         sendEvent("onSpeech", mapOf("event" to event, "id" to id, "message" to message))
       }
+      ReadAloudControls.listener = { sendEvent("onMuteToggle", emptyMap<String, Any>()) }
     }
 
     /** False when Android refused the service, e.g. a start attempted from the background. */
@@ -57,9 +58,15 @@ class OrcaVoiceBackgroundModule : Module() {
       ReadAloudSpeech.stop()
     }
 
+    /** What the notification's Mute button shows; the mute itself lives in JS. */
+    Function("setMuted") { muted: Boolean ->
+      ReadAloudService.showMuted(muted)
+    }
+
     OnDestroy {
       ReadAloudTicker.listener = null
       ReadAloudSpeech.listener = null
+      ReadAloudControls.listener = null
     }
   }
 }

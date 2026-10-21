@@ -5,6 +5,7 @@ import {
   loadBackgroundReading,
   saveBackgroundReading
 } from '../storage/speech-preferences'
+import { isAutoReadMuted, setAutoReadMuted } from './auto-read-mute'
 import { setBackgroundReadingActive } from './background-reading-state'
 import { recordSpeechDiagnostics } from './speech-diagnostics'
 import { voiceNativeModule } from './voice-native-module'
@@ -78,7 +79,13 @@ export function useBackgroundReadingService(wanted: boolean, onTick: () => void)
       recordSpeechDiagnostics({ lastTickAt: Date.now() })
       onTick()
     })
-    return () => subscription.remove()
+    const muteButton = native.addListener('onMuteToggle', () =>
+      setAutoReadMuted(!isAutoReadMuted())
+    )
+    return () => {
+      subscription.remove()
+      muteButton.remove()
+    }
   }, [wanted, onTick])
 
   // The service itself is kept in line with `wanted` on every change and each time Orca comes back
@@ -91,6 +98,8 @@ export function useBackgroundReadingService(wanted: boolean, onTick: () => void)
       return
     }
     const sync = () => {
+      // The notification shows this process's mute, never one a previous run left behind.
+      native.setMuted(isAutoReadMuted())
       if (!wanted) {
         if (native.isRunning()) {
           native.stop()
