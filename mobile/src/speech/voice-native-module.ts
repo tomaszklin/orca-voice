@@ -27,7 +27,8 @@ export type VoiceNativeModule = {
   isRunning(): boolean
   speak(id: string, text: string): boolean
   stopSpeech(): void
-  getSpeechOptions(): SpeechOptions | null
+  /** `phoneRate`: the rate the phone's text-to-speech settings give, 1 = normal. */
+  getSpeechOptions(): (SpeechOptions & { phoneRate: number }) | null
   setSpeechOptions(rate: number | null, voice: string | null): boolean
   /** Null when the engine did not start. */
   getVoices(): Promise<NativeVoiceList | null>

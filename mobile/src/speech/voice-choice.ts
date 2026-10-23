@@ -1,39 +1,32 @@
 import type { PickerOption } from '../components/PickerModal'
 import type { NativeVoiceList } from './voice-native-module'
 
-/** Picker value for "whatever the phone's text-to-speech settings say", for speed and voice. */
+/** Picker value for "whatever the phone's text-to-speech settings say". */
 export const PHONE_SETTING = 'phone-setting'
 
-const RATES = [0.8, 1, 1.2, 1.4, 1.6, 1.8, 2]
+export const MIN_RATE = 0.75
+export const MAX_RATE = 2
+const RATE_STEPS_PER_UNIT = 20
+
+function snapRate(rate: number): number {
+  const snapped = Math.round(rate * RATE_STEPS_PER_UNIT) / RATE_STEPS_PER_UNIT
+  return Math.min(MAX_RATE, Math.max(MIN_RATE, snapped))
+}
+
+/** One 0.05 step from the chosen rate, or from the phone's own rate when none is chosen. */
+export function stepRate(rate: number | null, phoneRate: number, direction: 1 | -1): number {
+  return snapRate(snapRate(rate ?? phoneRate) + direction / RATE_STEPS_PER_UNIT)
+}
 
 function rateLabel(rate: number): string {
-  return rate === 1 ? 'Normal (1×)' : `${rate}×`
+  return `${Number(rate.toFixed(2))}×`
 }
 
-export const SPEED_OPTIONS: PickerOption[] = [
-  {
-    value: PHONE_SETTING,
-    label: 'Phone setting',
-    subtitle: "The speed in the phone's text-to-speech settings"
-  },
-  ...RATES.map((rate) => ({ value: String(rate), label: rateLabel(rate) }))
-]
-
-/** The picker value nearest to a stored rate. */
-export function speedValue(rate: number | null): string {
+export function describeSpeed(rate: number | null, phoneRate: number): string {
   if (rate === null) {
-    return PHONE_SETTING
+    return `Phone setting (${rateLabel(phoneRate)})`
   }
-  const nearest = RATES.reduce((best, r) => (Math.abs(r - rate) < Math.abs(best - rate) ? r : best))
-  return String(nearest)
-}
-
-export function rateFromSpeedValue(value: string): number | null {
-  return value === PHONE_SETTING ? null : Number(value)
-}
-
-export function describeSpeed(rate: number | null): string {
-  return rate === null ? 'Phone setting' : rateLabel(rate)
+  return rate === 1 ? 'Normal (1×)' : rateLabel(rate)
 }
 
 function primaryLanguage(tag: string): string {
@@ -49,15 +42,17 @@ function variantOf(name: string): string {
 export type VoiceChoice = { name: string; label: string; detail: string }
 
 /**
- * Installed voices in the language the engine reads in, plus the chosen one, numbered by
+ * Installed offline voices in the language the engine reads in, plus the chosen one, numbered by
  * variant. Engine names (`pl-pl-x-oda-local`) mean nothing to a listener, so they are numbered.
+ * Online voices are left out: they go quiet where the signal drops (owner's choice, 2026-10-23).
  */
 export function voiceChoices(list: NativeVoiceList, chosen: string | null): VoiceChoice[] {
   const language = primaryLanguage(list.language)
   const voices = list.voices
     .filter(
       (voice) =>
-        voice.name === chosen || (voice.installed && primaryLanguage(voice.language) === language)
+        voice.name === chosen ||
+        (voice.installed && !voice.needsInternet && primaryLanguage(voice.language) === language)
     )
     .sort((a, b) => a.name.localeCompare(b.name))
   const variants = [...new Set(voices.map((voice) => variantOf(voice.name)))]
@@ -65,8 +60,8 @@ export function voiceChoices(list: NativeVoiceList, chosen: string | null): Voic
     name: voice.name,
     label: `Voice ${variants.indexOf(variantOf(voice.name)) + 1}`,
     detail: [
-      voice.needsInternet ? 'Needs internet' : 'Offline',
-      voice.name === list.defaultVoice ? 'phone default' : null
+      voice.needsInternet ? 'Needs internet' : null,
+      voice.name === list.defaultVoice ? 'Phone default' : null
     ]
       .filter((part) => part !== null)
       .join(' · ')
@@ -83,7 +78,7 @@ export function voicePickerOptions(choices: VoiceChoice[]): PickerOption[] {
     ...choices.map((choice) => ({
       value: choice.name,
       label: choice.label,
-      subtitle: choice.detail
+      subtitle: choice.detail || undefined
     }))
   ]
 }
@@ -93,5 +88,8 @@ export function describeVoice(chosen: string | null, choices: VoiceChoice[]): st
     return 'Phone setting'
   }
   const choice = choices.find((c) => c.name === chosen)
-  return choice ? `${choice.label} · ${choice.detail}` : chosen
+  if (!choice) {
+    return chosen
+  }
+  return choice.detail ? `${choice.label} · ${choice.detail}` : choice.label
 }

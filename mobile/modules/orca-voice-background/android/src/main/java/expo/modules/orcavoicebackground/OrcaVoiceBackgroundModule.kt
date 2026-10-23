@@ -64,7 +64,11 @@ class OrcaVoiceBackgroundModule : Module() {
     Function("getSpeechOptions") {
       val context = appContext.reactContext ?: return@Function null
       val (rate, voice) = ReadAloudSpeech.options(context)
-      mapOf("rate" to rate?.toDouble(), "voice" to voice)
+      mapOf(
+        "rate" to rate?.toDouble(),
+        "voice" to voice,
+        "phoneRate" to ReadAloudSpeech.systemRate(context).toDouble()
+      )
     }
 
     Function("setSpeechOptions") { rate: Double?, voice: String? ->

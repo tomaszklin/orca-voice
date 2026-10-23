@@ -188,7 +188,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   }
 
   // What the engine uses when it is given no rate (100 = normal).
-  private fun systemRate(context: Context): Float =
+  fun systemRate(context: Context): Float =
     Settings.Secure.getInt(context.contentResolver, Settings.Secure.TTS_DEFAULT_RATE, 100) / 100f
 
   @Synchronized

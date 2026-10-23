@@ -1,22 +1,22 @@
 import { useMemo } from 'react'
 import { View, Text, Pressable } from 'react-native'
-import { ChevronRight } from 'lucide-react-native'
+import { ChevronRight, Minus, Plus, type LucideIcon } from 'lucide-react-native'
 import { colors } from '../theme/mobile-theme'
 import { PickerModal } from '../components/PickerModal'
 import { readAloudStyles as styles } from './read-aloud-settings-styles'
 import { speakVoiceSample, useSpeechOptions } from './speech-options'
 import {
+  MAX_RATE,
+  MIN_RATE,
   PHONE_SETTING,
-  SPEED_OPTIONS,
   describeSpeed,
   describeVoice,
-  rateFromSpeedValue,
-  speedValue,
+  stepRate,
   voiceChoices,
   voicePickerOptions
 } from './voice-choice'
 
-export type VoicePicker = 'speed' | 'voice'
+export type VoicePicker = 'voice'
 
 type SpeechOptionsState = ReturnType<typeof useSpeechOptions>
 
@@ -51,6 +51,71 @@ function ValueRow({
   )
 }
 
+function StepButton({
+  label,
+  Icon,
+  disabled,
+  onPress
+}: {
+  label: string
+  Icon: LucideIcon
+  disabled: boolean
+  onPress: () => void
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      hitSlop={6}
+      style={disabled ? [styles.stepButton, styles.stepButtonDisabled] : styles.stepButton}
+      onPress={onPress}
+    >
+      <Icon size={18} color={colors.textPrimary} />
+    </Pressable>
+  )
+}
+
+/** 0.05 steps between 0.75× and 2× (owner's choice, 2026-10-23). */
+function SpeedRows({ state }: { state: SpeechOptionsState }) {
+  const { options, phoneRate, setOptions } = state
+  const current = options.rate ?? phoneRate
+  const step = (direction: 1 | -1) =>
+    setOptions({ ...options, rate: stepRate(options.rate, phoneRate, direction) })
+  return (
+    <>
+      <View style={styles.row}>
+        <View style={styles.rowContent}>
+          <Text style={styles.rowLabel}>Speed</Text>
+          <Text style={styles.rowSublabel}>{describeSpeed(options.rate, phoneRate)}</Text>
+        </View>
+        <StepButton
+          label="Slower"
+          Icon={Minus}
+          disabled={current <= MIN_RATE}
+          onPress={() => step(-1)}
+        />
+        <StepButton
+          label="Faster"
+          Icon={Plus}
+          disabled={current >= MAX_RATE}
+          onPress={() => step(1)}
+        />
+      </View>
+      {options.rate !== null ? (
+        <Pressable
+          accessibilityRole="button"
+          style={[styles.row, styles.rowDivider]}
+          onPress={() => setOptions({ ...options, rate: null })}
+        >
+          <Text style={styles.rowLabel}>Use the phone&apos;s speed</Text>
+        </Pressable>
+      ) : null}
+    </>
+  )
+}
+
 /** Orca Voice fork: reading speed and voice, for the Read button and auto-read alike. */
 export function ReadAloudVoiceGroup({
   state,
@@ -64,17 +129,12 @@ export function ReadAloudVoiceGroup({
     <>
       <Text style={[styles.groupHeading, styles.groupGap]}>VOICE</Text>
       <Text style={styles.groupDescription}>
-        Applies to the Read button and auto-read. Picking one reads a short sample.
+        Applies to the Read button and auto-read. Every change reads a short sample.
       </Text>
       <View style={[styles.section, styles.sectionTopGap]}>
         {state.available ? (
           <>
-            <ValueRow
-              label="Speed"
-              value={describeSpeed(state.options.rate)}
-              divider={false}
-              onPress={() => onOpenPicker('speed')}
-            />
+            <SpeedRows state={state} />
             <ValueRow
               label="Voice"
               value={describeVoice(state.options.voice, choices)}
@@ -103,7 +163,7 @@ export function ReadAloudVoiceGroup({
   )
 }
 
-/** Rendered at the screen's root, outside the scroll view, so the drawers are not clipped. */
+/** Rendered at the screen's root, outside the scroll view, so the drawer is not clipped. */
 export function ReadAloudVoicePickers({
   state,
   picker,
@@ -116,32 +176,22 @@ export function ReadAloudVoicePickers({
   const choices = useVoiceChoices(state)
   const { options, setOptions } = state
   return (
-    <>
-      <PickerModal
-        visible={picker === 'speed'}
-        title="Reading speed"
-        options={SPEED_OPTIONS}
-        selected={speedValue(options.rate)}
-        onSelect={(value) => setOptions({ ...options, rate: rateFromSpeedValue(value) })}
-        onClose={onClose}
-      />
-      <PickerModal
-        visible={picker === 'voice'}
-        title="Voice"
-        subtitle={
-          state.voices === undefined
-            ? 'Loading the voices…'
-            : state.voices === null
-              ? 'The phone did not list its voices'
-              : "Installed voices in the phone's reading language"
-        }
-        options={voicePickerOptions(choices)}
-        selected={options.voice ?? PHONE_SETTING}
-        onSelect={(value) =>
-          setOptions({ ...options, voice: value === PHONE_SETTING ? null : value })
-        }
-        onClose={onClose}
-      />
-    </>
+    <PickerModal
+      visible={picker === 'voice'}
+      title="Voice"
+      subtitle={
+        state.voices === undefined
+          ? 'Loading the voices…'
+          : state.voices === null
+            ? 'The phone did not list its voices'
+            : "Offline voices in the phone's reading language"
+      }
+      options={voicePickerOptions(choices)}
+      selected={options.voice ?? PHONE_SETTING}
+      onSelect={(value) =>
+        setOptions({ ...options, voice: value === PHONE_SETTING ? null : value })
+      }
+      onClose={onClose}
+    />
   )
 }

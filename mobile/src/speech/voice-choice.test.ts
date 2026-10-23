@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   PHONE_SETTING,
+  describeSpeed,
   describeVoice,
-  rateFromSpeedValue,
-  speedValue,
+  stepRate,
   voiceChoices,
   voicePickerOptions
 } from './voice-choice'
@@ -26,15 +26,20 @@ const LIST: NativeVoiceList = {
 }
 
 describe('voiceChoices', () => {
-  it('lists installed voices in the reading language, a local/online pair sharing a number', () => {
+  it('lists installed offline voices in the reading language', () => {
     expect(voiceChoices(LIST, null)).toEqual([
-      { name: 'pl-pl-x-bmg-local', label: 'Voice 1', detail: 'Offline' },
-      { name: 'pl-pl-x-oda-local', label: 'Voice 2', detail: 'Offline · phone default' },
-      { name: 'pl-pl-x-oda-network', label: 'Voice 2', detail: 'Needs internet' }
+      { name: 'pl-pl-x-bmg-local', label: 'Voice 1', detail: '' },
+      { name: 'pl-pl-x-oda-local', label: 'Voice 2', detail: 'Phone default' }
     ])
   })
 
-  it('keeps the chosen voice listed even outside the reading language', () => {
+  it('keeps the chosen voice listed even when online or in another language', () => {
+    const online = voiceChoices(LIST, 'pl-pl-x-oda-network')
+    expect(online.find((c) => c.name === 'pl-pl-x-oda-network')).toEqual({
+      name: 'pl-pl-x-oda-network',
+      label: 'Voice 2',
+      detail: 'Needs internet'
+    })
     const names = voiceChoices(LIST, 'en-us-x-iob-local').map((choice) => choice.name)
     expect(names).toContain('en-us-x-iob-local')
   })
@@ -42,16 +47,28 @@ describe('voiceChoices', () => {
   it('offers the phone setting first and describes the chosen voice', () => {
     const choices = voiceChoices(LIST, null)
     expect(voicePickerOptions(choices)[0]?.value).toBe(PHONE_SETTING)
-    expect(describeVoice('pl-pl-x-oda-network', choices)).toBe('Voice 2 · Needs internet')
+    expect(describeVoice('pl-pl-x-oda-local', choices)).toBe('Voice 2 · Phone default')
+    expect(describeVoice('pl-pl-x-bmg-local', choices)).toBe('Voice 1')
     expect(describeVoice(null, choices)).toBe('Phone setting')
   })
 })
 
 describe('speed', () => {
-  it('maps the phone setting and snaps a stored rate to the nearest option', () => {
-    expect(speedValue(null)).toBe(PHONE_SETTING)
-    expect(speedValue(1.25)).toBe('1.2')
-    expect(rateFromSpeedValue(PHONE_SETTING)).toBeNull()
-    expect(rateFromSpeedValue('1.6')).toBe(1.6)
+  it('steps by 0.05 from the phone rate when none is chosen', () => {
+    expect(stepRate(null, 1, 1)).toBe(1.05)
+    expect(stepRate(null, 1.3, -1)).toBe(1.25)
+    expect(stepRate(1.15, 1, -1)).toBe(1.1)
+  })
+
+  it('stays between 0.75 and 2', () => {
+    expect(stepRate(0.75, 1, -1)).toBe(0.75)
+    expect(stepRate(2, 1, 1)).toBe(2)
+    expect(stepRate(null, 0.5, 1)).toBe(0.8)
+  })
+
+  it('describes the speed', () => {
+    expect(describeSpeed(null, 1)).toBe('Phone setting (1×)')
+    expect(describeSpeed(1.15, 1)).toBe('1.15×')
+    expect(describeSpeed(1, 1.3)).toBe('Normal (1×)')
   })
 })

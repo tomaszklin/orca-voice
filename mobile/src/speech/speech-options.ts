@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { speakReply } from './reply-speaker'
 import { voiceNativeModule, type NativeVoiceList, type SpeechOptions } from './voice-native-module'
 
-const NO_OPTIONS: SpeechOptions = { rate: null, voice: null }
 export const VOICE_SAMPLE = 'Test czytania odpowiedzi. Test reading replies aloud.'
+// Why: a few taps on the speed buttons read one sample at the final speed, not one per tap.
+const SAMPLE_DELAY_MS = 600
 
 export function speakVoiceSample(): void {
   speakReply('settings-test', VOICE_SAMPLE, 'interrupt')
@@ -16,16 +17,21 @@ export function speakVoiceSample(): void {
 export function useSpeechOptions(): {
   available: boolean
   options: SpeechOptions
+  /** The phone's own rate, 1 = normal: what "Phone setting" means and where steps start. */
+  phoneRate: number
   /** Undefined while loading, null when the engine did not start. */
   voices: NativeVoiceList | null | undefined
   setOptions: (next: SpeechOptions) => void
   openPhoneSettings: () => void
 } {
   const native = voiceNativeModule()
-  const [options, setOptionsState] = useState<SpeechOptions>(
-    () => native?.getSpeechOptions() ?? NO_OPTIONS
-  )
+  const [stored] = useState(() => native?.getSpeechOptions() ?? null)
+  const [options, setOptionsState] = useState<SpeechOptions>({
+    rate: stored?.rate ?? null,
+    voice: stored?.voice ?? null
+  })
   const [voices, setVoices] = useState<NativeVoiceList | null | undefined>(undefined)
+  const sampleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     let live = true
@@ -39,6 +45,9 @@ export function useSpeechOptions(): {
       })
     return () => {
       live = false
+      if (sampleTimer.current) {
+        clearTimeout(sampleTimer.current)
+      }
     }
   }, [native])
 
@@ -46,7 +55,10 @@ export function useSpeechOptions(): {
     (next: SpeechOptions) => {
       native?.setSpeechOptions(next.rate, next.voice)
       setOptionsState(next)
-      speakVoiceSample()
+      if (sampleTimer.current) {
+        clearTimeout(sampleTimer.current)
+      }
+      sampleTimer.current = setTimeout(speakVoiceSample, SAMPLE_DELAY_MS)
     },
     [native]
   )
@@ -55,5 +67,12 @@ export function useSpeechOptions(): {
     native?.openTtsSettings()
   }, [native])
 
-  return { available: native !== null, options, voices, setOptions, openPhoneSettings }
+  return {
+    available: native !== null,
+    options,
+    phoneRate: stored?.phoneRate ?? 1,
+    voices,
+    setOptions,
+    openPhoneSettings
+  }
 }

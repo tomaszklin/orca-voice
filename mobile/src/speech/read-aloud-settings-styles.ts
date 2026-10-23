@@ -82,5 +82,16 @@ export const readAloudStyles = StyleSheet.create({
     fontSize: typography.bodySize - 2,
     color: colors.textSecondary,
     marginTop: 2
+  },
+  stepButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bgRaised
+  },
+  stepButtonDisabled: {
+    opacity: 0.4
   }
 })

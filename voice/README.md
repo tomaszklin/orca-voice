@@ -198,6 +198,11 @@ ustawienia „Zamiana tekstu na mowę”, wspólne dla całego telefonu).
   „Phone setting” przywraca systemową szybkość (`TTS_DEFAULT_RATE`) i domyślny głos silnika.
 - JS: `speech/speech-options.ts`, `speech/read-aloud-voice-settings.tsx`; style ekranu wydzielone do
   `speech/read-aloud-settings-styles.ts`. Zapasowe expo-speech (bez modułu) ustawień nie ma.
+- **Build 18 (2026-10-23, na prośbę właściciela):** szybkość przyciskami − / + co 0,05 w zakresie
+  0,75–2 (pierwszy krok od systemowej szybkości, którą moduł podaje jako `phoneRate`), wiersz „Use
+  the phone's speed” wraca do ustawienia telefonu; próbka czyta się 0,6 s po ostatnim dotknięciu.
+  **Głosy online ukryte** (na trasie bez zasięgu milkną) — na liście tylko offline, chyba że głos
+  online był już wybrany.
 
 ## Budowanie
 
