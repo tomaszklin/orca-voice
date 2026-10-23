@@ -9,8 +9,10 @@ import android.media.MediaRecorder
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import java.util.Locale
 
 /**
  * Orca Voice fork: the phone's TTS, voiced like navigation prompts.
@@ -31,6 +33,9 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   @Volatile var listener: ((String, String, String?) -> Unit)? = null
 
   private const val FOCUS_GRACE_MS = 1500L
+  private const val PREFS = "orca-voice-speech"
+  private const val PREF_RATE = "rate"
+  private const val PREF_VOICE = "voice"
   // A dictation longer than this is unlikely; past it the held reading goes ahead anyway.
   private const val MIC_WAIT_LIMIT_MS = 120_000L
   // What a person talks into: dictation, calls, voice notes. Not the assistant's hotword
@@ -67,6 +72,11 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     synchronized(ReadAloudSpeech) { if (active.isEmpty()) abandonFocus() }
   }
   private val heldForMic = mutableListOf<Pair<String, String>>()
+  // Callers waiting for the engine to start, e.g. the voice list opened before anything was read.
+  private val whenReady = mutableListOf<(TextToSpeech?) -> Unit>()
+  // Whether this engine was given our rate or voice, so going back to the phone's setting resets it.
+  private var rateApplied = false
+  private var voiceApplied = false
   private var recordingCallback: AudioManager.AudioRecordingCallback? = null
   private val micWaitLimit = Runnable { synchronized(ReadAloudSpeech) { releaseHeld() } }
   private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
@@ -91,16 +101,95 @@ object ReadAloudSpeech : UtteranceProgressListener() {
 
   private fun speakNow(id: String, text: String) {
     val context = appContext ?: return
-    if (tts == null) {
-      audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-      tts = TextToSpeech(context) { status -> onInit(status) }
-    }
+    ensureEngine(context)
     if (!ready) {
       pending.add(id to text)
       return
     }
     enqueue(id, text)
   }
+
+  private fun ensureEngine(context: Context) {
+    if (tts == null) {
+      audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+      tts = TextToSpeech(context) { status -> onInit(status) }
+    }
+  }
+
+  /** Calls back with the started engine, or with null when it could not start. */
+  @Synchronized
+  fun withEngine(context: Context, callback: (TextToSpeech?) -> Unit) {
+    val app = context.applicationContext
+    appContext = app
+    if (ready && tts != null) {
+      callback(tts)
+      return
+    }
+    whenReady.add(callback)
+    ensureEngine(app)
+  }
+
+  /** The rate (1 = normal) and voice name chosen in Orca; null means the phone's setting. */
+  fun options(context: Context): Pair<Float?, String?> {
+    val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    return prefs.getFloat(PREF_RATE, 0f).takeIf { it > 0f } to prefs.getString(PREF_VOICE, null)
+  }
+
+  /** Kept natively, so the first reading after a restart already uses them. */
+  @Synchronized
+  fun setOptions(context: Context, rate: Float?, voice: String?) {
+    appContext = context.applicationContext
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
+      if (rate == null) remove(PREF_RATE) else putFloat(PREF_RATE, rate)
+      if (voice == null) remove(PREF_VOICE) else putString(PREF_VOICE, voice)
+    }.apply()
+    if (ready) applyOptions()
+  }
+
+  /** Installed voices, the engine's default one, and the language it reads in by default. */
+  fun describeVoices(engine: TextToSpeech?): Map<String, Any?>? {
+    engine ?: return null
+    // Some engines throw from these instead of returning null.
+    val voices = runCatching { engine.voices }.getOrNull().orEmpty()
+    val default = runCatching { engine.defaultVoice }.getOrNull()
+    return mapOf(
+      "voices" to voices.map { voice ->
+        mapOf(
+          "name" to voice.name,
+          "language" to voice.locale.toLanguageTag(),
+          "needsInternet" to voice.isNetworkConnectionRequired,
+          "installed" to !voice.features.orEmpty().contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED)
+        )
+      },
+      "defaultVoice" to default?.name,
+      "language" to (default?.locale ?: Locale.getDefault()).toLanguageTag()
+    )
+  }
+
+  /** Reaches the next piece; the one playing keeps what it was queued with. */
+  private fun applyOptions() {
+    val engine = tts ?: return
+    val context = appContext ?: return
+    val (rate, voiceName) = options(context)
+    if (rate != null || rateApplied) {
+      engine.setSpeechRate(rate ?: systemRate(context))
+      rateApplied = rate != null
+    }
+    val voice = voiceName?.let { name ->
+      runCatching { engine.voices }.getOrNull()?.firstOrNull { it.name == name }
+    }
+    if (voice != null) {
+      engine.setVoice(voice)
+      voiceApplied = true
+    } else if (voiceApplied) {
+      runCatching { engine.defaultVoice }.getOrNull()?.let { engine.setVoice(it) }
+      voiceApplied = false
+    }
+  }
+
+  // What the engine uses when it is given no rate (100 = normal).
+  private fun systemRate(context: Context): Float =
+    Settings.Secure.getInt(context.contentResolver, Settings.Secure.TTS_DEFAULT_RATE, 100) / 100f
 
   @Synchronized
   fun stop() {
@@ -119,13 +208,21 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     ready = status == TextToSpeech.SUCCESS
     val queued = pending.toList()
     pending.clear()
+    val waiting = whenReady.toList()
+    whenReady.clear()
     if (!ready) {
       queued.forEach { (id, _) -> listener?.invoke("error", id, "text-to-speech engine did not start") }
       tts = null
+      waiting.forEach { it(null) }
       return
     }
     tts?.setAudioAttributes(attributes)
     tts?.setOnUtteranceProgressListener(this)
+    // A new engine starts from the phone's settings.
+    rateApplied = false
+    voiceApplied = false
+    applyOptions()
+    waiting.forEach { it(tts) }
     queued.forEach { (id, text) -> enqueue(id, text) }
   }
 

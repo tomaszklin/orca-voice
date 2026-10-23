@@ -1,7 +1,9 @@
 package expo.modules.orcavoicebackground
 
 import android.content.Intent
+import android.provider.Settings
 import androidx.core.content.ContextCompat
+import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
@@ -56,6 +58,40 @@ class OrcaVoiceBackgroundModule : Module() {
 
     Function("stopSpeech") {
       ReadAloudSpeech.stop()
+    }
+
+    /** `rate` 1 = normal; null rate or voice = the phone's text-to-speech setting. */
+    Function("getSpeechOptions") {
+      val context = appContext.reactContext ?: return@Function null
+      val (rate, voice) = ReadAloudSpeech.options(context)
+      mapOf("rate" to rate?.toDouble(), "voice" to voice)
+    }
+
+    Function("setSpeechOptions") { rate: Double?, voice: String? ->
+      val context = appContext.reactContext ?: return@Function false
+      ReadAloudSpeech.setOptions(context, rate?.toFloat(), voice)
+      true
+    }
+
+    /** Null when the engine did not start. */
+    AsyncFunction("getVoices") { promise: Promise ->
+      val context = appContext.reactContext ?: return@AsyncFunction promise.resolve(null)
+      ReadAloudSpeech.withEngine(context) { engine ->
+        promise.resolve(ReadAloudSpeech.describeVoices(engine))
+      }
+    }
+
+    /** The phone's text-to-speech settings: engine, more voices to download. */
+    Function("openTtsSettings") {
+      val context = appContext.reactContext ?: return@Function false
+      listOf("com.android.settings.TTS_SETTINGS", Settings.ACTION_ACCESSIBILITY_SETTINGS).any { action ->
+        try {
+          context.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+          true
+        } catch (_: Exception) {
+          false
+        }
+      }
     }
 
     /** Downloads a build from the home server and opens the installer; false if one is running. */

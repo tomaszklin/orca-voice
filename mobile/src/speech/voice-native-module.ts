@@ -3,12 +3,36 @@
  * service and the navigation-voiced TTS. Null on other platforms, in tests, and in a build that
  * does not carry the module.
  */
+export type NativeVoice = {
+  name: string
+  /** BCP 47, e.g. `pl-PL`. */
+  language: string
+  needsInternet: boolean
+  installed: boolean
+}
+
+export type NativeVoiceList = {
+  voices: NativeVoice[]
+  defaultVoice: string | null
+  /** What the engine reads in when no voice is chosen. */
+  language: string
+}
+
+/** `rate` 1 = normal; null rate or voice = the phone's text-to-speech setting. */
+export type SpeechOptions = { rate: number | null; voice: string | null }
+
 export type VoiceNativeModule = {
   start(title: string, text: string, tickMs: number): boolean
   stop(): boolean
   isRunning(): boolean
   speak(id: string, text: string): boolean
   stopSpeech(): void
+  getSpeechOptions(): SpeechOptions | null
+  setSpeechOptions(rate: number | null, voice: string | null): boolean
+  /** Null when the engine did not start. */
+  getVoices(): Promise<NativeVoiceList | null>
+  /** The phone's text-to-speech settings: engine, more voices to download. */
+  openTtsSettings(): boolean
   /** What the notification's Mute button shows. */
   setMuted(muted: boolean): void
   /** Starts downloading an update and opening the installer; false when it could not start. */

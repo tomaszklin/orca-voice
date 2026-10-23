@@ -1,17 +1,24 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, Switch } from 'react-native'
+import { useState } from 'react'
+import { View, Text, Pressable, ScrollView, Switch } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import Constants from 'expo-constants'
 import { Check, ChevronLeft } from 'lucide-react-native'
-import { colors, radii, spacing, typography } from '../theme/mobile-theme'
+import { colors, spacing } from '../theme/mobile-theme'
 import type { ReadScope } from '../storage/speech-preferences'
 import { setAutoReadMuted, useAutoReadMuted } from './auto-read-mute'
 import { useAutoReadRepliesPreference } from './auto-read-preference'
 import { useBuiltInPagePreference } from './built-in-page-preference'
 import { useBackgroundReadingPreference } from './background-reading'
+import { readAloudStyles as styles } from './read-aloud-settings-styles'
+import {
+  ReadAloudVoiceGroup,
+  ReadAloudVoicePickers,
+  type VoicePicker
+} from './read-aloud-voice-settings'
 import { useReadScopePreference } from './read-scope-preference'
-import { speakReply } from './reply-speaker'
 import { describeSpeechDiagnostics, useSpeechDiagnostics } from './speech-diagnostics'
+import { useSpeechOptions } from './speech-options'
 
 const READ_SCOPES: { scope: ReadScope; label: string; sublabel: string }[] = [
   {
@@ -41,6 +48,8 @@ export default function ReadAloudSettingsScreen() {
   const { readScope, setReadScope } = useReadScopePreference()
   const muted = useAutoReadMuted()
   const diagnostics = useSpeechDiagnostics()
+  const speechOptions = useSpeechOptions()
+  const [picker, setPicker] = useState<VoicePicker | null>(null)
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.sm }]}>
@@ -62,8 +71,8 @@ export default function ReadAloudSettingsScreen() {
       >
         <Text style={styles.groupHeading}>READ BUTTON</Text>
         <Text style={styles.groupDescription}>
-          Messages are read with this device&apos;s text-to-speech voice; code blocks and tables are
-          skipped, and a Stop button appears at the top while one is being read.
+          Messages are read with the speed and voice set below; code blocks and tables are skipped,
+          and a Stop button appears at the top while one is being read.
         </Text>
         <View style={[styles.section, styles.sectionTopGap]}>
           <View style={styles.row}>
@@ -83,20 +92,9 @@ export default function ReadAloudSettingsScreen() {
               thumbColor={colors.textPrimary}
             />
           </View>
-          <Pressable
-            accessibilityRole="button"
-            style={[styles.row, styles.rowDivider]}
-            onPress={() =>
-              speakReply(
-                'settings-test',
-                'Test czytania odpowiedzi. Test reading replies aloud.',
-                'interrupt'
-              )
-            }
-          >
-            <Text style={styles.rowLabel}>Test voice</Text>
-          </Pressable>
         </View>
+
+        <ReadAloudVoiceGroup state={speechOptions} onOpenPicker={setPicker} />
 
         <Text style={[styles.groupHeading, styles.groupGap]}>AUTO-READ</Text>
         <Text style={styles.groupDescription}>
@@ -178,89 +176,12 @@ export default function ReadAloudSettingsScreen() {
           {describeSpeechDiagnostics(diagnostics, Constants.expoConfig?.extra?.voiceBuild)}
         </Text>
       </ScrollView>
+
+      <ReadAloudVoicePickers
+        state={speechOptions}
+        picker={picker}
+        onClose={() => setPicker(null)}
+      />
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bgBase,
-    paddingHorizontal: spacing.lg
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    marginBottom: spacing.lg
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm
-  },
-  heading: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.textPrimary
-  },
-  groupHeading: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textMuted,
-    letterSpacing: 0.5,
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.xs
-  },
-  groupDescription: {
-    fontSize: typography.bodySize - 1,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    paddingHorizontal: spacing.xs
-  },
-  section: {
-    backgroundColor: colors.bgPanel,
-    borderRadius: radii.card,
-    overflow: 'hidden'
-  },
-  sectionTopGap: {
-    marginTop: spacing.sm
-  },
-  groupGap: {
-    marginTop: spacing.lg
-  },
-  rowDivider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.bgRaised
-  },
-  diagnostics: {
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.xs,
-    fontSize: typography.bodySize - 3,
-    lineHeight: 18,
-    color: colors.textMuted
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm + 2,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md + 2
-  },
-  rowContent: {
-    flex: 1
-  },
-  rowLabel: {
-    fontSize: typography.bodySize,
-    fontWeight: '500',
-    color: colors.textPrimary
-  },
-  rowSublabel: {
-    fontSize: typography.bodySize - 2,
-    color: colors.textSecondary,
-    marginTop: 2
-  }
-})

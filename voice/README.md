@@ -179,6 +179,26 @@ Zgłoszenia właściciela z 2026-10-21:
 - Powiadomienie istnieje tylko przy włączonym „Keep reading with the screen off”. Jest ciche
   (niski priorytet), więc przycisk może być widoczny dopiero po rozwinięciu powiadomienia.
 
+## Szybkość i głos czytania (build 17, 2026-10-23)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel chciał zmieniać szybkość i rodzaj głosu w samej aplikacji (wcześniej tylko systemowe
+ustawienia „Zamiana tekstu na mowę”, wspólne dla całego telefonu).
+
+- Settings → Read aloud → grupa **VOICE**: „Speed” (Phone setting, 0.8×–2×), „Voice” (Phone
+  setting albo jeden z zainstalowanych głosów w języku, w którym silnik czyta), „Test voice” i
+  skrót do systemowych ustawień TTS (pobieranie głosów, inny silnik). Wybór od razu czyta próbkę.
+- Głosy Google mają nazwy typu `pl-pl-x-oda-local` / `-network`, więc lista je numeruje („Voice 2 ·
+  Offline” / „Voice 2 · Needs internet”, para lokalny/sieciowy ma ten sam numer) —
+  `speech/voice-choice.ts`. Głosy sieciowe wymagają internetu.
+- Ustawienia trzyma **moduł natywny** (SharedPreferences `orca-voice-speech`), nie AsyncStorage,
+  żeby pierwsze czytanie po restarcie już ich używało. `ReadAloudSpeech.kt` nakłada je na każdy
+  nowy silnik (też po przebudowie po błędzie); zmiana działa od następnego kawałka odpowiedzi.
+  „Phone setting” przywraca systemową szybkość (`TTS_DEFAULT_RATE`) i domyślny głos silnika.
+- JS: `speech/speech-options.ts`, `speech/read-aloud-voice-settings.tsx`; style ekranu wydzielone do
+  `speech/read-aloud-settings-styles.ts`. Zapasowe expo-speech (bez modułu) ustawień nie ma.
+
 ## Budowanie
 
 ```powershell
