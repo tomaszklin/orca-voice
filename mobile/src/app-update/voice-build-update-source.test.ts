@@ -3,7 +3,7 @@ import {
   createVoiceBuildUpdateSource,
   isNewerVoiceBuild,
   isVoiceUpdateUrl,
-  VOICE_UPDATE_BASES
+  VOICE_UPDATE_BASE
 } from './voice-build-update-source'
 
 const index = {
@@ -24,21 +24,21 @@ function fetchAnswering(answers: Record<string, unknown>): typeof fetch {
 }
 
 describe('voice build updates', () => {
-  it('offers a newer build from whichever address answers', async () => {
-    const away = `${VOICE_UPDATE_BASES[1]}version.json`
-    const source = createVoiceBuildUpdateSource(fetchAnswering({ [away]: index }))
+  it('offers a newer build from the latest GitHub release', async () => {
+    const latest = `${VOICE_UPDATE_BASE}version.json`
+    const source = createVoiceBuildUpdateSource(fetchAnswering({ [latest]: index }))
     const result = await source.check('build 14', new AbortController().signal)
     expect(result).toEqual({
       kind: 'available',
       version: 'build 15',
-      url: `${VOICE_UPDATE_BASES[1]}orca-voice-0.0.57-b15.apk`
+      url: `${VOICE_UPDATE_BASE}orca-voice-0.0.57-b15.apk`
     })
     expect(result.kind === 'available' && isVoiceUpdateUrl(result.url)).toBe(true)
   })
 
-  it('is current on the same build and fails when no address answers', async () => {
-    const home = `${VOICE_UPDATE_BASES[0]}version.json`
-    const source = createVoiceBuildUpdateSource(fetchAnswering({ [home]: index }))
+  it('is current on the same build and fails when the release is unreachable', async () => {
+    const latest = `${VOICE_UPDATE_BASE}version.json`
+    const source = createVoiceBuildUpdateSource(fetchAnswering({ [latest]: index }))
     await expect(source.check('build 15', new AbortController().signal)).resolves.toEqual({
       kind: 'current'
     })

@@ -1,6 +1,7 @@
-# Orca Voice — prywatna wersja Orca Mobile z czytaniem odpowiedzi
+# Orca Voice — własna wersja Orca Mobile z czytaniem odpowiedzi
 
-Fork [stablyai/orca](https://github.com/stablyai/orca) (licencja MIT), gałąź `voice`.
+Fork [stablyai/orca](https://github.com/stablyai/orca) (licencja MIT), gałąź `voice`. Od 2026-10-25
+publiczny: [tomaszklin/orca-voice](https://github.com/tomaszklin/orca-voice), APK w Releases.
 Zmieniona jest **tylko aplikacja na telefon**. Desktop zostaje oficjalny i aktualizuje się sam.
 
 Powód (2026-10-18): Orca nie ma czytania odpowiedzi agenta na głos (prośba
@@ -245,7 +246,33 @@ kończy się „ninja: manifest 'build.ninja' still dirty after 100 tries” —
 - CMake 3.31.6 z ninja 1.12 (`sdkmanager "cmake/3.31.6"`) wskazany w `android/local.properties`.
 Skrypt robi `expo prebuild --clean`, więc katalog `mobile/android/` jest za każdym razem generowany od nowa.
 
-## Aktualizacje z serwera HAL (od buildu 15, 2026-10-21)
+## Wydania na GitHubie (od buildu 20, 2026-10-25)
+
+Właściciel uznał rozsyłanie z domowego serwera za błąd: fork może być publiczny, z GitHuba pobiera
+się szybko i można się tą wersją dzielić. Fork: [tomaszklin/orca-voice](https://github.com/tomaszklin/orca-voice)
+(prawdziwy fork na GitHubie, gałąź domyślna `voice`).
+
+```powershell
+pwsh -File E:\Projects\OrcaVoice\voice\build-apk.ps1
+pwsh -File E:\Projects\OrcaVoice\voice\publish-github.ps1
+```
+
+- `publish-github.ps1` wypycha gałąź `voice` i znacznik `voice-b<N>`, potem tworzy wydanie „Orca Voice
+  build N” z plikami `orca-voice-<wersja>-b<N>.apk` i `version.json` `{build, version, file, date}`,
+  oznaczone jako najnowsze. Najpierw commit, potem publikacja — znacznik idzie na bieżący commit.
+- Aplikacja (`app-update/voice-build-update-source.ts`) czyta
+  `https://github.com/tomaszklin/orca-voice/releases/latest/download/version.json`; adres
+  `latest/download/<plik>` przekierowuje do pliku najnowszego wydania, stamtąd też pobiera APK.
+- Build 19 jest na GitHubie, ale sam jeszcze pyta serwer HAL. Build 20 wystawiony też na HAL
+  (ostatni raz), żeby telefony na buildach 15–19 przeszły na GitHuba same.
+- **E-mail w commitach:** prywatny Gmail podmieniony przed pierwszym wypchnięciem na
+  `24731628+tomaszklin@users.noreply.github.com` (na profilu GitHub właściciel e-mail ukrywa); ten
+  adres jest ustawiony w `git config user.email` tego repo. Gałąź sprzed podmiany:
+  `voice-before-email-rewrite` (lokalna).
+
+## Aktualizacje z serwera HAL (build 15–19, 2026-10-21, wycofane)
+
+Zastąpione wydaniami na GitHubie (sekcja wyżej). Opis zostaje dla historii.
 
 **Stan: działa (potwierdzone przez właściciela 2026-10-21: aktualizacja z buildu 15 do testowego 16
 przez „Check for updates” → „Update” → instalator).**
@@ -310,7 +337,7 @@ każdej aktualizacji — przebudować, gdy coś przestanie działać albo przyda
 2. Konflikt w `mobile/pnpm-lock.yaml` → wziąć wersję z tagu i `pnpm add expo-speech@~<wersja>`
    (z `pnpm_config_node_linker=hoisted`).
 3. Testy: `pnpm exec vitest run src/speech src/settings src/session src/mobile-web-shell src/platform`.
-4. `pwsh -File voice\build-apk.ps1`, potem `voice\publish-apk.ps1` (telefon dostanie aktualizację w aplikacji).
+4. `pwsh -File voice\build-apk.ps1`, potem `voice\publish-github.ps1` (telefon dostanie aktualizację w aplikacji).
 
 Uwaga: oficjalne APK Orki zainstalowane na tę wersję usuwa czytanie (wraca oryginał).
 
