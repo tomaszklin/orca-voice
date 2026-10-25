@@ -73,11 +73,20 @@ function playChunk(utterance: Utterance, index: number, attempt: number): void {
 /**
  * Reads an agent reply with the device's TTS voice.
  * `interrupt` (the play button) cuts off whatever is playing; `queue` (auto-read) waits its turn.
+ * `intro` (the project name) is spoken first as a piece of its own, so a pause follows it.
  */
-export function speakReply(id: string, markdown: string, mode: 'interrupt' | 'queue'): void {
+export function speakReply(
+  id: string,
+  markdown: string,
+  mode: 'interrupt' | 'queue',
+  intro?: string
+): void {
   const chunks = splitForSpeech(toSpeechText(markdown), SPEECH_PIECE_LENGTH)
   if (chunks.length === 0) {
     return
+  }
+  if (intro) {
+    chunks.unshift(`${intro}.`)
   }
   logSpeechEvent(`${mode === 'interrupt' ? 'read' : 'auto-read'} ${id} (${chunks.length} pieces)`)
   if (mode === 'interrupt') {

@@ -59,6 +59,17 @@ describe('speakReply', () => {
     expect(spoken).toHaveLength(1)
   })
 
+  it('says the project name first, as its own piece, and never alone', () => {
+    speakReply('a', 'Done.', 'queue', 'Orca Voice')
+    expect(last().text).toBe('Orca Voice.')
+    last().handlers.onDone?.()
+    expect(last().text).toBe('Done.')
+    stopSpeaking()
+    spoken.length = 0
+    speakReply('b', '   ', 'queue', 'Orca Voice')
+    expect(spoken.map(({ text }) => text)).not.toContain('Orca Voice.')
+  })
+
   it('ignores callbacks of a reply that was stopped', () => {
     speakReply('a', reply, 'queue')
     const stale = last().handlers

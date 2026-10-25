@@ -231,6 +231,24 @@ Właściciel chciał wysłać agentowi PDF, a czat pozwalał załączyć tylko z
 - Zdjęcie wybrane spinaczem trafia jako tekst „[Image from my phone…]”, nie jako miniatura —
   do zdjęć dalej służy przycisk obrazka.
 
+## Nazwa projektu przed wiadomością (build 21, 2026-10-25)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel chciał słyszeć, z którego projektu jest czytana wiadomość.
+
+- Settings → Read aloud → **PROJECT NAME**: „When the project changes” (domyślnie), „Before every
+  message”, „Off” (klucz `orca:voiceProjectName`). „When the project changes” mówi nazwę, gdy
+  poprzednia czytana wiadomość była z innego projektu albo minęły 2 minuty ciszy — żeby kilka
+  wiadomości jednego agenta nie zaczynało się za każdym razem od nazwy.
+- Nazwa to `repo` z wiersza `worktree.ps` (dla workspace'u-folderu też jego nazwa; awaryjnie
+  `displayName` — dla głównych worktree to często tylko „main”). Złączone słowa są rozdzielane
+  („OrcaVoice” → „Orca Voice”), bo syntezator czytałby je jako jedno słowo.
+- Tylko auto-czytanie; przycisk Read pod wiadomością czyta bez nazwy (czat i tak jest na ekranie).
+  Nazwa idzie jako osobny kawałek, więc po niej jest pauza (`speakReply(…, intro)`).
+- Kod: `speech/project-name-announcement.ts`; wybór zapisany przez wspólne
+  `speech/stored-choice.ts` (na nim też „What to read”).
+
 ## Budowanie
 
 ```powershell

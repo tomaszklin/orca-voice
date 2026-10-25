@@ -9,6 +9,11 @@ import { useAutoReadRepliesPreference } from './auto-read-preference'
 import { useBackgroundReadingPreference, useBackgroundReadingService } from './background-reading'
 import { backgroundReadingActive } from './background-reading-state'
 import { createChatMessageFeeds, type AgentPane } from './chat-message-feeds'
+import {
+  projectNameIntro,
+  useProjectNameMode,
+  type LastReadMessage
+} from './project-name-announcement'
 import { useReadScopePreference } from './read-scope-preference'
 import { speakReply } from './reply-speaker'
 import { recordSpeechDiagnostics } from './speech-diagnostics'
@@ -66,6 +71,14 @@ export function findNewReplies(
 export type AutoReadAgentRow = RuntimeWorktreeAgentRow & {
   rawPaneKey: string
   worktreeId: string | null
+  /** The repo (or folder workspace) name, said before a message when that option is on. */
+  project: string | null
+}
+
+function worktreeProjectName(worktree: unknown): string | null {
+  const fields = worktree as { repo?: unknown; displayName?: unknown } | null
+  const name = typeof fields?.repo === 'string' && fields.repo ? fields.repo : fields?.displayName
+  return typeof name === 'string' && name ? name : null
 }
 
 /** The agent rows of one worktree.ps reply, with pane keys made unique across hosts. */
@@ -81,6 +94,7 @@ export function agentRowsFromWorktreePs(hostId: string, result: unknown): AutoRe
     if (!Array.isArray(agents)) {
       continue
     }
+    const project = worktreeProjectName(worktree)
     for (const agent of agents as RuntimeWorktreeAgentRow[]) {
       if (typeof agent?.paneKey !== 'string') {
         continue
@@ -90,7 +104,8 @@ export function agentRowsFromWorktreePs(hostId: string, result: unknown): AutoRe
         paneKey: `${hostId}:${agent.paneKey}`,
         parentPaneKey: agent.parentPaneKey ? `${hostId}:${agent.parentPaneKey}` : null,
         rawPaneKey: agent.paneKey,
-        worktreeId: typeof worktreeId === 'string' ? worktreeId : null
+        worktreeId: typeof worktreeId === 'string' ? worktreeId : null,
+        project
       })
     }
   }
@@ -140,6 +155,11 @@ export function useAutoReadReplies(): void {
   useEffect(() => {
     readScopeRef.current = readScope
   }, [readScope])
+  const { value: projectNameMode } = useProjectNameMode()
+  const projectNameModeRef = useRef(projectNameMode)
+  useEffect(() => {
+    projectNameModeRef.current = projectNameMode
+  }, [projectNameMode])
   const baselineRef = useRef<ReplyBaseline>(new Map())
   // The background service's ticks reach the current poll through this, since JS timers stop
   // firing once Orca is off screen.
@@ -157,6 +177,16 @@ export function useAutoReadReplies(): void {
     let cancelled = false
     let inFlight = false
     let lastPollAt = 0
+    // The project of each pane, from the latest poll; and the last message queued, for `on-change`.
+    let projectByPane: ReadonlyMap<string, string | null> = new Map()
+    let lastRead: LastReadMessage | null = null
+    const speakAutoRead = (id: string, paneKey: string, text: string) => {
+      const project = projectByPane.get(paneKey) ?? null
+      const now = Date.now()
+      const intro = projectNameIntro(projectNameModeRef.current, project, lastRead, now)
+      lastRead = { project, at: now }
+      speakReply(id, text, 'queue', intro ?? undefined)
+    }
     const readsEveryMessage = () =>
       readScopeRef.current === 'all' ||
       (readScopeRef.current === 'all-on-screen' && AppState.currentState === 'active')
@@ -164,7 +194,7 @@ export function useAutoReadReplies(): void {
       if (!readsEveryMessage() || isAutoReadMuted()) {
         return false
       }
-      speakReply(`${paneKey}#${messageId}`, text, 'queue')
+      speakAutoRead(`${paneKey}#${messageId}`, paneKey, text)
       return true
     })
 
@@ -199,6 +229,11 @@ export function useAutoReadReplies(): void {
         // A host whose read failed this round is left out rather than treated as having no
         // agents, so its panes keep their baseline and nothing is re-read when it answers again.
         const agents = rows.flatMap((hostRows) => hostRows ?? [])
+        // Merged, not replaced: a host whose read failed this round keeps its panes' projects.
+        projectByPane = new Map([
+          ...projectByPane,
+          ...agents.map((row) => [row.paneKey, row.project] as const)
+        ])
         const { baseline, newReplies } = findNewReplies(baselineRef.current, agents)
         baselineRef.current = baseline
         recordSpeechDiagnostics({
@@ -220,7 +255,7 @@ export function useAutoReadReplies(): void {
           ) {
             continue
           }
-          speakReply(reply.paneKey, message, 'queue')
+          speakAutoRead(reply.paneKey, reply.paneKey, message)
         }
         if (readScopeRef.current === 'replies') {
           feeds.closeAll()

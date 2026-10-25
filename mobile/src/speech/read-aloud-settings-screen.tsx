@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router'
 import Constants from 'expo-constants'
 import { Check, ChevronLeft } from 'lucide-react-native'
 import { colors, spacing } from '../theme/mobile-theme'
-import type { ReadScope } from '../storage/speech-preferences'
+import type { ProjectNameMode, ReadScope } from '../storage/speech-preferences'
 import { setAutoReadMuted, useAutoReadMuted } from './auto-read-mute'
 import { useAutoReadRepliesPreference } from './auto-read-preference'
 import { useBuiltInPagePreference } from './built-in-page-preference'
@@ -16,6 +16,7 @@ import {
   ReadAloudVoicePickers,
   type VoicePicker
 } from './read-aloud-voice-settings'
+import { useProjectNameMode } from './project-name-announcement'
 import { useReadScopePreference } from './read-scope-preference'
 import { describeSpeechDiagnostics, useSpeechDiagnostics } from './speech-diagnostics'
 import { useSpeechOptions } from './speech-options'
@@ -38,6 +39,20 @@ const READ_SCOPES: { scope: ReadScope; label: string; sublabel: string }[] = [
   }
 ]
 
+const PROJECT_NAME_MODES: { mode: ProjectNameMode; label: string; sublabel: string }[] = [
+  {
+    mode: 'on-change',
+    label: 'When the project changes',
+    sublabel: 'Before a message from another project, or after two quiet minutes'
+  },
+  {
+    mode: 'every',
+    label: 'Before every message',
+    sublabel: 'Even when several come from one agent'
+  },
+  { mode: 'off', label: 'Off', sublabel: 'Only the message' }
+]
+
 /** Orca Voice fork: every read-aloud option in one menu (Settings → Read aloud). */
 export default function ReadAloudSettingsScreen() {
   const router = useRouter()
@@ -46,6 +61,7 @@ export default function ReadAloudSettingsScreen() {
   const { builtInPage, setBuiltInPage } = useBuiltInPagePreference()
   const { backgroundReading, setBackgroundReading } = useBackgroundReadingPreference()
   const { readScope, setReadScope } = useReadScopePreference()
+  const { value: projectNameMode, setValue: setProjectNameMode } = useProjectNameMode()
   const muted = useAutoReadMuted()
   const diagnostics = useSpeechDiagnostics()
   const speechOptions = useSpeechOptions()
@@ -161,6 +177,31 @@ export default function ReadAloudSettingsScreen() {
                 accessibilityState={{ checked: selected }}
                 style={index === 0 ? styles.row : [styles.row, styles.rowDivider]}
                 onPress={() => setReadScope(option.scope)}
+              >
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>{option.label}</Text>
+                  <Text style={styles.rowSublabel}>{option.sublabel}</Text>
+                </View>
+                {selected ? <Check size={18} color={colors.textPrimary} /> : null}
+              </Pressable>
+            )
+          })}
+        </View>
+
+        <Text style={[styles.groupHeading, styles.groupGap]}>PROJECT NAME</Text>
+        <Text style={styles.groupDescription}>
+          Auto-read says the project first, so you know which agent is talking.
+        </Text>
+        <View style={[styles.section, styles.sectionTopGap]}>
+          {PROJECT_NAME_MODES.map((option, index) => {
+            const selected = option.mode === projectNameMode
+            return (
+              <Pressable
+                key={option.mode}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                style={index === 0 ? styles.row : [styles.row, styles.rowDivider]}
+                onPress={() => setProjectNameMode(option.mode)}
               >
                 <View style={styles.rowContent}>
                   <Text style={styles.rowLabel}>{option.label}</Text>

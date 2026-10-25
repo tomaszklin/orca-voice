@@ -49,7 +49,7 @@ export function saveBackgroundReading(enabled: boolean): Promise<void> {
   return saveFlag(BACKGROUND_READING_KEY, enabled)
 }
 
-const READ_SCOPE_KEY = 'orca:voiceReadScope'
+export const READ_SCOPE_KEY = 'orca:voiceReadScope'
 
 /**
  * `all`: every message, including what the agent writes while working. `replies`: only the answer
@@ -60,15 +60,10 @@ export type ReadScope = 'all' | 'all-on-screen' | 'replies'
 // Why: `all` by default — the owner found only turn-ending replies were read (2026-10-21).
 export const DEFAULT_READ_SCOPE: ReadScope = 'all'
 
-export async function loadReadScope(): Promise<ReadScope> {
-  try {
-    const raw = await AsyncStorage.getItem(READ_SCOPE_KEY)
-    return raw === 'all' || raw === 'all-on-screen' || raw === 'replies' ? raw : DEFAULT_READ_SCOPE
-  } catch {
-    return DEFAULT_READ_SCOPE
-  }
-}
+export const PROJECT_NAME_MODE_KEY = 'orca:voiceProjectName'
 
-export function saveReadScope(scope: ReadScope): Promise<void> {
-  return AsyncStorage.setItem(READ_SCOPE_KEY, scope)
-}
+/** Whether auto-read names a message's project first: `on-change` only when it differs from the last. */
+export type ProjectNameMode = 'on-change' | 'every' | 'off'
+
+// Why: on — the owner asked for it (2026-10-25); `on-change` so one agent's run is not named each time.
+export const DEFAULT_PROJECT_NAME_MODE: ProjectNameMode = 'on-change'
