@@ -9,6 +9,7 @@ import { styles } from './mobile-session-styles'
 import type { MobileSessionController } from './use-mobile-session-controller'
 import { FileReader } from './MobileSessionFileReader'
 import { MarkdownReader } from './MobileSessionMarkdownReader'
+import { ChatFileAttachContext, useChatFileAttach } from '../file-attach/use-chat-file-attach'
 
 export function MobileSessionActiveContent({
   controller
@@ -82,6 +83,15 @@ export function MobileSessionActiveContent({
     toastAnimatedStyle,
     createTabBusy
   } = controller
+  // Orca Voice fork: any-file attach for the chat composer.
+  const chatFileAttach = useChatFileAttach({
+    client,
+    connState,
+    getConnectionId: controller.getActiveWorktreeConnectionId,
+    // Read at attach time: test fakes of the controller carry no chat controller.
+    setComposerText: (update) => nativeChatController.setChatComposerText(update),
+    showToast
+  })
   const content = showLoadingState ? (
     <View style={styles.emptyState}>
       <ActivityIndicator size="small" color={colors.textSecondary} />
@@ -258,7 +268,9 @@ export function MobileSessionActiveContent({
         notifyTerminalFrame({ width, height })
       }}
     >
-      {content}
+      <ChatFileAttachContext.Provider value={chatFileAttach}>
+        {content}
+      </ChatFileAttachContext.Provider>
     </View>
   )
 }

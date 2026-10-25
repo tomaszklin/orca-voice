@@ -204,6 +204,32 @@ ustawienia „Zamiana tekstu na mowę”, wspólne dla całego telefonu).
   **Głosy online ukryte** (na trasie bez zasięgu milkną) — na liście tylko offline, chyba że głos
   online był już wybrany.
 
+## Dowolny plik w czacie (build 19, 2026-10-25)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel chciał wysłać agentowi PDF, a czat pozwalał załączyć tylko zdjęcie (galeria).
+
+- Obok przycisku zdjęcia w polu wiadomości jest **spinacz „Attach file”** — systemowy wybór
+  plików, dowolny typ, najwyżej 18 MB (`mobile/src/file-attach/`; wstawki w
+  `session/MobileNativeChatComposer.tsx` i `session/MobileSessionActiveContent.tsx` przez kontekst).
+- **Jedyna droga bajtów z telefonu na desktop to metody `clipboard.*ImageUpload`** — desktop nie
+  pozwala telefonowi na `files.writeBase64` ani `agentSessionAttachment.*` (lista
+  `runtime-rpc-mobile-method-routing.ts`, desktop 1.4.229, sprawdzone też do v1.4.240). Desktop
+  zapisuje każdą przesyłkę bez sprawdzania treści jako `%TEMP%\orca-paste-<czas>-<uuid>.png`.
+- Dlatego plik nie jest „obrazkiem” w wiadomości, tylko tekstem dopisanym do szkicu, np.
+  `[File from my phone (PDF), saved on this computer as `…png`. It is not an image despite the .png
+  name: copy it to a .pdf file before opening it.]` (`file-attach/chat-file-reference.ts`).
+  Ścieżka w backtickach i nie na końcu: goła ścieżka `.png` wklejona do Claude Code zostałaby
+  dołączona jako obraz, a PDF jako obraz psuje rozmowę (błąd API przy każdym kolejnym kroku).
+  Bez `@` z tego samego powodu.
+- Na wbudowanej stronie (czat) nazwa pliku nie dociera — werbalny `native.media.pick` niesie tylko
+  typ MIME; rozszerzenie bierze się z typu (lista znanych typów w `chat-file-reference.ts`).
+  Dodanie nazwy wymagałoby zmiany ścisłego schematu mostka (oficjalna strona z desktopu by go
+  odrzuciła).
+- Zdjęcie wybrane spinaczem trafia jako tekst „[Image from my phone…]”, nie jako miniatura —
+  do zdjęć dalej służy przycisk obrazka.
+
 ## Budowanie
 
 ```powershell
