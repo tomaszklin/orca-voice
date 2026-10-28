@@ -37,7 +37,6 @@ import {
   mobileNativeChatComposerShowsStop
 } from './mobile-native-chat-composer-layout'
 import { MobileNativeChatStopButton } from './MobileNativeChatStopButton'
-import { ChatFileAttachButton } from '../file-attach/ChatFileAttachButton'
 import { mobileNativeChatComposerStyles as styles } from './mobile-native-chat-composer-styles'
 
 const NO_FILE_PATHS: string[] = []
@@ -264,17 +263,6 @@ export function MobileNativeChatComposer({
       )}
     </Pressable>
   ) : null
-  // Orca Voice fork: any-file attach beside the image button.
-  const attachButtons = (
-    <>
-      {attachButton}
-      <ChatFileAttachButton
-        style={styles.iconButton}
-        pressedStyle={styles.pressed}
-        disabled={disabled}
-      />
-    </>
-  )
 
   return (
     <View>
@@ -314,7 +302,7 @@ export function MobileNativeChatComposer({
         <View style={expanded ? styles.bar : styles.barCollapsed} testID="native-chat-composer">
           {/* Collapsed puts attach before the field; the field keeps its child slot either way so
               the switch never remounts it (that would drop focus mid-tap). */}
-          {expanded ? null : attachButtons}
+          {expanded ? null : attachButton}
           <TextInput
             ref={fieldRef}
             style={
@@ -345,7 +333,7 @@ export function MobileNativeChatComposer({
             style={expanded ? styles.actionRow : styles.actionRowCollapsed}
             testID="native-chat-composer-actions"
           >
-            {expanded ? attachButtons : null}
+            {expanded ? attachButton : null}
             {sessionOptions ? (
               // Stays mounted collapsed so an open drawer, or a picker a command asks for, survives.
               <MobileNativeChatSessionOptionPickers
