@@ -44,6 +44,15 @@ try {
     $env:pnpm_config_confirm_modules_purge = 'false'
     pnpm install --frozen-lockfile
     if ($LASTEXITCODE) { throw 'pnpm install nie powiódł się' }
+    # Why: react-native-libsodium (od v1.4.243) podaje CMake'owi ścieżkę node_modules z "\", a CMake
+    # czyta "\P" w cudzysłowie jako błędną sekwencję ("Invalid character escape"). Oficjalne
+    # wydania budują się na Linuksie/macOS, więc tego nie widzą. Zamiana na "/" jest bezpieczna.
+    $sodiumGradle = 'node_modules\react-native-libsodium\android\build.gradle'
+    if (Test-Path $sodiumGradle) {
+        $sodium = Get-Content $sodiumGradle -Raw
+        $sodiumFixed = $sodium.Replace('"-DNODE_MODULES_DIR=${nodeModules}"', '"-DNODE_MODULES_DIR=${nodeModules.replace(''\\'', ''/'')}"')
+        if ($sodiumFixed -ne $sodium) { Set-Content $sodiumGradle $sodiumFixed -NoNewline -Encoding utf8 }
+    }
     # --clean: generowany katalog android/ trzyma w cache ścieżki modułów (autolinking), które
     # po zmianie układu node_modules wskazują w próżnię.
     pnpm exec expo prebuild --platform android --no-install --clean
