@@ -31,7 +31,7 @@ $local = Join-Path $tmp 'version.json'
 $index | ConvertTo-Json -Compress | Set-Content $local -Encoding utf8NoBOM
 
 $notes = @"
-Android build $Build of Orca Voice, a fork of [Orca](https://github.com/stablyai/orca) Mobile that reads agent replies aloud.
+Android build $Build of Orca Voice, an unofficial fork of [Orca](https://github.com/stablyai/orca) Mobile that reads agent replies aloud. Not affiliated with the Orca team.
 
 Install: open this page on the phone, download **$($apk.Name)** and open it. It installs over the official Orca Mobile app and keeps its pairing. Later builds arrive in the app (Settings → Check for updates).
 

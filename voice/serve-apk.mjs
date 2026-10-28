@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 
 const [host, port = '8765'] = process.argv.slice(2)
 if (!host) {
-  console.error('Podaj adres IP, np.: node voice/serve-apk.mjs 172.24.212.29')
+  console.error('Podaj adres IP, np.: node voice/serve-apk.mjs 10.0.0.5')
   process.exit(1)
 }
 

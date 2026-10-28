@@ -288,45 +288,29 @@ pwsh -File E:\Projects\OrcaVoice\voice\publish-github.ps1
   adres jest ustawiony w `git config user.email` tego repo. Gałąź sprzed podmiany:
   `voice-before-email-rewrite` (lokalna).
 
-## Aktualizacje z serwera HAL (build 15–19, 2026-10-21, wycofane)
+## Aktualizacje z serwera domowego (build 15–19, 2026-10-21, wycofane)
 
-Zastąpione wydaniami na GitHubie (sekcja wyżej). Opis zostaje dla historii.
+Zastąpione wydaniami na GitHubie (sekcja wyżej). Build 15–19 pobierały `version.json` i APK z
+domowego serwera (Home Assistant, tylko sieć domowa i VPN); skrypt `publish-apk.ps1` usunięty
+2026-10-28 razem z adresami sieci domowej, które były w tym opisie (repo jest publiczne).
+Mechanizm aktualizacji w aplikacji został ten sam:
 
-**Stan: działa (potwierdzone przez właściciela 2026-10-21: aktualizacja z buildu 15 do testowego 16
-przez „Check for updates” → „Update” → instalator).**
-
-Właściciel chciał, żeby „Check for updates” w aplikacji szukał naszych buildów, jak HAL 9000 z
-projektu SmartHome (`E:\Projects\SmartHome\09-aplikacja-hal.md`).
-
-```powershell
-pwsh -File E:\Projects\OrcaVoice\voice\build-apk.ps1
-pwsh -File E:\Projects\OrcaVoice\voice\publish-apk.ps1
-```
-
-- `publish-apk.ps1` kopiuje przez SSH (dodatek Terminal & SSH w Home Assistant, klucz
-  `~/.ssh/smarthome_ed25519`, ten sam co HAL) do `/homeassistant/www/orca-voice/`:
-  `orca-voice-<wersja>-b<N>.apk`, `orca-voice.apk` (zawsze najnowszy), na końcu `version.json`
-  `{build, version, file, date}`; zostają 3 ostatnie APK. HA serwuje to bez logowania tylko w domu i
-  przez ZeroTier: `http://192.168.0.223/local/orca-voice/`, `http://172.24.140.251/local/orca-voice/`.
-  Pobierze to każdy w domowym Wi-Fi — APK nie ma żadnych tokenów (parowanie jest na telefonie).
 - Aplikacja (`app-update/voice-build-update-source.ts`, wstawki w `app-update-runtime.ts` i
-  `app-update-checker.ts`): build z numerem (`extra.voiceBuild`) pyta oba adresy naraz o
-  `version.json` (zamiast GitHuba Orki) i porównuje numery buildów („Orca build 15 is available”).
+  `app-update-checker.ts`): build z numerem (`extra.voiceBuild`) pyta o `version.json` (zamiast
+  wydań Orki) i porównuje numery buildów („Orca build 15 is available”).
   „Update” pobiera APK w aplikacji z postępem w powiadomieniu i otwiera systemowy instalator
   (`UpdateInstaller.kt`, `UpdateFileProvider`, uprawnienie `REQUEST_INSTALL_PACKAGES`); przy
   pierwszym razie Android prosi o zgodę na instalowanie z Orki. Sprawdzanie: raz dziennie, przy
   starcie i przyciskiem „Check for updates”.
-- Builds ≤ 14 pytają jeszcze GitHuba Orki: build 15 trzeba zainstalować ręcznie (link niżej albo
-  `http://172.24.140.251/local/orca-voice/orca-voice.apk`), kolejne przyjdą przez aplikację.
 - Oficjalnych wersji Orki aplikacja już nie zgłasza — nowy tag desktopu sprawdzać ręcznie.
 
 ## Przesłanie na telefon (ręcznie)
 
-Telefon łączy się z komputerem przez **ZeroTier** (IP komputera w tej sieci: `172.24.212.29`,
-stan 2026-10-18). Plik ma ok. 55 MB — za dużo na ntfy.
+Telefon łączy się z komputerem przez **ZeroTier** (adres komputera w tej sieci jest w
+`CLAUDE.local.md`, poza repo). Plik ma ok. 55 MB — za dużo na ntfy.
 
 ```powershell
-& "C:\Program Files\nodejs\node.exe" E:\Projects\OrcaVoice\voice\serve-apk.mjs 172.24.212.29
+& "C:\Program Files\nodejs\node.exe" E:\Projects\OrcaVoice\voice\serve-apk.mjs <adres-ZeroTier-komputera>
 ```
 
 Wypisuje jednorazowy link (losowy token), który otwiera się w przeglądarce telefonu. Serwer słucha

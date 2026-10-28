@@ -1,3 +1,18 @@
+> [!NOTE]
+> **This is Orca Voice, an unofficial fork of [Orca](https://github.com/stablyai/orca).** It is a personal project, not affiliated with or endorsed by the Orca team. Orca's name and logo belong to their owners. Please do not report problems with this fork to the Orca team.
+>
+> Only the **Android mobile app** is changed. Use the official Orca desktop app with it. The fork adds:
+>
+> - **Reading agent messages aloud**, with a Read button under each reply and optional auto-read of new messages from every connected agent, also with the screen off. A notification has a Mute button.
+> - **Reading settings**: which messages to read, speed and voice, and the project name said before each message.
+> - **Audio that behaves**: music ducks while it reads, it plays in cars over Bluetooth, and it stops for dictation and calls.
+> - **Attaching any file** (for example a PDF) in the chat, not only photos.
+> - Changes: the chat's microphone button is hidden (use your keyboard's dictation), and updates come from this fork's releases.
+>
+> **Install:** download the APK from [Releases](https://github.com/tomaszklin/orca-voice/releases/latest) on the phone and open it. It installs over the official Orca app and keeps your pairing. To go back, install the official app again. Change notes are in [voice/README.md](voice/README.md) (Polish). The license stays MIT ([LICENSE](LICENSE)).
+
+---
+
 <h1 align="center">
   <a href="https://onOrca.dev"><img src="resources/build/icon.png" alt="Orca" width="64" valign="middle" /></a> Orca
 </h1>
