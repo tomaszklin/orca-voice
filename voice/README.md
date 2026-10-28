@@ -418,6 +418,22 @@ Właściciel chciał, żeby angielskie fragmenty odpowiedzi nie były czytane po
 - Niesprawdzone na telefonie: jak pewne jest rozpoznawanie Androida na tekstach agenta (mieszanka
   polskiego z terminami) i czy przełączanie głosu nie robi przerw między kawałkami.
 
+## Pauza wznawia od słowa (build 27, 2026-10-28)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel zgłosił: pauza działała jak stop, a wznowienie zaczynało od początku (kawałka do 300
+znaków, więc krótka wiadomość szła od nowa). Silnik mowy Androida nie ma pauzy, tylko stop.
+
+- `ReadAloudSpeech.kt` słucha `onRangeStart` (Android 8+): silnik podaje, które słowo właśnie
+  czyta. Moduł zwraca je funkcją `spokenOffset(id)`; `speech/tts-engine.ts` pamięta, która
+  wypowiedź jest czytana (zerowane przy wysłaniu nowej i po jej końcu, żeby pauza między kawałkami
+  nie wzięła pozycji z poprzedniego).
+- `speech/reply-speaker.ts`: przy pauzie (też przerwie na rozmowę, odłączeniu słuchawek) zapisuje
+  pozycję w kawałku, wznowienie czyta kawałek od tego słowa. Kolejna pauza liczy się od miejsca, od
+  którego wznowiono. Silnik, który nie podaje słów, wznawia jak dawniej od początku kawałka.
+- Budowanie kawałków przeniesione do `speech/reply-pieces.ts` (limit 300 linii w pliku, jak w Orce).
+
 ## Budowanie
 
 ```powershell

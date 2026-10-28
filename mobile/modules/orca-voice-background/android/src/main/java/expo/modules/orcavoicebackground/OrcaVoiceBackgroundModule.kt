@@ -77,6 +77,9 @@ class OrcaVoiceBackgroundModule : Module() {
       true
     }
 
+    /** How far the utterance got: where the word being read starts, so a pause can go on from it. */
+    Function("spokenOffset") { id: String -> ReadAloudSpeech.spokenOffset(id) }
+
     Function("stopSpeech") {
       ReadAloudSpeech.stop()
     }

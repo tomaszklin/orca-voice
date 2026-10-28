@@ -19,6 +19,8 @@ export type UtteranceCallbacks = {
 const callbacks = new Map<string, UtteranceCallbacks>()
 let sequence = 0
 let subscribedTo: VoiceNativeModule | null = null
+// The utterance being read, so a pause can ask the engine how far it got.
+let speakingId: string | null = null
 /**
  * What happened to the audio, from the module: `interrupted` (another app took it for good) and
  * `held` (a call or dictation took it for a while) have already stopped the engine; `regained`
@@ -62,11 +64,15 @@ function ensureSubscribed(native: VoiceNativeModule): void {
       logSpeechEvent('waiting for the microphone to be free')
       return
     }
+    if (event !== 'start' && id === speakingId) {
+      speakingId = null
+    }
     const handlers = callbacks.get(id)
     if (!handlers) {
       return
     }
     if (event === 'start') {
+      speakingId = id
       handlers.onStart?.()
       return
     }
@@ -89,6 +95,7 @@ function sendToNative(
   ensureSubscribed(native)
   sequence += 1
   const id = `utterance-${sequence}`
+  speakingId = null
   callbacks.set(id, handlers)
   if (!send(id)) {
     callbacks.delete(id)
@@ -123,6 +130,12 @@ export function playChime(handlers: UtteranceCallbacks): void {
     return
   }
   sendToNative(native, handlers, (id) => native.chime(id), 'the chime could not play')
+}
+
+/** How much of the utterance being read was spoken: up to the start of its current word. */
+export function spokenOffset(): number {
+  const native = voiceNativeModule()
+  return native !== null && speakingId !== null ? native.spokenOffset(speakingId) : 0
 }
 
 export function stopUtterances(): void {

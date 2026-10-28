@@ -42,6 +42,8 @@ export type VoiceNativeModule = {
   /** Plays the two-note chime as one utterance, with the speech's audio attributes and focus. */
   chime(id: string): boolean
   stopSpeech(): void
+  /** Where the word being read in utterance `id` starts; 0 when the engine reports no words. */
+  spokenOffset(id: string): number
   /**
    * `phoneRate`: the rate the phone's text-to-speech settings give, 1 = normal. `language`: BCP 47
    * tag of the voice the reader last read with, null before its engine first started.

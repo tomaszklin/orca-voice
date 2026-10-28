@@ -4,24 +4,14 @@ import {
   onAudioEvent,
   playChime,
   speakUtterance,
+  spokenOffset,
   stopUtterances,
   type UtteranceCallbacks
 } from './tts-engine'
-import {
-  previousTarget,
-  readerStatus,
-  remembered,
-  type Hold,
-  type Piece,
-  type Utterance
-} from './reader-model'
-import { languageSegments } from './language-segments'
-import { splitForSpeech, toSpeechText } from './speech-text'
+import { previousTarget, readerStatus, remembered, type Hold, type Utterance } from './reader-model'
+import { replyPieces } from './reply-pieces'
 import { voiceNativeModule, type ReaderState } from './voice-native-module'
 
-// A few sentences per piece: when the engine drops one midway (2026-10-21: replies went quiet
-// seconds in), only that piece is repeated instead of the rest of the reply being lost.
-export const SPEECH_PIECE_LENGTH = 300
 const RETRIES_PER_PIECE = 1
 // A call, dictation or unplugged headphones longer than this end the reading instead of resuming
 // it; the message stays for Repeat.
@@ -37,6 +27,9 @@ let queue: Utterance[] = []
 let current: Utterance | null = null
 /** The piece of `current` being read, where a resume starts again. */
 let piece = 0
+// Where in its piece the current utterance starts, and where a resume goes on from.
+let pieceFrom = 0
+let resumeFrom = 0
 let startedAt = 0
 let hold: Hold | null = null
 /** Messages read lately, oldest first. */
@@ -105,11 +98,12 @@ function advance(utterance: Utterance, index: number): void {
   }
 }
 
-function playPiece(utterance: Utterance, index: number, attempt: number): void {
+function playPiece(utterance: Utterance, index: number, attempt: number, from = 0): void {
   // Why: callbacks of an utterance cut off by stop() can still arrive after the next one
   // started, so each one checks it still owns the speaker before advancing.
   const owns = () => current === utterance && hold === null
   piece = index
+  pieceFrom = from
   const position = `${index + 1}/${utterance.pieces.length}`
   const handlers: UtteranceCallbacks = {
     onStart: () => {
@@ -131,7 +125,7 @@ function playPiece(utterance: Utterance, index: number, attempt: number): void {
         return
       }
       if (attempt < RETRIES_PER_PIECE) {
-        playPiece(utterance, index, attempt + 1)
+        playPiece(utterance, index, attempt + 1, from)
       } else {
         advance(utterance, index)
       }
@@ -141,7 +135,7 @@ function playPiece(utterance: Utterance, index: number, attempt: number): void {
   if (next.kind === 'chime') {
     playChime(handlers)
   } else {
-    speakUtterance(next.text, handlers, next.language ?? null)
+    speakUtterance(next.text.slice(from), handlers, next.language ?? null)
   }
 }
 
@@ -165,16 +159,6 @@ function start(utterance: Utterance, mode: 'interrupt' | 'queue'): void {
   }
 }
 
-function textPieces(markdown: string): Piece[] {
-  return languageSegments(toSpeechText(markdown)).flatMap((segment) =>
-    splitForSpeech(segment.text, SPEECH_PIECE_LENGTH).map((text): Piece => ({
-      kind: 'text',
-      text,
-      language: segment.language
-    }))
-  )
-}
-
 /**
  * Reads an agent reply with the device's TTS voice.
  * `interrupt` (the play button) cuts off whatever is playing; `queue` (auto-read) waits its turn.
@@ -186,7 +170,7 @@ export function speakReply(
   mode: 'interrupt' | 'queue',
   intro: ReplyIntro = {}
 ): void {
-  const pieces = textPieces(markdown)
+  const pieces = replyPieces(markdown)
   if (pieces.length === 0) {
     return
   }
@@ -202,7 +186,7 @@ export function speakReply(
 /** A sample from the settings: read at once, and left out of Previous and Repeat. */
 export function speakSample(markdown: string): void {
   start(
-    { id: 'sample', pieces: textPieces(markdown), title: null, auto: false, kept: false },
+    { id: 'sample', pieces: replyPieces(markdown), title: null, auto: false, kept: false },
     'interrupt'
   )
 }
@@ -233,6 +217,9 @@ function holdReading(reason: Hold['reason'], label: string): void {
   if (hold?.reason === 'paused') {
     return
   }
+  if (hold === null) {
+    resumeFrom = pieceFrom + spokenOffset()
+  }
   hold = { reason, since: Date.now() }
   logSpeechEvent(`${reason}: ${label}`)
   // A call's hold keeps the focus request, so its end is reported.
@@ -246,7 +233,7 @@ export function pauseReading(reason: string): void {
   holdReading('paused', reason)
 }
 
-/** Goes on from the start of the piece that was cut off. */
+/** Goes on from the word the reading was cut off at, where the engine reports words. */
 export function resumeReading(reason: string): void {
   if (hold === null) {
     return
@@ -255,7 +242,7 @@ export function resumeReading(reason: string): void {
   hold = null
   if (current) {
     emit()
-    playPiece(current, piece, 0)
+    playPiece(current, piece, 0, resumeFrom)
   } else {
     playNext()
   }
