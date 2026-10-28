@@ -3,11 +3,11 @@ import {
   isNativeChatSupportedAgent,
   nativeChatRequiresLocalTranscript
 } from '../../../src/shared/native-chat-agent-support'
-import { buildNativeChatSubscriptionId } from '../../../src/shared/native-chat-stream-unsubscribe'
-import { withoutNativeChatVisualDirectiveLines } from '../../../src/shared/native-chat-visual-directive'
+import { buildNativeChatSubscriptionId } from '../../../src/shared/native-chat/native-chat-stream-unsubscribe'
+import { withoutNativeChatVisualDirectiveLines } from '../../../src/shared/native-chat/native-chat-visual-directive'
 import { parsePaneKey } from '../../../src/shared/stable-pane-id'
 import { sessionTabsListRead } from '../session/mobile-session-read-operations'
-import { structuredSessionRandomUuid } from '../session/structured-session-operation-id'
+import { randomV4Uuid } from '../platform/random-v4-uuid'
 import type { RpcClient } from '../transport/rpc-client'
 import { logSpeechEvent } from './speech-diagnostics'
 
@@ -249,7 +249,7 @@ export function createChatMessageFeeds(
         subscriptionId: buildNativeChatSubscriptionId(
           target.agent,
           target.sessionId,
-          structuredSessionRandomUuid()
+          randomV4Uuid()
         ),
         capabilities: { transcriptPending: 1 },
         ...(target.transcriptPath ? { transcriptPath: target.transcriptPath } : {})

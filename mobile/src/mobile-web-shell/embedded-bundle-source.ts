@@ -67,5 +67,11 @@ export async function fetchEmbeddedBundle(
       totalBytes: manifest.totalBytes
     })
   }
-  return { manifest, assets, totalBytes: manifest.totalBytes, elapsedMs: Date.now() - startedAt }
+  return {
+    manifest,
+    assets,
+    reused: [],
+    totalBytes: manifest.totalBytes,
+    elapsedMs: Date.now() - startedAt
+  }
 }

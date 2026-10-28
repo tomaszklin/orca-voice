@@ -19,11 +19,7 @@ import {
 } from './voice-build-update-source'
 import { installVoiceUpdate } from './voice-update-install'
 
-/**
- * Invariant: this app does not use expo-updates, so `expoConfig` is the manifest embedded in the
- * binary and its version is the binary's (app.json `version`, Android `versionName`). SDK 55
- * removed `Constants.nativeAppVersion`; adopting expo-updates would make this the update's version.
- */
+// expoConfig is embedded binary manifest because app does not use expo-updates; SDK 55 removed nativeAppVersion. Revisit version source if adopting OTA updates.
 export const installedAppVersion: string | null = Constants.expoConfig?.version ?? null
 
 // Orca Voice fork: a build that carries its build number updates from the home server instead.

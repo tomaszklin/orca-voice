@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { AppState } from 'react-native'
 import type { RuntimeWorktreeAgentRow } from '../../../src/shared/runtime-types'
-import { withoutNativeChatVisualDirectiveLines } from '../../../src/shared/native-chat-visual-directive'
+import { withoutNativeChatVisualDirectiveLines } from '../../../src/shared/native-chat/native-chat-visual-directive'
 import { useRpcClientContext } from '../transport/client-context'
 import type { RpcClient } from '../transport/rpc-client'
 import { isAutoReadMuted } from './auto-read-mute'

@@ -46,16 +46,19 @@ Settings → Chat UI pokaże, czy problem jest w odpytywaniu `worktree.ps`, czy 
 Właściciel chce: auto-czytanie jako opcja + **niezależnie** przycisk „Read” pod każdą odpowiedzią.
 Czat to strona z desktopu, więc APK niesie **własną kopię strony** i serwuje ją zamiast desktopowej.
 
-- **Baza forka = wydanie desktopu.** Gałąź `voice` stoi na tagu `v1.4.229` (wersja Orki na
-  komputerze), żeby wbudowana strona mówiła tym samym protokołem co desktop. Manifest strony
-  porównany z desktopowym: te same trasy, granty, `runtimeProtocolVersion` 3 / min 2, `pageVersion` 1.
-  Gdy desktop się zaktualizuje i coś przestanie działać: przenieść forka na nowy tag i przebudować.
+- **Baza forka = wydanie Orki** (od 2026-10-28 `v1.4.243`; wcześniej `v1.4.229`). Zob. „Aktualizacja
+  z upstream”.
 - **Mostek:** jeden czasownik `native.speech.control` (`{action:'speak', id, markdown}` |
   `{action:'stop'}`) — `bridge/bridge-speech-verbs.ts`, wpis w `bridge-native-verbs.ts`, obsługa
   `platform/native-speech.ts` ← `use-native-device-verbs.ts`. Jeden, nie dwa, bo trasa sesji ma
-  limit 16 grantów. W `config/scripts/mobile-web-page-routes.mjs` jako `optionalGrants` trasy
+  limit grantów. W `config/scripts/mobile-web-page-routes.mjs` jako `optionalGrants` trasy
   sesji — oficjalna powłoka dalej serwuje czat, tylko bez przycisku.
-- **Przycisk:** `components/MobileReplyReadButton.tsx` w `session/MobileNativeChatMessage.tsx`
+- **Limit grantów podniesiony z 16 na 18** (`src/shared/mobile-web-bundle/manifest-contract.ts`,
+  od 2026-10-28): w `v1.4.243` trasa sesji ma już 16 (13 + 3 opcjonalne), nasz jest 17. Wbudowaną
+  stronę i powłokę APK budujemy z tego samego kodu, a strona z desktopu dalej mieści się w 16.
+  18, nie 17, bo test Orki dzieli limit na pół.
+- **Przycisk:** `components/MobileReplyReadButton.tsx` w
+  `session/native-chat/transcript/MobileNativeChatMessage.tsx` (od `v1.4.243`; wcześniej `session/`)
   (obok kopiowania, tylko odpowiedzi asystenta, nie podczas pisania). Mówienie przez
   `platform/reply-speech.ts` (natywnie) / `reply-speech.web.ts` (strona → mostek).
 - **Wbudowana strona:** `voice/build-page.mjs` buduje ją esbuildem z zależności `mobile/` (~2 s,
@@ -205,9 +208,13 @@ ustawienia „Zamiana tekstu na mowę”, wspólne dla całego telefonu).
   **Głosy online ukryte** (na trasie bez zasięgu milkną) — na liście tylko offline, chyba że głos
   online był już wybrany.
 
-## Dowolny plik w czacie (build 19, 2026-10-25)
+## Dowolny plik w czacie (build 19, 2026-10-25) — usunięte 2026-10-28
 
-**Stan: zbudowane, niepotwierdzone na telefonie.**
+**Stan: usunięte przy przejściu na `v1.4.243`.** Oficjalna Orka ma to samo od `v1.4.240` (#30359):
+w polu wiadomości plus → „Files” (dowolny typ, kilka naraz), wysyłane jako prawdziwy załącznik
+czatu (`agentSessionAttachment.*`) z nazwą pliku (nazwa od `v1.4.243`, #32987). Wymaga desktopu
+co najmniej `v1.4.240`. Właściciel chciał to zgłosić do Orki jako PR — odpadło, bo już to mają.
+Opis obejścia poniżej zostaje dla historii.
 
 Właściciel chciał wysłać agentowi PDF, a czat pozwalał załączyć tylko zdjęcie (galeria).
 
@@ -216,7 +223,7 @@ Właściciel chciał wysłać agentowi PDF, a czat pozwalał załączyć tylko z
   `session/MobileNativeChatComposer.tsx` i `session/MobileSessionActiveContent.tsx` przez kontekst).
 - **Jedyna droga bajtów z telefonu na desktop to metody `clipboard.*ImageUpload`** — desktop nie
   pozwala telefonowi na `files.writeBase64` ani `agentSessionAttachment.*` (lista
-  `runtime-rpc-mobile-method-routing.ts`, desktop 1.4.229, sprawdzone też do v1.4.240). Desktop
+  `runtime-rpc-mobile-method-routing.ts`, desktop 1.4.229; „sprawdzone do v1.4.240” było błędem — `v1.4.240` już na to pozwala). Desktop
   zapisuje każdą przesyłkę bez sprawdzania treści jako `%TEMP%\orca-paste-<czas>-<uuid>.png`.
 - Dlatego plik nie jest „obrazkiem” w wiadomości, tylko tekstem dopisanym do szkicu, np.
   `[File from my phone (PDF), saved on this computer as `…png`. It is not an image despite the .png
@@ -330,16 +337,22 @@ w systemie to 20.x i zostaje nietknięty. Java: Microsoft JDK 17. Android SDK:
 
 ## Aktualizacja z upstream
 
-Fork ma stać na **tagu wersji desktopu**, którą właściciel ma zainstalowaną (wersja: pole
-`desktopVersion` w `%LOCALAPPDATA%\Programs\orca\resources\app.asar.unpacked\out\mobile-web\manifest.json`).
-Protokół telefon ↔ desktop toleruje różnice wersji (zmiany addytywne), więc nie trzeba gonić
-każdej aktualizacji — przebudować, gdy coś przestanie działać albo przyda się nowa funkcja:
+Fork stoi na **ostatnim wydaniu Orki** (tag `vX.Y.Z`), a desktop właściciel aktualizuje sam. Zasada
+„fork na wersji desktopu z komputera” jest nieaktualna (właściciel, 2026-10-28) — protokół telefon ↔
+desktop toleruje różnice wersji, a nowe funkcje Orki (np. załączniki) wymagają nowego desktopu.
 
-1. `git fetch --tags origin`, potem przenieść zmiany forka na nowy tag (stash → `git checkout -B voice vX.Y.Z` → stash pop).
-2. Konflikt w `mobile/pnpm-lock.yaml` → wziąć wersję z tagu i `pnpm add expo-speech@~<wersja>`
-   (z `pnpm_config_node_linker=hoisted`).
-3. Testy: `pnpm exec vitest run src/speech src/settings src/session src/mobile-web-shell src/platform`.
-4. `pwsh -File voice\build-apk.ps1`, potem `voice\publish-github.ps1` (telefon dostanie aktualizację w aplikacji).
+1. `git fetch origin tag vX.Y.Z --no-tags`, kopia gałęzi (`git branch voice-before-X.Y.Z voice`),
+   potem `git merge vX.Y.Z` — scalanie, nie przepisywanie historii, bo gałąź jest publiczna, a
+   `publish-github.ps1` wypycha bez nadpisywania.
+2. Konflikt w `mobile/pnpm-lock.yaml` → wziąć wersję z tagu i `pnpm install --no-frozen-lockfile`
+   w `mobile/` (z `pnpm_config_node_linker=hoisted`); doda tylko `expo-speech`.
+3. Sprawdzić limit grantów trasy sesji (sekcja o przycisku „Read”) i przeniesione pliki Orki
+   (`tsc --noEmit -p tsconfig.json` w `mobile/`).
+4. Testy: `node node_modules/vitest/vitest.mjs run src/speech src/settings src/session
+   src/mobile-web-shell src/platform src/app-update src/transport` w `mobile/`.
+5. `pwsh -File voice\build-apk.ps1`, potem `voice\publish-github.ps1` (telefon dostanie aktualizację w aplikacji).
+
+Historia: 2026-10-28 z `v1.4.229` na `v1.4.243` (kopia: `voice-before-1.4.243`, lokalna).
 
 Uwaga: oficjalne APK Orki zainstalowane na tę wersję usuwa czytanie (wraca oryginał).
 
