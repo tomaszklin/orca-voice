@@ -15,6 +15,7 @@ import {
   type Piece,
   type Utterance
 } from './reader-model'
+import { languageSegments } from './language-segments'
 import { splitForSpeech, toSpeechText } from './speech-text'
 import { voiceNativeModule, type ReaderState } from './voice-native-module'
 
@@ -140,7 +141,7 @@ function playPiece(utterance: Utterance, index: number, attempt: number): void {
   if (next.kind === 'chime') {
     playChime(handlers)
   } else {
-    speakUtterance(next.text, handlers)
+    speakUtterance(next.text, handlers, next.language ?? null)
   }
 }
 
@@ -165,10 +166,13 @@ function start(utterance: Utterance, mode: 'interrupt' | 'queue'): void {
 }
 
 function textPieces(markdown: string): Piece[] {
-  return splitForSpeech(toSpeechText(markdown), SPEECH_PIECE_LENGTH).map((text) => ({
-    kind: 'text',
-    text
-  }))
+  return languageSegments(toSpeechText(markdown)).flatMap((segment) =>
+    splitForSpeech(segment.text, SPEECH_PIECE_LENGTH).map((text): Piece => ({
+      kind: 'text',
+      text,
+      language: segment.language
+    }))
+  )
 }
 
 /**

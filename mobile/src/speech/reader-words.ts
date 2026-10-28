@@ -125,7 +125,7 @@ function phoneLocale(): string | null {
 let engineStarted = false
 
 /** What the native reader last reported reading in; null until its engine has run once. */
-function voiceLanguage(): string | null {
+export function voiceLanguage(): string | null {
   const native = voiceNativeModule()
   const language = native?.getSpeechOptions()?.language ?? null
   if (native && language === null && !engineStarted) {

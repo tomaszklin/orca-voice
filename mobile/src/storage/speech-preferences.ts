@@ -101,3 +101,10 @@ export const HEADPHONES_ONLY_KEY = 'orca:voiceHeadphonesOnly'
 export type HeadphonesOnly = 'on' | 'off'
 
 export const DEFAULT_HEADPHONES_ONLY: HeadphonesOnly = 'off'
+
+export const LANGUAGE_VOICES_KEY = 'orca:voiceLanguageVoices'
+
+/** Whether a sentence in another language is read with a voice for that language. */
+export type LanguageVoices = 'on' | 'off'
+
+export const DEFAULT_LANGUAGE_VOICES: LanguageVoices = 'on'

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useHeadphonesOnly, useLinkReading } from './reading-preferences'
+import { useHeadphonesOnly, useLanguageVoices, useLinkReading } from './reading-preferences'
 import {
   nextMessage,
   pauseReading,
@@ -9,6 +9,7 @@ import {
   setAutoReadNeedsHeadphones,
   stopSpeaking
 } from './reply-speaker'
+import { setLanguageVoices } from './language-segments'
 import { setLinkReading } from './speech-text'
 import { voiceNativeModule, type ReaderControl } from './voice-native-module'
 
@@ -37,13 +38,15 @@ function handleControl(action: ReaderControl): void {
 /**
  * Orca Voice fork: mounted once with the reader overlay. Hands the reading notification's and the
  * headset's buttons (owner's request, 2026-10-28) to the reader whatever screen is open, and keeps
- * the reader in line with the link and headphones options.
+ * the reader in line with the link, headphones and language options.
  */
 export function useReaderControls(): void {
   const links = useLinkReading().value
   const headphonesOnly = useHeadphonesOnly().value
+  const languageVoices = useLanguageVoices().value
   useEffect(() => setLinkReading(links), [links])
   useEffect(() => setAutoReadNeedsHeadphones(headphonesOnly === 'on'), [headphonesOnly])
+  useEffect(() => setLanguageVoices(languageVoices === 'on'), [languageVoices])
   useEffect(() => {
     const subscription = voiceNativeModule()?.addListener('onReaderControl', ({ action }) =>
       handleControl(action)

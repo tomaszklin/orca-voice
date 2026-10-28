@@ -7,7 +7,8 @@ import type { ReaderState } from './voice-native-module'
 export const RESTART_AFTER_MS = 3_000
 const HISTORY_LENGTH = 10
 
-export type Piece = { kind: 'chime' } | { kind: 'text'; text: string }
+/** `language`: a sentence run in another language than the reading voice's, read in its own voice. */
+export type Piece = { kind: 'chime' } | { kind: 'text'; text: string; language?: string | null }
 
 /**
  * `auto`: queued by auto-read, which the headphones-only option holds back. `kept`: goes into

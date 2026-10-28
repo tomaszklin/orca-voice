@@ -13,6 +13,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.speech.tts.Voice
 import java.util.Locale
 
 /**
@@ -87,6 +88,11 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   // Whether this engine was given our rate or voice, so going back to the phone's setting resets it.
   private var rateApplied = false
   private var voiceApplied = false
+  // A sentence run in another language is read with a voice for it (2026-10-28). The engine takes
+  // the voice with each utterance, so the reading voice is set back right after queuing one.
+  private val languages = mutableMapOf<String, String>()
+  private val languageVoices = mutableMapOf<String, Voice?>()
+  private var readingVoice: Voice? = null
   private var recordingCallback: AudioManager.AudioRecordingCallback? = null
   private val micWaitLimit = Runnable { synchronized(ReadAloudSpeech) { releaseHeld() } }
   // Set while a call or dictation holds the audio: the focus request is kept, so Android hands the
@@ -106,8 +112,12 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     }
   }
 
+  /** `language`: a primary subtag to read this one in, null for the reading voice. */
   @Synchronized
-  fun speak(context: Context, id: String, text: String) = play(context, id, text)
+  fun speak(context: Context, id: String, text: String, language: String?) {
+    if (language != null) languages[id] = language
+    play(context, id, text)
+  }
 
   /** The chime auto-read can play before a message, reported like an utterance. */
   @Synchronized
@@ -258,7 +268,42 @@ object ReadAloudSpeech : UtteranceProgressListener() {
       runCatching { engine.defaultVoice }.getOrNull()?.let { engine.setVoice(it) }
       voiceApplied = false
     }
+    readingVoice = voice ?: runCatching { engine.defaultVoice }.getOrNull()
     rememberLanguage(voice?.locale ?: defaultLocale(engine))
+  }
+
+  /**
+   * An offline voice for `language`: the engine's own pick for it when that one is installed, else
+   * one from the phone's region, else any. Null when the phone has none or it is the reading
+   * voice's language, so the text stays with the reading voice.
+   */
+  private fun voiceFor(language: String): Voice? {
+    val engine = tts ?: return null
+    // Without a voice to go back to, a switch would stick to every utterance after it.
+    val reading = readingVoice ?: return null
+    val wanted = Locale(language).language
+    if (reading.locale.language == wanted) return null
+    if (languageVoices.containsKey(wanted)) return languageVoices[wanted]
+    val offline = runCatching { engine.voices }.getOrNull().orEmpty().filter { voice ->
+      voice.locale.language == wanted && !voice.isNetworkConnectionRequired &&
+        !voice.features.orEmpty().contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED)
+    }
+    val enginePick = runCatching {
+      if (engine.setLanguage(Locale(wanted)) >= TextToSpeech.LANG_AVAILABLE) engine.voice else null
+    }.getOrNull()
+    restoreReadingVoice()
+    val region = Locale.getDefault().country
+    val voice = offline.firstOrNull { it.name == enginePick?.name }
+      ?: offline.sortedWith(compareBy({ it.locale.country != region }, { it.name })).firstOrNull()
+    languageVoices[wanted] = voice
+    return voice
+  }
+
+  private fun restoreReadingVoice() {
+    val voice = readingVoice ?: return
+    runCatching { tts?.setVoice(voice) }
+    // Now set explicitly, so going back to the phone's voice resets it.
+    voiceApplied = true
   }
 
   @Suppress("DEPRECATION")
@@ -310,6 +355,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
 
   private fun silence() {
     pending.clear()
+    languages.clear()
     heldForMic.clear()
     stopWatchingMic()
     // Forgotten first, so the onStop callbacks this stop causes read as asked for.
@@ -327,7 +373,10 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     val waiting = whenReady.toList()
     whenReady.clear()
     if (!ready) {
-      queued.forEach { (id, _) -> listener?.invoke("error", id, "text-to-speech engine did not start") }
+      queued.forEach { (id, _) ->
+        languages.remove(id)
+        listener?.invoke("error", id, "text-to-speech engine did not start")
+      }
       tts = null
       waiting.forEach { it(null) }
       return
@@ -337,6 +386,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     // A new engine starts from the phone's settings.
     rateApplied = false
     voiceApplied = false
+    languageVoices.clear()
     applyOptions()
     waiting.forEach { it(tts) }
     queued.forEach { (id, text) -> enqueue(id, text) }
@@ -346,7 +396,11 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     handler.removeCallbacks(releaseFocus)
     requestFocus()
     active.add(id)
-    val result = tts?.speak(text, TextToSpeech.QUEUE_ADD, null, id) ?: TextToSpeech.ERROR
+    val engine = tts
+    val voice = languages.remove(id)?.let { voiceFor(it) }
+    voice?.let { runCatching { engine?.setVoice(it) } }
+    val result = engine?.speak(text, TextToSpeech.QUEUE_ADD, null, id) ?: TextToSpeech.ERROR
+    if (voice != null) restoreReadingVoice()
     if (result != TextToSpeech.SUCCESS) {
       fail(id, "text-to-speech refused the text")
     }

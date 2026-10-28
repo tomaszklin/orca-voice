@@ -58,10 +58,16 @@ class OrcaVoiceBackgroundModule : Module() {
     Function("isRunning") { ReadAloudService.isRunning }
 
     /** Queues one utterance; its progress comes back as `onSpeech` events carrying the id. */
-    Function("speak") { id: String, text: String ->
+    Function("speak") { id: String, text: String, language: String? ->
       val context = appContext.reactContext ?: return@Function false
-      ReadAloudSpeech.speak(context, id, text)
+      ReadAloudSpeech.speak(context, id, text, language)
       true
+    }
+
+    /** The phone's guess at each text's language, so a sentence can be read in its own voice. */
+    Function("detectLanguages") { texts: List<String> ->
+      val context = appContext.reactContext ?: return@Function texts.map { null }
+      ReadAloudLanguage.detect(context, texts)
     }
 
     /** Queues the chime before an auto-read message, reported by id like an utterance. */

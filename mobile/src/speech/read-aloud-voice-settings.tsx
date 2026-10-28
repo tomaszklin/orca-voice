@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
-import { View, Text, Pressable } from 'react-native'
+import { View, Text, Pressable, Switch } from 'react-native'
 import { ChevronRight, Minus, Plus, type LucideIcon } from 'lucide-react-native'
 import { colors } from '../theme/mobile-theme'
 import { PickerModal } from '../components/PickerModal'
 import { readAloudStyles as styles } from './read-aloud-settings-styles'
+import { useLanguageVoices } from './reading-preferences'
 import { speakVoiceSample, useSpeechOptions } from './speech-options'
 import {
   MAX_RATE,
@@ -116,6 +117,29 @@ function SpeedRows({ state }: { state: SpeechOptionsState }) {
   )
 }
 
+function LanguageVoicesRow() {
+  const { value, setValue } = useLanguageVoices()
+  return (
+    <View style={[styles.row, styles.rowDivider]}>
+      <View style={styles.rowContent}>
+        <Text style={styles.rowLabel}>Other languages in their own voice</Text>
+        <Text style={styles.rowSublabel}>
+          {value === 'on'
+            ? "On — a whole sentence in another language uses that language's offline voice, when the phone has one and is sure of the language"
+            : 'Off — everything is read by the voice above'}
+        </Text>
+      </View>
+      <Switch
+        accessibilityLabel="Other languages in their own voice"
+        value={value === 'on'}
+        onValueChange={(on) => setValue(on ? 'on' : 'off')}
+        trackColor={{ false: colors.bgRaised, true: colors.textSecondary }}
+        thumbColor={colors.textPrimary}
+      />
+    </View>
+  )
+}
+
 /** Orca Voice fork: reading speed and voice, for the Read button and auto-read alike. */
 export function ReadAloudVoiceGroup({
   state,
@@ -141,6 +165,7 @@ export function ReadAloudVoiceGroup({
               divider
               onPress={() => onOpenPicker('voice')}
             />
+            <LanguageVoicesRow />
           </>
         ) : null}
         <Pressable

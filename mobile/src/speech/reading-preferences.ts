@@ -2,8 +2,11 @@ import {
   DEFAULT_HEADPHONES_ONLY,
   DEFAULT_LINK_READING,
   HEADPHONES_ONLY_KEY,
+  LANGUAGE_VOICES_KEY,
+  DEFAULT_LANGUAGE_VOICES,
   LINK_READING_KEY,
   type HeadphonesOnly,
+  type LanguageVoices,
   type LinkReading
 } from '../storage/speech-preferences'
 import { createStoredChoice } from './stored-choice'
@@ -23,4 +26,14 @@ export const useHeadphonesOnly = createStoredChoice<HeadphonesOnly>(
   HEADPHONES_ONLY_KEY,
   ['on', 'off'],
   DEFAULT_HEADPHONES_ONLY
+)
+
+/**
+ * Orca Voice fork: a sentence in another language is read with a voice for that language
+ * (owner's request, 2026-10-28).
+ */
+export const useLanguageVoices = createStoredChoice<LanguageVoices>(
+  LANGUAGE_VOICES_KEY,
+  ['on', 'off'],
+  DEFAULT_LANGUAGE_VOICES
 )

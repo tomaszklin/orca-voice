@@ -96,13 +96,23 @@ function sendToNative(
   }
 }
 
-export function speakUtterance(text: string, handlers: UtteranceCallbacks): void {
+/** `language`: read with a voice for it instead of the reading voice (a sentence in English). */
+export function speakUtterance(
+  text: string,
+  handlers: UtteranceCallbacks,
+  language: string | null = null
+): void {
   const native = voiceNativeModule()
   if (native === null) {
-    Speech.speak(text, handlers)
+    Speech.speak(text, { ...handlers, language: language ?? undefined })
     return
   }
-  sendToNative(native, handlers, (id) => native.speak(id, text), 'text-to-speech is not available')
+  sendToNative(
+    native,
+    handlers,
+    (id) => native.speak(id, text, language),
+    'text-to-speech is not available'
+  )
 }
 
 /** The short chime before an auto-read message; without the module it is skipped. */

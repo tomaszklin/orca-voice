@@ -387,9 +387,36 @@ czytania do Orki (wszystko poza polskim słyszałoby angielski).
 - Próbka głosu w ustawieniach jest już jednojęzyczna (wcześniej „Test czytania odpowiedzi. Test
   reading replies aloud.”).
 - Zdania kończone „。！？” (chiński, japoński) nie dostają już dodatkowej kropki.
-- **Bez zmian:** sama odpowiedź agenta jest czytana jednym głosem — agent piszący po angielsku do
-  polskiego głosu dalej brzmi z polskim akcentem. Na to trzeba by rozpoznawać język wiadomości i
-  przełączać głos (Android pozwala na głos per wypowiedź) — osobny pomysł.
+- Sama odpowiedź agenta szła jednym głosem — od buildu 26 zdania w innym języku mają własny głos
+  (niżej).
+
+## Inne języki własnym głosem (build 26, 2026-10-28)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel chciał, żeby angielskie fragmenty odpowiedzi nie były czytane polskim głosem.
+
+- Settings → Read aloud → VOICE → **„Other languages in their own voice”** (domyślnie włączone,
+  klucz `orca:voiceLanguageVoices`). Dotyczy przycisku Read i auto-czytania.
+- Tekst do czytania jest dzielony na zdania (`speech/language-segments.ts`). Język zdania
+  zgaduje **telefon** — wbudowane rozpoznawanie języka Androida 10+ (`TextClassifier.detectLanguage`,
+  bez internetu; `ReadAloudLanguage.kt`, jedno wywołanie na wiadomość). Liczy się tylko pewność
+  ≥ 0,8 i zdania od 4 słów (albo 4 znaków chińskich/japońskich/koreańskich). Gdzie telefon nie
+  umie (starszy Android), zgaduje sam tekst: pismo CJK albo polski/angielski po typowych słowach
+  i polskich literach.
+- **Ostrożnie, bo koszt jest nierówny:** obcy głos czytający polski brzmi dużo gorzej niż polski
+  głos czytający angielski. Dlatego: zdanie wyraźnie polskie (polskie litery, „się”, „że”…) zostaje
+  przy głosie czytnika, nawet gdy telefon twierdzi inaczej; zdanie niepewne albo krótkie też.
+  Wyjątek: krótkie zdanie między dwoma angielskimi („Done.”) idzie angielskim, żeby głos nie
+  skakał. Pojedyncze angielskie słowa w polskim zdaniu („build”, „test passed”) zostają w
+  polskim głosie.
+- Kolejne zdania w jednym języku idą jednym kawałkiem; kawałek niesie język (`Piece.language`).
+  `ReadAloudSpeech.kt` przed wypowiedzią ustawia głos tego języka i zaraz po niej wraca do głosu
+  czytnika (silnik bierze głos z każdą wypowiedzią w chwili kolejkowania). Głos: tylko offline i
+  zainstalowany — wybór silnika dla języka, inaczej z regionu telefonu, inaczej pierwszy. Brak
+  takiego głosu → czyta głos czytnika, jak dawniej.
+- Niesprawdzone na telefonie: jak pewne jest rozpoznawanie Androida na tekstach agenta (mieszanka
+  polskiego z terminami) i czy przełączanie głosu nie robi przerw między kawałkami.
 
 ## Budowanie
 

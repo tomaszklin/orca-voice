@@ -32,7 +32,13 @@ export type VoiceNativeModule = {
   start(title: string, text: string, tickMs: number): boolean
   stop(): boolean
   isRunning(): boolean
-  speak(id: string, text: string): boolean
+  /** `language`: primary subtag of a voice to read this one in; null for the reading voice. */
+  speak(id: string, text: string, language: string | null): boolean
+  /**
+   * The phone's guess at each text's language (Android 10+), null where it has none. Synchronous:
+   * one call per message, before it is read.
+   */
+  detectLanguages(texts: string[]): ({ language: string; confidence: number } | null)[]
   /** Plays the two-note chime as one utterance, with the speech's audio attributes and focus. */
   chime(id: string): boolean
   stopSpeech(): void
