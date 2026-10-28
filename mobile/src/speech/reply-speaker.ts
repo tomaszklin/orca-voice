@@ -1,6 +1,12 @@
 import { useSyncExternalStore } from 'react'
 import { logSpeechEvent, recordSpeechDiagnostics } from './speech-diagnostics'
-import { onUtterancesInterrupted, speakUtterance, stopUtterances } from './tts-engine'
+import {
+  onUtterancesInterrupted,
+  playChime,
+  speakUtterance,
+  stopUtterances,
+  type UtteranceCallbacks
+} from './tts-engine'
 import { splitForSpeech, toSpeechText } from './speech-text'
 
 // A few sentences per piece: when the engine drops one midway (2026-10-21: replies went quiet
@@ -8,7 +14,12 @@ import { splitForSpeech, toSpeechText } from './speech-text'
 export const SPEECH_PIECE_LENGTH = 300
 const RETRIES_PER_PIECE = 1
 
-type Utterance = { id: string; chunks: string[] }
+/** Said before a message (auto-read): a chime, then the project name, each a piece of its own. */
+export type ReplyIntro = { chime?: boolean; name?: string | null }
+
+type Piece = { kind: 'chime' } | { kind: 'text'; text: string }
+
+type Utterance = { id: string; pieces: Piece[] }
 
 let queue: Utterance[] = []
 let current: Utterance | null = null
@@ -24,29 +35,29 @@ function playNext(): void {
   current = queue.shift() ?? null
   emit()
   if (current) {
-    playChunk(current, 0, 0)
+    playPiece(current, 0, 0)
   }
 }
 
 function advance(utterance: Utterance, index: number): void {
-  if (index + 1 < utterance.chunks.length) {
-    playChunk(utterance, index + 1, 0)
+  if (index + 1 < utterance.pieces.length) {
+    playPiece(utterance, index + 1, 0)
   } else {
     logSpeechEvent(`finished ${utterance.id}`)
     playNext()
   }
 }
 
-function playChunk(utterance: Utterance, index: number, attempt: number): void {
+function playPiece(utterance: Utterance, index: number, attempt: number): void {
   // Why: callbacks of an utterance cut off by stop() can still arrive after the next one
   // started, so each one checks it still owns the speaker before advancing.
   const owns = () => current === utterance
-  const piece = `${index + 1}/${utterance.chunks.length}`
-  speakUtterance(utterance.chunks[index], {
+  const position = `${index + 1}/${utterance.pieces.length}`
+  const handlers: UtteranceCallbacks = {
     onStart: () => {
       recordSpeechDiagnostics({ lastSpokenAt: Date.now() })
       if (index === 0 || attempt > 0) {
-        logSpeechEvent(`speaking ${piece}${attempt > 0 ? ' (retry)' : ''}`)
+        logSpeechEvent(`speaking ${position}${attempt > 0 ? ' (retry)' : ''}`)
       }
     },
     onDone: () => {
@@ -57,38 +68,27 @@ function playChunk(utterance: Utterance, index: number, attempt: number): void {
     onError: (error) => {
       const message = error?.message ?? 'unknown error'
       recordSpeechDiagnostics({ lastError: `TTS: ${message}` })
-      logSpeechEvent(`piece ${piece} failed: ${message}`)
+      logSpeechEvent(`piece ${position} failed: ${message}`)
       if (!owns()) {
         return
       }
       if (attempt < RETRIES_PER_PIECE) {
-        playChunk(utterance, index, attempt + 1)
+        playPiece(utterance, index, attempt + 1)
       } else {
         advance(utterance, index)
       }
     }
-  })
+  }
+  const piece = utterance.pieces[index]
+  if (piece.kind === 'chime') {
+    playChime(handlers)
+  } else {
+    speakUtterance(piece.text, handlers)
+  }
 }
 
-/**
- * Reads an agent reply with the device's TTS voice.
- * `interrupt` (the play button) cuts off whatever is playing; `queue` (auto-read) waits its turn.
- * `intro` (the project name) is spoken first as a piece of its own, so a pause follows it.
- */
-export function speakReply(
-  id: string,
-  markdown: string,
-  mode: 'interrupt' | 'queue',
-  intro?: string
-): void {
-  const chunks = splitForSpeech(toSpeechText(markdown), SPEECH_PIECE_LENGTH)
-  if (chunks.length === 0) {
-    return
-  }
-  if (intro) {
-    chunks.unshift(`${intro}.`)
-  }
-  logSpeechEvent(`${mode === 'interrupt' ? 'read' : 'auto-read'} ${id} (${chunks.length} pieces)`)
+function start(id: string, pieces: Piece[], mode: 'interrupt' | 'queue'): void {
+  logSpeechEvent(`${mode === 'interrupt' ? 'read' : 'auto-read'} ${id} (${pieces.length} pieces)`)
   if (mode === 'interrupt') {
     queue = []
     current = null
@@ -96,10 +96,41 @@ export function speakReply(
   } else {
     queue = queue.filter((utterance) => utterance.id !== id)
   }
-  queue.push({ id, chunks })
+  queue.push({ id, pieces })
   if (!current) {
     playNext()
   }
+}
+
+/**
+ * Reads an agent reply with the device's TTS voice.
+ * `interrupt` (the play button) cuts off whatever is playing; `queue` (auto-read) waits its turn.
+ * `intro` (chime, project name) goes first, so a pause follows the name.
+ */
+export function speakReply(
+  id: string,
+  markdown: string,
+  mode: 'interrupt' | 'queue',
+  intro: ReplyIntro = {}
+): void {
+  const pieces: Piece[] = splitForSpeech(toSpeechText(markdown), SPEECH_PIECE_LENGTH).map(
+    (text) => ({ kind: 'text', text })
+  )
+  if (pieces.length === 0) {
+    return
+  }
+  if (intro.name) {
+    pieces.unshift({ kind: 'text', text: `${intro.name}.` })
+  }
+  if (intro.chime) {
+    pieces.unshift({ kind: 'chime' })
+  }
+  start(id, pieces, mode)
+}
+
+/** The chime alone, played when it is chosen in settings. */
+export function playChimeSample(): void {
+  start('chime-sample', [{ kind: 'chime' }], 'interrupt')
 }
 
 // Like a music player: dictation or a call ends the reading rather than talking over it.

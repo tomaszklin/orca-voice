@@ -4,13 +4,21 @@ import type { RuntimeWorktreeAgentRow } from '../../../src/shared/runtime-types'
 import { withoutNativeChatVisualDirectiveLines } from '../../../src/shared/native-chat/native-chat-visual-directive'
 import { useRpcClientContext } from '../transport/client-context'
 import type { RpcClient } from '../transport/rpc-client'
+import {
+  findNewWaits,
+  useAnnounceWaits,
+  waitAnnouncement,
+  type WaitBaseline
+} from './agent-wait-announcement'
 import { isAutoReadMuted } from './auto-read-mute'
 import { useAutoReadRepliesPreference } from './auto-read-preference'
 import { useBackgroundReadingPreference, useBackgroundReadingService } from './background-reading'
 import { backgroundReadingActive } from './background-reading-state'
 import { createChatMessageFeeds, type AgentPane } from './chat-message-feeds'
 import {
+  chimeBeforeMessage,
   projectNameIntro,
+  useChimeMode,
   useProjectNameMode,
   type LastReadMessage
 } from './project-name-announcement'
@@ -139,6 +147,15 @@ async function readAgentRows(hostId: string, client: RpcClient): Promise<AutoRea
   return agentRowsFromWorktreePs(hostId, response.result)
 }
 
+/** The latest value, read when a message arrives, so a changed choice applies at once. */
+function useLatest<T>(value: T): { readonly current: T } {
+  const ref = useRef(value)
+  useEffect(() => {
+    ref.current = value
+  }, [value])
+  return ref
+}
+
 /**
  * Reads each newly finished agent reply aloud while the auto-read setting is on.
  *
@@ -149,17 +166,10 @@ export function useAutoReadReplies(): void {
   const rpc = useRpcClientContext()
   const { autoRead } = useAutoReadRepliesPreference()
   const { backgroundReading } = useBackgroundReadingPreference()
-  const { readScope } = useReadScopePreference()
-  // Read at message time, so changing the choice or leaving the screen applies at once.
-  const readScopeRef = useRef(readScope)
-  useEffect(() => {
-    readScopeRef.current = readScope
-  }, [readScope])
-  const { value: projectNameMode } = useProjectNameMode()
-  const projectNameModeRef = useRef(projectNameMode)
-  useEffect(() => {
-    projectNameModeRef.current = projectNameMode
-  }, [projectNameMode])
+  const readScopeRef = useLatest(useReadScopePreference().readScope)
+  const projectNameModeRef = useLatest(useProjectNameMode().value)
+  const chimeModeRef = useLatest(useChimeMode().value)
+  const announceWaitsRef = useLatest(useAnnounceWaits().value)
   const baselineRef = useRef<ReplyBaseline>(new Map())
   // The background service's ticks reach the current poll through this, since JS timers stop
   // firing once Orca is off screen.
@@ -180,12 +190,17 @@ export function useAutoReadReplies(): void {
     // The project of each pane, from the latest poll; and the last message queued, for `on-change`.
     let projectByPane: ReadonlyMap<string, string | null> = new Map()
     let lastRead: LastReadMessage | null = null
+    // Fresh with the reply baseline, so waits that began while auto-read was off are not announced.
+    let waitBaseline: WaitBaseline = new Map()
     const speakAutoRead = (id: string, paneKey: string, text: string) => {
       const project = projectByPane.get(paneKey) ?? null
       const now = Date.now()
-      const intro = projectNameIntro(projectNameModeRef.current, project, lastRead, now)
+      const intro = {
+        chime: chimeBeforeMessage(chimeModeRef.current, project, lastRead, now),
+        name: projectNameIntro(projectNameModeRef.current, project, lastRead, now)
+      }
       lastRead = { project, at: now }
-      speakReply(id, text, 'queue', intro ?? undefined)
+      speakReply(id, text, 'queue', intro)
     }
     const readsEveryMessage = () =>
       readScopeRef.current === 'all' ||
@@ -256,6 +271,14 @@ export function useAutoReadReplies(): void {
             continue
           }
           speakAutoRead(reply.paneKey, reply.paneKey, message)
+        }
+        const waits = findNewWaits(waitBaseline, agents)
+        waitBaseline = waits.baseline
+        if (announceWaitsRef.current === 'on' && !isAutoReadMuted()) {
+          for (const wait of waits.newWaits) {
+            const id = `${wait.paneKey}~wait~${wait.since}`
+            speakAutoRead(id, wait.paneKey, waitAnnouncement(wait.kind))
+          }
         }
         if (readScopeRef.current === 'replies') {
           feeds.closeAll()

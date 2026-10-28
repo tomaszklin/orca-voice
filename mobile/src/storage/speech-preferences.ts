@@ -67,3 +67,19 @@ export type ProjectNameMode = 'on-change' | 'every' | 'off'
 
 // Why: on — the owner asked for it (2026-10-25); `on-change` so one agent's run is not named each time.
 export const DEFAULT_PROJECT_NAME_MODE: ProjectNameMode = 'on-change'
+
+export const CHIME_MODE_KEY = 'orca:voiceChime'
+
+/** Whether auto-read plays a short chime before a message, by the same rule as the project name. */
+export type ChimeMode = ProjectNameMode
+
+// Why: every message — the owner asked for it (2026-10-28), and it marks where one message ends
+// and the next begins when several are read back to back.
+export const DEFAULT_CHIME_MODE: ChimeMode = 'every'
+
+export const ANNOUNCE_WAITS_KEY = 'orca:voiceAnnounceWaits'
+
+/** Whether auto-read says when an agent stops to wait for the user (a question, a permission). */
+export type AnnounceWaits = 'on' | 'off'
+
+export const DEFAULT_ANNOUNCE_WAITS: AnnounceWaits = 'on'

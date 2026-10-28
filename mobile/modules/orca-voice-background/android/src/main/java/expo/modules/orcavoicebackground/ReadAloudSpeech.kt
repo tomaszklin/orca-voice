@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.AudioRecordingConfiguration
+import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.Handler
@@ -24,6 +25,7 @@ import java.util.Locale
  * utterance until the queue runs dry, plus a short grace so music does not swell back between
  * the pieces of one reply. Like a music player it gives way to dictation and calls: losing focus
  * stops the reading, and nothing starts while someone is talking into the mic (2026-10-21).
+ * The chime before an auto-read message (2026-10-28) is played the same way, as one more piece.
  */
 object ReadAloudSpeech : UtteranceProgressListener() {
   /**
@@ -71,7 +73,11 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   private val releaseFocus = Runnable {
     synchronized(ReadAloudSpeech) { if (active.isEmpty()) abandonFocus() }
   }
-  private val heldForMic = mutableListOf<Pair<String, String>>()
+  // (id, text); null text is the chime.
+  private val heldForMic = mutableListOf<Pair<String, String?>>()
+  // The chime being played, released when it has run its length or on stop.
+  private var chimeTrack: AudioTrack? = null
+  private var chimeFinished: Runnable? = null
   // Callers waiting for the engine to start, e.g. the voice list opened before anything was read.
   private val whenReady = mutableListOf<(TextToSpeech?) -> Unit>()
   // Whether this engine was given our rate or voice, so going back to the phone's setting resets it.
@@ -87,8 +93,17 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   }
 
   @Synchronized
-  fun speak(context: Context, id: String, text: String) {
+  fun speak(context: Context, id: String, text: String) = play(context, id, text)
+
+  /** The chime auto-read can play before a message, reported like an utterance. */
+  @Synchronized
+  fun chime(context: Context, id: String) = play(context, id, null)
+
+  private fun play(context: Context, id: String, text: String?) {
     appContext = context.applicationContext
+    if (audioManager == null) {
+      audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
     // Behind the mic, and behind whatever is already held for it, so pieces keep their order.
     if (heldForMic.isNotEmpty() || micBusy(context)) {
       heldForMic.add(id to text)
@@ -96,7 +111,49 @@ object ReadAloudSpeech : UtteranceProgressListener() {
       listener?.invoke("waiting", id, null)
       return
     }
-    speakNow(id, text)
+    playNow(id, text)
+  }
+
+  private fun playNow(id: String, text: String?) {
+    if (text == null) playChime(id) else speakNow(id, text)
+  }
+
+  // Played here rather than as a TTS earcon: the engine runs in another app, which may not be
+  // allowed to read this app's resources. Same attributes and focus as the speech.
+  private fun playChime(id: String) {
+    handler.removeCallbacks(releaseFocus)
+    requestFocus()
+    active.add(id)
+    endChime()
+    val track = ReadAloudChime.track(attributes)
+    val started = track != null && runCatching { track.play() }.isSuccess
+    if (!started) {
+      track?.release()
+      // Not the engine's failure, so no rebuild.
+      if (finish(id)) listener?.invoke("error", id, "the chime could not play")
+      return
+    }
+    chimeTrack = track
+    val finished = Runnable {
+      val done = synchronized(ReadAloudSpeech) {
+        endChime()
+        finish(id)
+      }
+      if (done) listener?.invoke("done", id, null)
+    }
+    chimeFinished = finished
+    listener?.invoke("start", id, null)
+    handler.postDelayed(finished, ReadAloudChime.PLAY_MS)
+  }
+
+  private fun endChime() {
+    chimeFinished?.let { handler.removeCallbacks(it) }
+    chimeFinished = null
+    chimeTrack?.let { track ->
+      runCatching { track.stop() }
+      track.release()
+    }
+    chimeTrack = null
   }
 
   private fun speakNow(id: String, text: String) {
@@ -199,6 +256,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     // Forgotten first, so the onStop callbacks this stop causes read as asked for.
     active.clear()
     tts?.stop()
+    endChime()
     handler.removeCallbacks(releaseFocus)
     abandonFocus()
   }
@@ -323,7 +381,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     stopWatchingMic()
     val held = heldForMic.toList()
     heldForMic.clear()
-    held.forEach { (id, text) -> speakNow(id, text) }
+    held.forEach { (id, text) -> playNow(id, text) }
   }
 
   private fun requestFocus() {

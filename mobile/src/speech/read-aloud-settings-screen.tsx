@@ -5,7 +5,8 @@ import { useRouter } from 'expo-router'
 import Constants from 'expo-constants'
 import { Check, ChevronLeft } from 'lucide-react-native'
 import { colors, spacing } from '../theme/mobile-theme'
-import type { ProjectNameMode, ReadScope } from '../storage/speech-preferences'
+import type { ChimeMode, ProjectNameMode, ReadScope } from '../storage/speech-preferences'
+import { useAnnounceWaits } from './agent-wait-announcement'
 import { setAutoReadMuted, useAutoReadMuted } from './auto-read-mute'
 import { useAutoReadRepliesPreference } from './auto-read-preference'
 import { useBuiltInPagePreference } from './built-in-page-preference'
@@ -16,8 +17,9 @@ import {
   ReadAloudVoicePickers,
   type VoicePicker
 } from './read-aloud-voice-settings'
-import { useProjectNameMode } from './project-name-announcement'
+import { useChimeMode, useProjectNameMode } from './project-name-announcement'
 import { useReadScopePreference } from './read-scope-preference'
+import { playChimeSample } from './reply-speaker'
 import { describeSpeechDiagnostics, useSpeechDiagnostics } from './speech-diagnostics'
 import { useSpeechOptions } from './speech-options'
 
@@ -53,6 +55,20 @@ const PROJECT_NAME_MODES: { mode: ProjectNameMode; label: string; sublabel: stri
   { mode: 'off', label: 'Off', sublabel: 'Only the message' }
 ]
 
+const CHIME_MODES: { mode: ChimeMode; label: string; sublabel: string }[] = [
+  {
+    mode: 'every',
+    label: 'Before every message',
+    sublabel: 'Also marks where one message ends and the next begins'
+  },
+  {
+    mode: 'on-change',
+    label: 'When the project changes',
+    sublabel: 'Same rule as the project name: another project, or after two quiet minutes'
+  },
+  { mode: 'off', label: 'Off', sublabel: 'No sound' }
+]
+
 /** Orca Voice fork: every read-aloud option in one menu (Settings → Read aloud). */
 export default function ReadAloudSettingsScreen() {
   const router = useRouter()
@@ -62,6 +78,8 @@ export default function ReadAloudSettingsScreen() {
   const { backgroundReading, setBackgroundReading } = useBackgroundReadingPreference()
   const { readScope, setReadScope } = useReadScopePreference()
   const { value: projectNameMode, setValue: setProjectNameMode } = useProjectNameMode()
+  const { value: chimeMode, setValue: setChimeMode } = useChimeMode()
+  const { value: announceWaits, setValue: setAnnounceWaits } = useAnnounceWaits()
   const muted = useAutoReadMuted()
   const diagnostics = useSpeechDiagnostics()
   const speechOptions = useSpeechOptions()
@@ -164,6 +182,23 @@ export default function ReadAloudSettingsScreen() {
               thumbColor={colors.textPrimary}
             />
           </View>
+          <View style={[styles.row, styles.rowDivider]}>
+            <View style={styles.rowContent}>
+              <Text style={styles.rowLabel}>Say when an agent waits for you</Text>
+              <Text style={styles.rowSublabel}>
+                {announceWaits === 'on'
+                  ? 'On — a question or a permission request is said once, like a message'
+                  : 'Off — a waiting agent stays quiet'}
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel="Say when an agent waits for you"
+              value={announceWaits === 'on'}
+              onValueChange={(on) => setAnnounceWaits(on ? 'on' : 'off')}
+              trackColor={{ false: colors.bgRaised, true: colors.textSecondary }}
+              thumbColor={colors.textPrimary}
+            />
+          </View>
         </View>
 
         <Text style={[styles.groupHeading, styles.groupGap]}>WHAT TO READ</Text>
@@ -202,6 +237,36 @@ export default function ReadAloudSettingsScreen() {
                 accessibilityState={{ checked: selected }}
                 style={index === 0 ? styles.row : [styles.row, styles.rowDivider]}
                 onPress={() => setProjectNameMode(option.mode)}
+              >
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>{option.label}</Text>
+                  <Text style={styles.rowSublabel}>{option.sublabel}</Text>
+                </View>
+                {selected ? <Check size={18} color={colors.textPrimary} /> : null}
+              </Pressable>
+            )
+          })}
+        </View>
+
+        <Text style={[styles.groupHeading, styles.groupGap]}>SOUND BEFORE A MESSAGE</Text>
+        <Text style={styles.groupDescription}>
+          A short chime before auto-read talks, with the project name or instead of it.
+        </Text>
+        <View style={[styles.section, styles.sectionTopGap]}>
+          {CHIME_MODES.map((option, index) => {
+            const selected = option.mode === chimeMode
+            return (
+              <Pressable
+                key={option.mode}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                style={index === 0 ? styles.row : [styles.row, styles.rowDivider]}
+                onPress={() => {
+                  setChimeMode(option.mode)
+                  if (option.mode !== 'off') {
+                    playChimeSample()
+                  }
+                }}
               >
                 <View style={styles.rowContent}>
                   <Text style={styles.rowLabel}>{option.label}</Text>

@@ -26,6 +26,8 @@ export type VoiceNativeModule = {
   stop(): boolean
   isRunning(): boolean
   speak(id: string, text: string): boolean
+  /** Plays the two-note chime as one utterance, with the speech's audio attributes and focus. */
+  chime(id: string): boolean
   stopSpeech(): void
   /** `phoneRate`: the rate the phone's text-to-speech settings give, 1 = normal. */
   getSpeechOptions(): (SpeechOptions & { phoneRate: number }) | null

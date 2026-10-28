@@ -58,20 +58,40 @@ function ensureSubscribed(native: VoiceNativeModule): void {
   })
 }
 
+/** Hands one utterance to the module; its progress comes back as `onSpeech` events by id. */
+function sendToNative(
+  native: VoiceNativeModule,
+  handlers: UtteranceCallbacks,
+  send: (id: string) => boolean,
+  failure: string
+): void {
+  ensureSubscribed(native)
+  sequence += 1
+  const id = `utterance-${sequence}`
+  callbacks.set(id, handlers)
+  if (!send(id)) {
+    callbacks.delete(id)
+    handlers.onError?.({ message: failure })
+  }
+}
+
 export function speakUtterance(text: string, handlers: UtteranceCallbacks): void {
   const native = voiceNativeModule()
   if (native === null) {
     Speech.speak(text, handlers)
     return
   }
-  ensureSubscribed(native)
-  sequence += 1
-  const id = `utterance-${sequence}`
-  callbacks.set(id, handlers)
-  if (!native.speak(id, text)) {
-    callbacks.delete(id)
-    handlers.onError?.({ message: 'text-to-speech is not available' })
+  sendToNative(native, handlers, (id) => native.speak(id, text), 'text-to-speech is not available')
+}
+
+/** The short chime before an auto-read message; without the module it is skipped. */
+export function playChime(handlers: UtteranceCallbacks): void {
+  const native = voiceNativeModule()
+  if (native === null) {
+    handlers.onDone?.()
+    return
   }
+  sendToNative(native, handlers, (id) => native.chime(id), 'the chime could not play')
 }
 
 export function stopUtterances(): void {

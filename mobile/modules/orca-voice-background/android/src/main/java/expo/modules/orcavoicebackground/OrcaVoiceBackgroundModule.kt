@@ -56,6 +56,13 @@ class OrcaVoiceBackgroundModule : Module() {
       true
     }
 
+    /** Queues the chime before an auto-read message, reported by id like an utterance. */
+    Function("chime") { id: String ->
+      val context = appContext.reactContext ?: return@Function false
+      ReadAloudSpeech.chime(context, id)
+      true
+    }
+
     Function("stopSpeech") {
       ReadAloudSpeech.stop()
     }

@@ -6,6 +6,7 @@ const interrupt: { current: (reason: string) => void } = { current: () => undefi
 
 vi.mock('./tts-engine', () => ({
   speakUtterance: (text: string, handlers: UtteranceCallbacks) => spoken.push({ text, handlers }),
+  playChime: (handlers: UtteranceCallbacks) => spoken.push({ text: '(chime)', handlers }),
   stopUtterances: vi.fn(),
   onUtterancesInterrupted: (handler: (reason: string) => void) => {
     interrupt.current = handler
@@ -60,14 +61,27 @@ describe('speakReply', () => {
   })
 
   it('says the project name first, as its own piece, and never alone', () => {
-    speakReply('a', 'Done.', 'queue', 'Orca Voice')
+    speakReply('a', 'Done.', 'queue', { name: 'Orca Voice' })
     expect(last().text).toBe('Orca Voice.')
     last().handlers.onDone?.()
     expect(last().text).toBe('Done.')
     stopSpeaking()
     spoken.length = 0
-    speakReply('b', '   ', 'queue', 'Orca Voice')
-    expect(spoken.map(({ text }) => text)).not.toContain('Orca Voice.')
+    speakReply('b', '   ', 'queue', { chime: true, name: 'Orca Voice' })
+    expect(spoken).toEqual([])
+  })
+
+  it('plays the chime before the project name, and moves on when it fails', () => {
+    speakReply('a', 'Done.', 'queue', { chime: true, name: 'Orca Voice' })
+    expect(last().text).toBe('(chime)')
+    last().handlers.onDone?.()
+    expect(last().text).toBe('Orca Voice.')
+    stopSpeaking()
+    spoken.length = 0
+    speakReply('b', 'Done.', 'queue', { chime: true })
+    last().handlers.onError?.({ message: 'the chime could not play' })
+    last().handlers.onError?.({ message: 'the chime could not play' })
+    expect(last().text).toBe('Done.')
   })
 
   it('ignores callbacks of a reply that was stopped', () => {

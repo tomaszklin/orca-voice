@@ -4,7 +4,7 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
   default: { getItem: vi.fn(), setItem: vi.fn() }
 }))
 
-const { PROJECT_NAME_REPEAT_AFTER_MS, projectNameIntro, spokenProjectName } =
+const { PROJECT_NAME_REPEAT_AFTER_MS, chimeBeforeMessage, projectNameIntro, spokenProjectName } =
   await import('./project-name-announcement')
 
 describe('spokenProjectName', () => {
@@ -36,5 +36,18 @@ describe('projectNameIntro', () => {
 
   it('says nothing for a message whose project is unknown', () => {
     expect(projectNameIntro('every', null, null, now)).toBeNull()
+  })
+})
+
+describe('chimeBeforeMessage', () => {
+  const now = 1_000_000
+
+  it('follows the project name rule, also for a message whose project is unknown', () => {
+    const last = { project: 'SmartHome', at: now - 1_000 }
+    expect(chimeBeforeMessage('every', 'SmartHome', last, now)).toBe(true)
+    expect(chimeBeforeMessage('off', 'OrcaVoice', null, now)).toBe(false)
+    expect(chimeBeforeMessage('on-change', 'SmartHome', last, now)).toBe(false)
+    expect(chimeBeforeMessage('on-change', 'OrcaVoice', last, now)).toBe(true)
+    expect(chimeBeforeMessage('on-change', null, null, now)).toBe(true)
   })
 })

@@ -269,6 +269,34 @@ Właściciel chciał słyszeć, z którego projektu jest czytana wiadomość.
 - Wbudowana strona: 147 plików, ok. 10 MB, desktopVersion 1.4.243; protokół bez zmian (3 / min 2,
   pageVersion 1), więc działa też ze starszym desktopem — poza nowymi funkcjami, których on nie ma.
 
+## Dźwięk przed wiadomością, „agent czeka” (build 23, 2026-10-28)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel chciał krótkiego dźwięku przed czytaniem (z nazwą projektu albo zamiast niej) i
+wiadomości, gdy agent stanie i czeka na niego — przy zgaszonym ekranie nie było tego słychać.
+
+- Settings → Read aloud → **SOUND BEFORE A MESSAGE**: „Before every message” (domyślnie), „When the
+  project changes” (ta sama zasada co przy nazwie projektu), „Off” (klucz `orca:voiceChime`). Wybór
+  od razu gra próbkę. Kolejność: dźwięk, nazwa projektu, wiadomość. Tylko auto-czytanie.
+  „Zamiast nazwy” = nazwa projektu na „Off”.
+- Dźwięk to dwa miękkie tony (G5 → D6, ok. 0,4 s), cichsze od głosu, **generowane w kodzie**
+  (`ReadAloudChime.kt`) — w repo nie ma pliku dźwiękowego. Gra go nasz proces (`AudioTrack`), nie
+  silnik TTS jako „earcon”: silnik działa w innej aplikacji, która może nie mieć dostępu do zasobów
+  Orki. Te same atrybuty (nawigacja) i fokus audio co mowa, czeka na wolny mikrofon jak mowa;
+  w kolejce czytnika jest osobnym kawałkiem (`speech/reply-speaker.ts`, `playChime` w
+  `speech/tts-engine.ts`). Nieudany dźwięk nie blokuje wiadomości.
+- Settings → Read aloud → AUTO-READ → **„Say when an agent waits for you”** (domyślnie włączone,
+  klucz `orca:voiceAnnounceWaits`). Gdy główny agent przejdzie w stan `waiting` / `blocked`, czytane
+  jest raz na każde czekanie: „Agent ma pytanie.” (AskUserQuestion), „Agent prosi o zgodę.” (prośba
+  o uprawnienie do narzędzia), „Agent czeka na ciebie.” (reszta) — po angielsku na telefonie w innym
+  języku. Przed tym dźwięk i nazwa projektu jak przed wiadomością. Wyciszenie („Mute”) też to ucisza.
+- Źródło: ten sam `worktree.ps`, który odpytuje auto-czytanie (co 3 s na ekranie, co 15 s w tle);
+  stan głównego agenta (`mainAgent.state`) obejmuje też czekanie, na które trafił podagent. Jak przy
+  odpowiedziach, czekanie zastane przy włączeniu auto-czytania nie jest ogłaszane.
+  Kod: `speech/agent-wait-announcement.ts`.
+- Treści pytania nie czytamy — `worktree.ps` jej nie niesie (tylko nazwę narzędzia).
+
 ## Budowanie
 
 ```powershell
