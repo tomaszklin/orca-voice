@@ -43,8 +43,12 @@ internal object ReadAloudChime {
   }
 
   /** A loaded track ready to play, or null when the system refused one. */
-  fun track(attributes: AudioAttributes): AudioTrack? {
-    val pcm = samples
+  fun track(attributes: AudioAttributes): AudioTrack? = load(attributes, samples)
+
+  /** A tenth of a second of silence, see [ReadAloudMediaSession]. */
+  fun silence(attributes: AudioAttributes): AudioTrack? = load(attributes, ShortArray(SAMPLE_RATE / 10))
+
+  private fun load(attributes: AudioAttributes, pcm: ShortArray): AudioTrack? {
     val track = try {
       AudioTrack.Builder()
         .setAudioAttributes(attributes)

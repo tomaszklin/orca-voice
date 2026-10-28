@@ -16,7 +16,7 @@ class OrcaVoiceBackgroundModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("OrcaVoiceBackground")
 
-    Events("onTick", "onSpeech", "onMuteToggle", "onStopReading")
+    Events("onTick", "onSpeech", "onMuteToggle", "onReaderControl")
 
     // Wired at creation rather than on first observer: a module instance exists only while the
     // app's JS runs, which is exactly what the sticky service checks the ticker listener for.
@@ -26,9 +26,13 @@ class OrcaVoiceBackgroundModule : Module() {
         sendEvent("onSpeech", mapOf("event" to event, "id" to id, "message" to message))
       }
       ReadAloudControls.listener = { control ->
-        val event = if (control == ReadAloudControls.STOP_READING) "onStopReading" else "onMuteToggle"
-        sendEvent(event, emptyMap<String, Any>())
+        if (control == ReadAloudControls.TOGGLE_MUTE) {
+          sendEvent("onMuteToggle", emptyMap<String, Any>())
+        } else {
+          sendEvent("onReaderControl", mapOf("action" to control))
+        }
       }
+      appContext.reactContext?.let { ReadAloudOutput.watch(it) }
     }
 
     /** False when Android refused the service, e.g. a start attempted from the background. */
@@ -120,9 +124,20 @@ class OrcaVoiceBackgroundModule : Module() {
       ReadAloudService.showMuted(muted)
     }
 
-    /** Whether something is being read, which brings Stop into the notification. */
-    Function("setSpeaking") { speaking: Boolean ->
-      ReadAloudService.showSpeaking(speaking)
+    /** The reader's state ("idle", "reading", "paused") for the notification and the headset. */
+    Function("setReaderState") { state: String, title: String?, status: String?, canRepeat: Boolean ->
+      ReadAloudService.showReader(state, status, canRepeat)
+      appContext.reactContext?.let {
+        // Also here, in case there was no context yet when the module was created.
+        ReadAloudOutput.watch(it)
+        ReadAloudMediaSession.update(it, state, title)
+      }
+    }
+
+    /** Whether sound goes to headphones, a car or the like rather than the phone's speaker. */
+    Function("isPrivateOutput") {
+      val context = appContext.reactContext ?: return@Function true
+      ReadAloudOutput.isPrivate(context)
     }
 
     /** Android 13+ asks to add the Quick Settings tile; older ones resolve `unsupported`. */
@@ -138,6 +153,8 @@ class OrcaVoiceBackgroundModule : Module() {
       ReadAloudTicker.listener = null
       ReadAloudSpeech.listener = null
       ReadAloudControls.listener = null
+      ReadAloudOutput.unwatch()
+      ReadAloudMediaSession.end()
     }
   }
 }

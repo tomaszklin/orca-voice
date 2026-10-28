@@ -7,7 +7,6 @@ import {
 } from '../storage/speech-preferences'
 import { isAutoReadMuted, setAutoReadMuted } from './auto-read-mute'
 import { setBackgroundReadingActive } from './background-reading-state'
-import { stopSpeaking } from './reply-speaker'
 import { recordSpeechDiagnostics } from './speech-diagnostics'
 import { voiceNativeModule } from './voice-native-module'
 
@@ -80,15 +79,14 @@ export function useBackgroundReadingService(wanted: boolean, onTick: () => void)
       recordSpeechDiagnostics({ lastTickAt: Date.now() })
       onTick()
     })
-    // The notification's and the Quick Settings tile's buttons.
+    // The notification's and the Quick Settings tile's mute; the reading buttons go through
+    // `reader-controls.ts`, which works without the service too.
     const muteButton = native.addListener('onMuteToggle', () =>
       setAutoReadMuted(!isAutoReadMuted())
     )
-    const stopButton = native.addListener('onStopReading', () => stopSpeaking('notification Stop'))
     return () => {
       subscription.remove()
       muteButton.remove()
-      stopButton.remove()
     }
   }, [wanted, onTick])
 

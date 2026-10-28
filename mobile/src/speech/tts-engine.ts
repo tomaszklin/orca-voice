@@ -19,11 +19,30 @@ export type UtteranceCallbacks = {
 const callbacks = new Map<string, UtteranceCallbacks>()
 let sequence = 0
 let subscribedTo: VoiceNativeModule | null = null
-let onInterrupted: (reason: string) => void = () => undefined
+/**
+ * What happened to the audio, from the module: `interrupted` (another app took it for good) and
+ * `held` (a call or dictation took it for a while) have already stopped the engine; `regained`
+ * (they ended), `noisy` (sound is about to move to the phone's speaker), `private-output`
+ * (headphones or a car arrived).
+ */
+export type AudioEvent = 'interrupted' | 'held' | 'regained' | 'noisy' | 'private-output'
 
-/** Called when another app took the audio (dictation, a call); the engine has already stopped. */
-export function onUtterancesInterrupted(handler: (reason: string) => void): void {
-  onInterrupted = handler
+const AUDIO_EVENTS: readonly string[] = [
+  'interrupted',
+  'held',
+  'regained',
+  'noisy',
+  'private-output'
+]
+
+let onAudio: (event: AudioEvent, message: string | null) => void = () => undefined
+
+export function onAudioEvent(handler: (event: AudioEvent, message: string | null) => void): void {
+  onAudio = handler
+  const native = voiceNativeModule()
+  if (native !== null) {
+    ensureSubscribed(native)
+  }
 }
 
 function ensureSubscribed(native: VoiceNativeModule): void {
@@ -32,9 +51,11 @@ function ensureSubscribed(native: VoiceNativeModule): void {
   }
   subscribedTo = native
   native.addListener('onSpeech', ({ event, id, message }) => {
-    if (event === 'interrupted') {
-      callbacks.clear()
-      onInterrupted(message ?? 'another app took the audio')
+    if (AUDIO_EVENTS.includes(event)) {
+      if (event === 'interrupted' || event === 'held') {
+        callbacks.clear()
+      }
+      onAudio(event as AudioEvent, message)
       return
     }
     if (event === 'waiting') {

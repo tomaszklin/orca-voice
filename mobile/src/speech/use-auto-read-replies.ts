@@ -23,7 +23,7 @@ import {
   type LastReadMessage
 } from './project-name-announcement'
 import { useReadScopePreference } from './read-scope-preference'
-import { speakReply } from './reply-speaker'
+import { expireHolds, speakReply } from './reply-speaker'
 import { recordSpeechDiagnostics } from './speech-diagnostics'
 
 // On screen, as often as the workspace list's own worktree.ps polling; with the screen off, five
@@ -197,7 +197,8 @@ export function useAutoReadReplies(): void {
       const now = Date.now()
       const intro = {
         chime: chimeBeforeMessage(chimeModeRef.current, project, lastRead, now),
-        name: projectNameIntro(projectNameModeRef.current, project, lastRead, now)
+        name: projectNameIntro(projectNameModeRef.current, project, lastRead, now),
+        title: project
       }
       lastRead = { project, at: now }
       speakReply(id, text, 'queue', intro)
@@ -215,6 +216,7 @@ export function useAutoReadReplies(): void {
 
     const poll = async () => {
       const now = Date.now()
+      expireHolds(now)
       const onScreen = AppState.currentState === 'active'
       if (!onScreen && !backgroundReadingActive()) {
         return

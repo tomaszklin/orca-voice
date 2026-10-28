@@ -24,13 +24,16 @@ import java.util.Locale
  * media link and the system ducks other audio while it plays. Focus is held from the first
  * utterance until the queue runs dry, plus a short grace so music does not swell back between
  * the pieces of one reply. Like a music player it gives way to dictation and calls: losing focus
- * stops the reading, and nothing starts while someone is talking into the mic (2026-10-21).
+ * stops the reading, and nothing starts while someone is talking into the mic (2026-10-21). A
+ * call or dictation only holds it; the reader continues when they give the focus back (2026-10-28).
  * The chime before an auto-read message (2026-10-28) is played the same way, as one more piece.
  */
 object ReadAloudSpeech : UtteranceProgressListener() {
   /**
    * (event, utteranceId, message): "start", "done" or "error" for one utterance, "waiting" when
-   * one is held for the mic, and "interrupted" (no id) when another app took the audio.
+   * one is held for the mic, and, with no id: "interrupted" when another app took the audio for
+   * good, "held" when a call or dictation took it for a while and "regained" when it came back;
+   * [ReadAloudOutput] adds "noisy" and "private-output".
    */
   @Volatile var listener: ((String, String, String?) -> Unit)? = null
 
@@ -51,7 +54,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     MediaRecorder.AudioSource.VOICE_PERFORMANCE
   )
 
-  private val attributes: AudioAttributes = AudioAttributes.Builder()
+  internal val attributes: AudioAttributes = AudioAttributes.Builder()
     .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
     .build()
@@ -85,10 +88,20 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   private var voiceApplied = false
   private var recordingCallback: AudioManager.AudioRecordingCallback? = null
   private val micWaitLimit = Runnable { synchronized(ReadAloudSpeech) { releaseHeld() } }
+  // Set while a call or dictation holds the audio: the focus request is kept, so Android hands the
+  // focus back when they end and the reader can continue (2026-10-28).
+  private var heldByInterruption = false
   private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
-    if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-      stop()
-      listener?.invoke("interrupted", "", "another app took the audio")
+    when (change) {
+      AudioManager.AUDIOFOCUS_LOSS -> {
+        stop()
+        listener?.invoke("interrupted", "", "another app took the audio")
+      }
+      AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+        holdForInterruption()
+        listener?.invoke("held", "", "a call or dictation took the audio")
+      }
+      AudioManager.AUDIOFOCUS_GAIN -> if (endInterruption()) listener?.invoke("regained", "", null)
     }
   }
 
@@ -250,6 +263,26 @@ object ReadAloudSpeech : UtteranceProgressListener() {
 
   @Synchronized
   fun stop() {
+    silence()
+    heldByInterruption = false
+    abandonFocus()
+  }
+
+  /** Like [stop], but the focus request stays, so its return after a call is reported. */
+  @Synchronized
+  private fun holdForInterruption() {
+    silence()
+    heldByInterruption = true
+  }
+
+  @Synchronized
+  private fun endInterruption(): Boolean {
+    val held = heldByInterruption
+    heldByInterruption = false
+    return held
+  }
+
+  private fun silence() {
     pending.clear()
     heldForMic.clear()
     stopWatchingMic()
@@ -258,7 +291,6 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     tts?.stop()
     endChime()
     handler.removeCallbacks(releaseFocus)
-    abandonFocus()
   }
 
   @Synchronized

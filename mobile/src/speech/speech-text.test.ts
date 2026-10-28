@@ -28,17 +28,41 @@ describe('toSpeechText', () => {
       'See [zones](trening/strefy.md) or https://example.com/x'
     ].join('\n')
     expect(toSpeechText(markdown, placeholders)).toBe(
-      'Summary. Changed plan in plan aktualny. Tuesday, intervals. See zones or link.'
+      'Summary. Changed plan in plan aktualny. Tuesday, intervals. See link zones or link.'
     )
   })
 
-  it('reads source links by their label and bare addresses as a cue', () => {
+  describe('links', () => {
     const markdown = [
       'Sources:',
       '- [WHO report 2025](https://www.who.int/publications/i/item/9789240000000)',
-      '- <https://example.com/study.pdf>'
+      '- <https://example.com/study.pdf>',
+      'Details in [the plan](docs/plan.md).'
     ].join('\n')
-    expect(toSpeechText(markdown, placeholders)).toBe('Sources: WHO report 2025. link.')
+    const read = (mode: Parameters<typeof toSpeechText>[2]) =>
+      toSpeechText(markdown, placeholders, mode)
+
+    it('says "link" before the text, and only "link" for a bare address', () => {
+      expect(read('word-and-text')).toBe(
+        'Sources: link WHO report 2025. link. Details in link the plan.'
+      )
+    })
+
+    it('can add the site, or read only the text', () => {
+      expect(read('word-text-site')).toBe(
+        'Sources: link WHO report 2025, who.int. link example.com. Details in link the plan.'
+      )
+      expect(read('text')).toBe('Sources: WHO report 2025. link. Details in the plan.')
+    })
+
+    it('can skip links altogether', () => {
+      expect(read('off')).toBe('Sources: Details in.')
+    })
+
+    it('treats a link whose text is its address as a bare address', () => {
+      const markdown = '[https://x.com/a](https://x.com/a)'
+      expect(toSpeechText(markdown, placeholders, 'word-and-text')).toBe('link.')
+    })
   })
 
   it('keeps inline code that is not a path', () => {

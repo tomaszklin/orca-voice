@@ -320,9 +320,51 @@ po rozwinięciu powiadomienia) i wybrał kafelek plus ikony.
   nie czytam” synchronicznie z `emit()` w `speech/reply-speaker.ts` (`setSpeaking`), nie z renderu,
   żeby działało przy zgaszonym ekranie. Bez sesji multimediów Android rysuje to jak zwykłe
   powiadomienie, nie jako odtwarzacz w szybkich ustawieniach, a przyciski słuchawek i kierownicy
-  zostają przy aplikacji z muzyką.
+  zostają przy aplikacji z muzyką. **Od buildu 24** zmienione — zob. sekcja niżej: `setReaderState`
+  zamiast `setSpeaking`, `onReaderControl` zamiast `onStopReading`, osobna sesja multimediów na czas
+  czytania.
 - Ikony: wektorowe Material Icons (`res/drawable/orca_voice_*.xml`, licencja Apache 2.0).
 - Napisy (kafelek, powiadomienie) po angielsku, jak reszta interfejsu aplikacji.
+
+## Sterowanie czytaniem, powtórka, wznawianie, słuchawki, linki (build 24, 2026-10-28)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Punkty 1, 2, 3 i 5 z listy pomysłów właściciela (2026-10-28) plus jego prośba o słowo „link”.
+
+- **Przyciski słuchawek i kierownicy** (`ReadAloudMediaSession.kt`): podczas czytania pauza /
+  wznowienie, następna, poprzednia wiadomość. Android daje te przyciski sesji aplikacji, która
+  ostatnio zaczęła grać dźwięk, a mowa gra w procesie silnika TTS — dlatego na starcie czytania
+  gramy u siebie 0,1 s ciszy (`ReadAloudChime.silence`). Sesja istnieje tylko, gdy jest co czytać,
+  i znika 10 minut po pauzie, więc potem przyciski wracają do muzyki. Wyświetlacz auta pokazuje
+  nazwę projektu. Niesprawdzone, czy każde auto to respektuje.
+- **Powiadomienie** (`ReadAloudService.kt`): podczas czytania Poprzednia, Pauza/Wznów, Następna
+  (widoczne bez rozwijania), po rozwinięciu też Stop i głośnik; bez czytania „Powtórz” (ostatnia
+  wiadomość) i głośnik. Tekst: „Reading · projekt · 2 more waiting”, „Paused…”. Powiadomienie jest
+  tylko przy „Keep reading with the screen off”. W aplikacji obok Stop jest Pause / Resume.
+- **Poprzednia** jak w odtwarzaczu (`speech/reader-model.ts`): po 3 s czytania wiadomość od początku,
+  wcześniej (albo bez czytania) poprzednia wiadomość; przerwana wraca po niej. Historia: 10 ostatnich
+  wiadomości, bez próbek z ustawień. **Pauza** trzyma kolejkę — nowe wiadomości czekają.
+- **Wznawianie po rozmowie i dyktowaniu**: chwilowa utrata fokusu audio (`LOSS_TRANSIENT`) już nie
+  kasuje czytania. `ReadAloudSpeech.kt` zatrzymuje mowę, ale zostawia prośbę o fokus („held”), więc
+  Android oddaje go po rozmowie („regained”), a czytnik powtarza przerwany kawałek (≤ 300 znaków).
+  Po więcej niż 10 minutach czytanie się kończy (wiadomość zostaje do „Powtórz”); to samo, gdy fokus
+  nigdy nie wróci (`expireHolds` przy odpytywaniu). Trwała utrata (np. włączona muzyka) dalej kończy
+  czytanie.
+- **„Only with headphones or a car”** (Settings → Read aloud → AUTO-READ, domyślnie wyłączone, klucz
+  `orca:voiceHeadphonesOnly`): auto-czytanie przez głośnik telefonu milczy (wiadomość pominięta, w
+  dzienniku „skipped: no headphones”); przycisk Read czyta zawsze. Odłączenie słuchawek / auta w
+  trakcie (`ACTION_AUDIO_BECOMING_NOISY`) wstrzymuje czytanie, powrót (`AudioDeviceCallback`) je
+  wznawia, jeśli minęło mniej niż 10 minut. Za „prywatne” wyjście uznajemy słuchawki przewodowe, BT
+  (także głośnik BT — nie da się go odróżnić od auta), USB, aparaty słuchowe, LE Audio, AUX
+  (`ReadAloudOutput.kt`).
+- **Linki** (Settings → Read aloud → LINKS, klucz `orca:voiceLinks`): „link” + tekst (domyślnie),
+  „link” + tekst + strona (`who.int`), sam tekst (jak do buildu 23), pomijanie. Goły adres to
+  „link” (z opcją strony: „link example.com”). Słowo „link” idzie przez `PLACEHOLDERS` w
+  `speech/speech-text.ts`. Dotyczy przycisku Read i auto-czytania.
+- Kod JS: stan czytnika i akcje w `speech/reply-speaker.ts`, reguły w `speech/reader-model.ts`,
+  przyciski i synchronizacja opcji w `speech/reader-controls.ts`, opcje w
+  `speech/reading-preferences.ts`. Zdarzenia dźwięku z modułu: `onAudioEvent` w `speech/tts-engine.ts`.
 
 ## Budowanie
 

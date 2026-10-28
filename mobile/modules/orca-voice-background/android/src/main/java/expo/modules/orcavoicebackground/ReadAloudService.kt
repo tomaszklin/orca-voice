@@ -23,10 +23,11 @@ import android.os.PowerManager
  * lock), and React Native pauses JS timers in the background (the service ticks instead, and the
  * module forwards each tick to JS as an event, which the paused timers do not affect).
  *
- * Its notification carries icon buttons that show without expanding it (owner's requests,
- * 2026-10-21 and 2026-10-28): a speaker that mutes and unmutes auto-read for now — a mute the
- * app's JS owns and forgets on restart — and, while something is being read, Stop.
- * [ReadAloudTileService] offers the same mute in Quick Settings.
+ * Its notification carries icon buttons (owner's requests, 2026-10-21 and 2026-10-28): while
+ * something is read, Previous, Pause or Resume and Next, which show without expanding it, then
+ * Stop; otherwise Repeat (the last message) — and always a speaker that mutes and unmutes
+ * auto-read for now, a mute the app's JS owns and forgets on restart. [ReadAloudTileService]
+ * offers the same mute in Quick Settings, [ReadAloudMediaSession] the reading buttons to headsets.
  */
 class ReadAloudService : Service() {
   private var wakeLock: PowerManager.WakeLock? = null
@@ -49,11 +50,7 @@ class ReadAloudService : Service() {
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    val control = when (intent?.action) {
-      ACTION_TOGGLE_MUTE -> ReadAloudControls.TOGGLE_MUTE
-      ACTION_STOP_READING -> ReadAloudControls.STOP_READING
-      else -> null
-    }
+    val control = intent?.action?.let { CONTROLS[it] }
     if (control != null) {
       // A button on a notification left behind by a service that is gone starts nothing.
       if (!isRunning) {
@@ -139,8 +136,19 @@ class ReadAloudService : Service() {
       PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
     val actions = buildList {
-      if (speaking) {
+      if (readerState == "reading" || readerState == "paused") {
+        add(action(R.drawable.orca_voice_previous, "Previous message", controlIntent(3, ACTION_PREVIOUS)))
+        add(
+          if (readerState == "reading") {
+            action(R.drawable.orca_voice_pause, "Pause", controlIntent(4, ACTION_PAUSE))
+          } else {
+            action(R.drawable.orca_voice_play, "Resume", controlIntent(5, ACTION_PLAY))
+          }
+        )
+        add(action(R.drawable.orca_voice_next, "Next message", controlIntent(6, ACTION_NEXT)))
         add(action(R.drawable.orca_voice_stop, "Stop reading", controlIntent(2, ACTION_STOP_READING)))
+      } else if (canRepeat) {
+        add(action(R.drawable.orca_voice_replay, "Read the last message again", controlIntent(7, ACTION_REPEAT)))
       }
       add(
         if (isMuted) {
@@ -158,9 +166,9 @@ class ReadAloudService : Service() {
     // media session Android draws it as an ordinary notification, not as a player in Quick
     // Settings, and the music app keeps the headset and steering-wheel buttons.
     return builder
-      .setStyle(Notification.MediaStyle().setShowActionsInCompactView(*IntArray(actions.size) { it }))
+      .setStyle(Notification.MediaStyle().setShowActionsInCompactView(*IntArray(minOf(actions.size, 3)) { it }))
       .setContentTitle(title)
-      .setContentText(if (isMuted) MUTED_TEXT else text)
+      .setContentText(readerStatus ?: if (isMuted) MUTED_TEXT else text)
       .setSmallIcon(smallIcon)
       .setOngoing(true)
       .setOnlyAlertOnce(true)
@@ -179,6 +187,20 @@ class ReadAloudService : Service() {
     const val DEFAULT_TICK_MS = 3000L
     private const val ACTION_TOGGLE_MUTE = "expo.modules.orcavoicebackground.TOGGLE_MUTE"
     private const val ACTION_STOP_READING = "expo.modules.orcavoicebackground.STOP_READING"
+    private const val ACTION_PREVIOUS = "expo.modules.orcavoicebackground.PREVIOUS"
+    private const val ACTION_PAUSE = "expo.modules.orcavoicebackground.PAUSE"
+    private const val ACTION_PLAY = "expo.modules.orcavoicebackground.PLAY"
+    private const val ACTION_NEXT = "expo.modules.orcavoicebackground.NEXT"
+    private const val ACTION_REPEAT = "expo.modules.orcavoicebackground.REPEAT"
+    private val CONTROLS = mapOf(
+      ACTION_TOGGLE_MUTE to ReadAloudControls.TOGGLE_MUTE,
+      ACTION_STOP_READING to ReadAloudControls.STOP_READING,
+      ACTION_PREVIOUS to ReadAloudControls.PREVIOUS,
+      ACTION_PAUSE to ReadAloudControls.PAUSE,
+      ACTION_PLAY to ReadAloudControls.PLAY,
+      ACTION_NEXT to ReadAloudControls.NEXT,
+      ACTION_REPEAT to ReadAloudControls.REPEAT
+    )
     private const val MUTED_TEXT = "Auto-read muted"
     private const val CHANNEL_ID = "orca-voice-read-aloud"
     private const val NOTIFICATION_ID = 7417
@@ -186,7 +208,9 @@ class ReadAloudService : Service() {
       private set
     @Volatile var isMuted = false
       private set
-    @Volatile private var speaking = false
+    @Volatile private var readerState = "idle"
+    @Volatile private var readerStatus: String? = null
+    @Volatile private var canRepeat = false
     private var current: ReadAloudService? = null
 
     /** Shows the mute JS decided on, here and on the tile; a later start keeps showing it. */
@@ -200,10 +224,12 @@ class ReadAloudService : Service() {
       }
     }
 
-    /** Whether something is being read, which brings Stop into the notification. */
-    fun showSpeaking(next: Boolean) {
-      if (speaking == next) return
-      speaking = next
+    /** The reader's state ("idle", "reading", "paused"), which picks the buttons and the text. */
+    fun showReader(state: String, status: String?, repeatable: Boolean) {
+      if (readerState == state && readerStatus == status && canRepeat == repeatable) return
+      readerState = state
+      readerStatus = status
+      canRepeat = repeatable
       Handler(Looper.getMainLooper()).post { current?.refreshNotification() }
     }
   }
@@ -218,10 +244,18 @@ object ReadAloudTicker {
   }
 }
 
-/** The notification's and the tile's buttons, handed to whichever module instance is listening. */
+/**
+ * The notification's, the tile's and the headset's buttons, handed to whichever module instance
+ * is listening; the values are what JS receives.
+ */
 object ReadAloudControls {
   const val TOGGLE_MUTE = "toggleMute"
-  const val STOP_READING = "stopReading"
+  const val STOP_READING = "stop"
+  const val PREVIOUS = "previous"
+  const val PAUSE = "pause"
+  const val PLAY = "play"
+  const val NEXT = "next"
+  const val REPEAT = "repeat"
 
   @Volatile var listener: ((String) -> Unit)? = null
 

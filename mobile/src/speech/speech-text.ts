@@ -1,3 +1,5 @@
+import type { LinkReading } from '../storage/speech-preferences'
+
 // Android's TextToSpeech rejects longer inputs (TextToSpeech.getMaxSpeechInputLength() is 4000).
 export const MAX_SPEECH_CHUNK_LENGTH = 3900
 
@@ -34,17 +36,56 @@ function speakableInlineCode(code: string): string {
     .replace(/[-_]/g, ' ')
 }
 
+let linkReading: LinkReading = 'word-and-text'
+
+/** From the Read aloud settings; every reading after it uses it. */
+export function setLinkReading(mode: LinkReading): void {
+  linkReading = mode
+}
+
+const ADDRESS = /^<?https?:\/\//i
+
+/** "who.int" for `https://www.who.int/…`; null for a link to a file. */
+function linkSite(url: string): string | null {
+  return /^<?https?:\/\/(?:www\.)?([^/:?#\s>]+)/i.exec(url)?.[1] ?? null
+}
+
+/** A link as `mode` reads it; `label` is null for a bare address. */
+function spokenLink(label: string | null, url: string, mode: LinkReading, word: string): string {
+  switch (mode) {
+    case 'off':
+      return ''
+    case 'text':
+      return label ?? word
+    case 'word-and-text':
+      return label ? `${word} ${label}` : word
+    case 'word-text-site': {
+      const site = linkSite(url)
+      const named = label ? `${word} ${label}` : word
+      return site ? `${named}${label ? ',' : ''} ${site}` : named
+    }
+  }
+}
+
 /**
  * Turns an agent's markdown reply into text worth hearing: code blocks and tables become a short
- * cue, links and formatting are stripped, and every line ends as a sentence so list items get a
- * pause instead of running together.
+ * cue, links are read as `links` says, formatting is stripped, and every line ends as a sentence
+ * so list items get a pause instead of running together.
  */
-export function toSpeechText(markdown: string, placeholders = devicePlaceholders()): string {
+export function toSpeechText(
+  markdown: string,
+  placeholders = devicePlaceholders(),
+  links = linkReading
+): string {
   let text = markdown.replace(/\r/g, '')
   text = text.replace(/^[ \t]*```[\s\S]*?^[ \t]*```[^\n]*$/gm, `\n${placeholders.code}\n`)
   text = text.replace(/(^[ \t]*\|.*\|[ \t]*(\n|$))+/gm, `${placeholders.table}\n`)
-  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-  text = text.replace(/<?https?:\/\/[^\s>]+>?/g, placeholders.link)
+  text = text.replace(/\[([^\]]+)\]\(([^)\s]*)[^)]*\)/g, (_, label: string, url: string) =>
+    spokenLink(ADDRESS.test(label) ? null : label, url, links, placeholders.link)
+  )
+  text = text.replace(/<?(https?:\/\/[^\s>]+)>?/g, (_, url: string) =>
+    spokenLink(null, url, links, placeholders.link)
+  )
   text = text.replace(/`([^`\n]+)`/g, (_, code: string) => speakableInlineCode(code))
   text = text.replace(/^[ \t]{0,3}#{1,6}[ \t]*/gm, '')
   text = text.replace(/^[ \t]*(?:[-*+]|\d+[.)])[ \t]+/gm, '')
@@ -54,12 +95,20 @@ export function toSpeechText(markdown: string, placeholders = devicePlaceholders
   text = text.replace(/\s*[→⇒➜]\s*/g, ', ')
   text = text.replace(/\p{Extended_Pictographic}|️|‍/gu, '')
 
-  return text
-    .split('\n')
-    .map((line) => line.replace(/\s+/g, ' ').trim())
-    .filter((line) => line.length > 0)
-    .map((line) => (/[.!?:;,…]$/.test(line) ? line : `${line}.`))
-    .join(' ')
+  return (
+    text
+      .split('\n')
+      // A skipped link leaves the punctuation after it behind a space.
+      .map((line) =>
+        line
+          .replace(/\s+/g, ' ')
+          .replace(/\s+([.,;:!?])/g, '$1')
+          .trim()
+      )
+      .filter((line) => line.length > 0)
+      .map((line) => (/[.!?:;,…]$/.test(line) ? line : `${line}.`))
+      .join(' ')
+  )
 }
 
 /** Splits at sentence ends so each piece fits the platform TTS input limit. */

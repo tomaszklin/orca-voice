@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { speakReply } from './reply-speaker'
+import { speakSample } from './reply-speaker'
 import { voiceNativeModule, type NativeVoiceList, type SpeechOptions } from './voice-native-module'
 
 export const VOICE_SAMPLE = 'Test czytania odpowiedzi. Test reading replies aloud.'
@@ -7,7 +7,7 @@ export const VOICE_SAMPLE = 'Test czytania odpowiedzi. Test reading replies alou
 const SAMPLE_DELAY_MS = 600
 
 export function speakVoiceSample(): void {
-  speakReply('settings-test', VOICE_SAMPLE, 'interrupt')
+  speakSample(VOICE_SAMPLE)
 }
 
 /**

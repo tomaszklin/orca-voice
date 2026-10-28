@@ -5,7 +5,12 @@ import { useRouter } from 'expo-router'
 import Constants from 'expo-constants'
 import { Check, ChevronLeft } from 'lucide-react-native'
 import { colors, spacing } from '../theme/mobile-theme'
-import type { ChimeMode, ProjectNameMode, ReadScope } from '../storage/speech-preferences'
+import type {
+  ChimeMode,
+  LinkReading,
+  ProjectNameMode,
+  ReadScope
+} from '../storage/speech-preferences'
 import { useAnnounceWaits } from './agent-wait-announcement'
 import { setAutoReadMuted, useAutoReadMuted } from './auto-read-mute'
 import { useAutoReadRepliesPreference } from './auto-read-preference'
@@ -20,6 +25,7 @@ import {
 } from './read-aloud-voice-settings'
 import { useChimeMode, useProjectNameMode } from './project-name-announcement'
 import { useReadScopePreference } from './read-scope-preference'
+import { useHeadphonesOnly, useLinkReading } from './reading-preferences'
 import { playChimeSample } from './reply-speaker'
 import { describeSpeechDiagnostics, useSpeechDiagnostics } from './speech-diagnostics'
 import { useSpeechOptions } from './speech-options'
@@ -70,6 +76,21 @@ const CHIME_MODES: { mode: ChimeMode; label: string; sublabel: string }[] = [
   { mode: 'off', label: 'Off', sublabel: 'No sound' }
 ]
 
+const LINK_READINGS: { mode: LinkReading; label: string; sublabel: string }[] = [
+  {
+    mode: 'word-and-text',
+    label: 'Say “link”, then its text',
+    sublabel: '“link WHO report”; a bare address is just “link”'
+  },
+  {
+    mode: 'word-text-site',
+    label: 'Say “link”, its text and the site',
+    sublabel: '“link WHO report, who.int”'
+  },
+  { mode: 'text', label: 'Only its text', sublabel: '“WHO report”; a bare address is “link”' },
+  { mode: 'off', label: 'Skip links', sublabel: 'Neither the text nor the address' }
+]
+
 /** Orca Voice fork: every read-aloud option in one menu (Settings → Read aloud). */
 export default function ReadAloudSettingsScreen() {
   const router = useRouter()
@@ -81,6 +102,8 @@ export default function ReadAloudSettingsScreen() {
   const { value: projectNameMode, setValue: setProjectNameMode } = useProjectNameMode()
   const { value: chimeMode, setValue: setChimeMode } = useChimeMode()
   const { value: announceWaits, setValue: setAnnounceWaits } = useAnnounceWaits()
+  const { value: headphonesOnly, setValue: setHeadphonesOnly } = useHeadphonesOnly()
+  const { value: linkReading, setValue: setLinkReading } = useLinkReading()
   const muted = useAutoReadMuted()
   const diagnostics = useSpeechDiagnostics()
   const speechOptions = useSpeechOptions()
@@ -130,6 +153,40 @@ export default function ReadAloudSettingsScreen() {
         </View>
 
         <ReadAloudVoiceGroup state={speechOptions} onOpenPicker={setPicker} />
+
+        <Text style={[styles.groupHeading, styles.groupGap]}>LINKS</Text>
+        <Text style={styles.groupDescription}>
+          How a link in a message is read, by the Read button and auto-read alike.
+        </Text>
+        <View style={[styles.section, styles.sectionTopGap]}>
+          {LINK_READINGS.map((option, index) => {
+            const selected = option.mode === linkReading
+            return (
+              <Pressable
+                key={option.mode}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                style={index === 0 ? styles.row : [styles.row, styles.rowDivider]}
+                onPress={() => setLinkReading(option.mode)}
+              >
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>{option.label}</Text>
+                  <Text style={styles.rowSublabel}>{option.sublabel}</Text>
+                </View>
+                {selected ? <Check size={18} color={colors.textPrimary} /> : null}
+              </Pressable>
+            )
+          })}
+        </View>
+
+        <Text style={[styles.groupHeading, styles.groupGap]}>CONTROLS</Text>
+        <Text style={styles.groupDescription}>
+          While a message is read, the buttons of headphones and of a car's steering wheel, and the
+          reading notification, pause it and go to the next or previous message (Previous starts the
+          message again; pressed twice, the one before it). Afterwards the notification's Repeat
+          reads the last message again. A call or dictation pauses the reading, which goes on when
+          they end.
+        </Text>
 
         <Text style={[styles.groupHeading, styles.groupGap]}>AUTO-READ</Text>
         <Text style={styles.groupDescription}>
@@ -197,6 +254,23 @@ export default function ReadAloudSettingsScreen() {
               accessibilityLabel="Say when an agent waits for you"
               value={announceWaits === 'on'}
               onValueChange={(on) => setAnnounceWaits(on ? 'on' : 'off')}
+              trackColor={{ false: colors.bgRaised, true: colors.textSecondary }}
+              thumbColor={colors.textPrimary}
+            />
+          </View>
+          <View style={[styles.row, styles.rowDivider]}>
+            <View style={styles.rowContent}>
+              <Text style={styles.rowLabel}>Only with headphones or a car</Text>
+              <Text style={styles.rowSublabel}>
+                {headphonesOnly === 'on'
+                  ? 'On — through the phone’s own speaker auto-read stays quiet; unplugging pauses it'
+                  : 'Off — also through the phone’s speaker'}
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel="Auto-read only with headphones or a car"
+              value={headphonesOnly === 'on'}
+              onValueChange={(on) => setHeadphonesOnly(on ? 'on' : 'off')}
               trackColor={{ false: colors.bgRaised, true: colors.textSecondary }}
               thumbColor={colors.textPrimary}
             />

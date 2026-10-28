@@ -83,3 +83,21 @@ export const ANNOUNCE_WAITS_KEY = 'orca:voiceAnnounceWaits'
 export type AnnounceWaits = 'on' | 'off'
 
 export const DEFAULT_ANNOUNCE_WAITS: AnnounceWaits = 'on'
+
+export const LINK_READING_KEY = 'orca:voiceLinks'
+
+/**
+ * How a link is read: `word-and-text` "link WHO report", `text` "WHO report", `word-text-site`
+ * "link WHO report, who.int", `off` not at all. A bare address has no text, so it is "link".
+ */
+export type LinkReading = 'word-and-text' | 'text' | 'word-text-site' | 'off'
+
+// Why: the owner asked for "link" before every link (2026-10-28); until then only the text was read.
+export const DEFAULT_LINK_READING: LinkReading = 'word-and-text'
+
+export const HEADPHONES_ONLY_KEY = 'orca:voiceHeadphonesOnly'
+
+/** Whether auto-read stays quiet unless sound goes to headphones, a car or the like. */
+export type HeadphonesOnly = 'on' | 'off'
+
+export const DEFAULT_HEADPHONES_ONLY: HeadphonesOnly = 'off'
