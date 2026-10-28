@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { View, Text, Pressable, Switch } from 'react-native'
 import { ChevronRight, Minus, Plus, type LucideIcon } from 'lucide-react-native'
 import { colors } from '../theme/mobile-theme'
@@ -6,6 +6,7 @@ import { PickerModal } from '../components/PickerModal'
 import { readAloudStyles as styles } from './read-aloud-settings-styles'
 import { useLanguageVoices } from './reading-preferences'
 import { speakVoiceSample, useSpeechOptions } from './speech-options'
+import { voiceNativeModule } from './voice-native-module'
 import {
   MAX_RATE,
   MIN_RATE,
@@ -117,6 +118,35 @@ function SpeedRows({ state }: { state: SpeechOptionsState }) {
   )
 }
 
+// Orca Voice fork: screen recorders leave navigation audio out, and recording with the mic
+// silences the reader, so for a demo recording speech can play as media (owner's request).
+function ScreenRecordingRow() {
+  const native = voiceNativeModule()
+  const [on, setOn] = useState(() => native?.getSpeechOptions()?.recordable ?? false)
+  return (
+    <View style={[styles.row, styles.rowDivider]}>
+      <View style={styles.rowContent}>
+        <Text style={styles.rowLabel}>Let screen recordings capture speech</Text>
+        <Text style={styles.rowSublabel}>
+          {on
+            ? 'On — speech plays as media, so a screen recording includes it. Turn it off afterwards: in a car, navigation audio works better'
+            : 'Off — speech plays like navigation prompts, which screen recordings leave out'}
+        </Text>
+      </View>
+      <Switch
+        accessibilityLabel="Let screen recordings capture speech"
+        value={on}
+        onValueChange={(next) => {
+          native?.setRecordable(next)
+          setOn(next)
+        }}
+        trackColor={{ false: colors.bgRaised, true: colors.textSecondary }}
+        thumbColor={colors.textPrimary}
+      />
+    </View>
+  )
+}
+
 function LanguageVoicesRow() {
   const { value, setValue } = useLanguageVoices()
   return (
@@ -166,6 +196,7 @@ export function ReadAloudVoiceGroup({
               onPress={() => onOpenPicker('voice')}
             />
             <LanguageVoicesRow />
+            <ScreenRecordingRow />
           </>
         ) : null}
         <Pressable

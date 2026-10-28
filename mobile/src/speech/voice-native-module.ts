@@ -48,7 +48,11 @@ export type VoiceNativeModule = {
    * `phoneRate`: the rate the phone's text-to-speech settings give, 1 = normal. `language`: BCP 47
    * tag of the voice the reader last read with, null before its engine first started.
    */
-  getSpeechOptions(): (SpeechOptions & { phoneRate: number; language: string | null }) | null
+  getSpeechOptions():
+    | (SpeechOptions & { phoneRate: number; language: string | null; recordable: boolean })
+    | null
+  /** Speech as media audio, so a screen recording captures it; navigation audio otherwise. */
+  setRecordable(on: boolean): boolean
   setSpeechOptions(rate: number | null, voice: string | null): boolean
   /** Null when the engine did not start. */
   getVoices(): Promise<NativeVoiceList | null>

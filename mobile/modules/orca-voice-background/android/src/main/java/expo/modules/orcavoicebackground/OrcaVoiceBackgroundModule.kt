@@ -92,13 +92,21 @@ class OrcaVoiceBackgroundModule : Module() {
         "rate" to rate?.toDouble(),
         "voice" to voice,
         "phoneRate" to ReadAloudSpeech.systemRate(context).toDouble(),
-        "language" to ReadAloudSpeech.language(context)
+        "language" to ReadAloudSpeech.language(context),
+        "recordable" to ReadAloudSpeech.recordable(context)
       )
     }
 
     Function("setSpeechOptions") { rate: Double?, voice: String? ->
       val context = appContext.reactContext ?: return@Function false
       ReadAloudSpeech.setOptions(context, rate?.toFloat(), voice)
+      true
+    }
+
+    /** Speech as media audio, so a screen recording captures it; navigation audio otherwise. */
+    Function("setRecordable") { on: Boolean ->
+      val context = appContext.reactContext ?: return@Function false
+      ReadAloudSpeech.setRecordable(context, on)
       true
     }
 

@@ -466,6 +466,23 @@ ani czekającej wiadomości.
   może je wtedy wyszarzyć. Przycisk słuchawek dalej działa jak dawniej (Poprzednia bez wcześniejszej
   wiadomości czyta obecną od początku).
 
+## Mowa do nagrania ekranu (build 29, 2026-10-28)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel nagrywał film do zgłoszenia w Orce: nagranie ekranu nie miało dźwięku mowy, a nagrywanie
+z mikrofonem uciszało Orkę.
+
+- Przyczyny: nagrywanie ekranu (AudioPlaybackCapture) zapisuje tylko dźwięk typu multimedia, gra i
+  nieznany — komunikatów nawigacji (`USAGE_ASSISTANCE_NAVIGATION_GUIDANCE`, nasz wybór dla auta)
+  nie. Nagrywanie z mikrofonem to aktywne nagranie, a czytnik czeka, aż mikrofon będzie wolny
+  (build 13).
+- Settings → Read aloud → VOICE → **„Let screen recordings capture speech”** (domyślnie wyłączone,
+  SharedPreferences `recordable` w `orca-voice-speech`): mowa i dźwięk przed wiadomością grają jako
+  `USAGE_MEDIA`, więc nagranie ekranu je zapisuje. Działa od następnej wypowiedzi. Po nagraniu
+  wyłączyć — w aucie lepszy jest tryb nawigacji.
+- Tylko w forku, nie w zgłoszeniu do Orki.
+
 ## Budowanie
 
 ```powershell

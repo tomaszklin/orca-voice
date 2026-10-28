@@ -42,6 +42,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   private const val PREFS = "orca-voice-speech"
   private const val PREF_RATE = "rate"
   private const val PREF_VOICE = "voice"
+  private const val PREF_RECORDABLE = "recordable"
   private const val PREF_LANGUAGE = "language"
   // A dictation longer than this is unlikely; past it the held reading goes ahead anyway.
   private const val MIC_WAIT_LIMIT_MS = 120_000L
@@ -56,10 +57,31 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     MediaRecorder.AudioSource.VOICE_PERFORMANCE
   )
 
-  internal val attributes: AudioAttributes = AudioAttributes.Builder()
+  private val navigationAttributes: AudioAttributes = AudioAttributes.Builder()
     .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
     .build()
+  // Screen recorders capture only media, game and unknown audio, never navigation prompts, and
+  // recording with the mic silences the reader; so for a recording, speech can play as media
+  // (owner's request, 2026-10-28).
+  private val mediaAttributes: AudioAttributes = AudioAttributes.Builder()
+    .setUsage(AudioAttributes.USAGE_MEDIA)
+    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+    .build()
+
+  internal val attributes: AudioAttributes
+    get() = if (appContext?.let { recordable(it) } == true) mediaAttributes else navigationAttributes
+
+  fun recordable(context: Context): Boolean =
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(PREF_RECORDABLE, false)
+
+  /** From the next utterance on; a focus request already held keeps what it asked with. */
+  @Synchronized
+  fun setRecordable(context: Context, on: Boolean) {
+    appContext = context.applicationContext
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(PREF_RECORDABLE, on).apply()
+    tts?.setAudioAttributes(attributes)
+  }
 
   private var appContext: Context? = null
   private var tts: TextToSpeech? = null
