@@ -39,14 +39,17 @@ export type NewReply = { paneKey: string; message: string }
 /**
  * Compares the agents' finished replies against what was already seen.
  *
- * A pane seen for the first time only records its current reply (empty while a turn is running),
- * so turning auto-read on or reconnecting never reads out old replies, while a brand-new agent's
- * first finished turn still counts as new. Subagent rows are skipped: their
- * replies are steps of the parent's turn, not answers to the user.
+ * The first look at a host only records its panes' replies, so turning auto-read on or a host
+ * connecting never reads out old replies. After that, a pane seen for the first time is a new
+ * agent, and its reply counts even when its whole turn ended between two polls (2026-10-28: a
+ * quick first answer was skipped). A reply is its text and the moment its turn ended, so the same
+ * answer given again is read again. Subagent rows are skipped: their replies are steps of the
+ * parent's turn, not answers to the user.
  */
 export function findNewReplies(
   baseline: ReplyBaseline,
-  agents: readonly RuntimeWorktreeAgentRow[]
+  agents: readonly RuntimeWorktreeAgentRow[],
+  hostSeenBefore = false
 ): { baseline: ReplyBaseline; newReplies: NewReply[] } {
   const next = new Map(baseline)
   const newReplies: NewReply[] = []
@@ -62,14 +65,22 @@ export function findNewReplies(
     const turnState = agent.mainAgent?.state ?? agent.state
     const finished =
       turnState === 'done' && agent.lastAssistantMessage ? agent.lastAssistantMessage : null
+    const endedAt = agent.mainAgent?.stateStartedAt ?? agent.stateStartedAt
+    const key =
+      finished === null
+        ? ''
+        : `${endedAt}
+${finished}`
     const seen = next.get(agent.paneKey)
-    if (seen === undefined) {
-      next.set(agent.paneKey, finished ?? '')
+    if (seen === undefined && !hostSeenBefore) {
+      next.set(agent.paneKey, key)
       continue
     }
-    if (finished && finished !== seen) {
-      next.set(agent.paneKey, finished)
+    if (finished !== null && key !== seen) {
+      next.set(agent.paneKey, key)
       newReplies.push({ paneKey: agent.paneKey, message: finished })
+    } else if (seen === undefined) {
+      next.set(agent.paneKey, key)
     }
   }
   return { baseline: next, newReplies }
@@ -184,6 +195,8 @@ export function useAutoReadReplies(): void {
     // Why: a fresh baseline each time auto-read is switched on, so replies that arrived while
     // it was off are not read out in a burst.
     baselineRef.current = new Map()
+    // Hosts whose panes are in the baseline; a host's first look only records them.
+    const hostsSeen = new Set<string>()
     let cancelled = false
     let inFlight = false
     let lastPollAt = 0
@@ -251,8 +264,17 @@ export function useAutoReadReplies(): void {
           ...projectByPane,
           ...agents.map((row) => [row.paneKey, row.project] as const)
         ])
-        const { baseline, newReplies } = findNewReplies(baselineRef.current, agents)
-        baselineRef.current = baseline
+        const newReplies: NewReply[] = []
+        connected.forEach(({ hostId }, index) => {
+          const hostRows = rows[index]
+          if (!hostRows) {
+            return
+          }
+          const found = findNewReplies(baselineRef.current, hostRows, hostsSeen.has(hostId))
+          baselineRef.current = found.baseline
+          hostsSeen.add(hostId)
+          newReplies.push(...found.newReplies)
+        })
         recordSpeechDiagnostics({
           lastPollAt: Date.now(),
           knownHosts: known.length,

@@ -434,6 +434,22 @@ znaków, więc krótka wiadomość szła od nowa). Silnik mowy Androida nie ma p
   którego wznowiono. Silnik, który nie podaje słów, wznawia jak dawniej od początku kawałka.
 - Budowanie kawałków przeniesione do `speech/reply-pieces.ts` (limit 300 linii w pliku, jak w Orce).
 
+## Szybka pierwsza odpowiedź i ta sama odpowiedź drugi raz (build 28, 2026-10-28)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel: odpowiedź w nowej sesji (agent odpisał w 4 s) nie została przeczytana.
+
+- Przyczyna: `findNewReplies` traktował panel widziany pierwszy raz jako stary i tylko zapisywał
+  jego odpowiedź — żeby po włączeniu auto-czytania nie czytać historii. Sesja, która powstała i
+  skończyła turę między dwoma odpytaniami (3 s na ekranie, 15 s w tle), wpadała w ten wyjątek.
+- Teraz tylko **pierwsze spojrzenie na dany host** (po włączeniu auto-czytania albo gdy host się
+  połączył) zapisuje panele bez czytania; panel, który pojawi się później, to nowy agent i jego
+  gotowa odpowiedź jest czytana.
+- Odpowiedź rozpoznajemy po tekście **i chwili końca tury** (`mainAgent.stateStartedAt`, zmienia się
+  tylko przy zmianie stanu) — ta sama odpowiedź w kolejnej turze też jest czytana (wcześniej nie,
+  bo tekst się nie zmienił).
+
 ## Budowanie
 
 ```powershell
