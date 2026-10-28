@@ -1,0 +1,61 @@
+name: iOS compile check (read aloud)
+
+# Fork-only check, not part of the pull request: builds the iOS app for the simulator, unsigned,
+# with the same toolchain as mobile-ios-release.yml.
+on:
+  push:
+    branches:
+      - read-aloud-ios-check
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-compile:
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      BUNDLE_FROZEN: 'true'
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.5'
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          check-latest: true
+
+      - uses: pnpm/setup@v2
+        with:
+          install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: mobile
+
+      - name: Expo prebuild
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Install CocoaPods
+        working-directory: mobile/ios
+        run: bundle exec pod install
+
+      - name: Build for the simulator (unsigned)
+        working-directory: mobile/ios
+        run: |
+          set -o pipefail
+          xcodebuild -workspace Orca.xcworkspace -scheme Orca -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -200
