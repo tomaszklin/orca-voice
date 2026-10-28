@@ -256,6 +256,19 @@ Właściciel chciał słyszeć, z którego projektu jest czytana wiadomość.
 - Kod: `speech/project-name-announcement.ts`; wybór zapisany przez wspólne
   `speech/stored-choice.ts` (na nim też „What to read”).
 
+## Orca v1.4.243 (build 22, 2026-10-28)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+- Fork przeniesiony z `v1.4.229` na `v1.4.243` (scalenie, szczegóły w „Aktualizacja z upstream”).
+- Nasz spinacz usunięty — załączanie plików daje teraz oficjalna Orka (plus → „Files”). Wysyłanie
+  plików działa dopiero z desktopem co najmniej `v1.4.240`; nazwy plików od `v1.4.243`.
+- Limit grantów trasy sesji podniesiony do 18 (przycisk „Read”).
+- `build-apk.ps1`: poprawka ścieżki dla `react-native-libsodium` (nowe w `v1.4.243`) — na Windowsie
+  CMake odrzucał ścieżkę z `\`.
+- Wbudowana strona: 147 plików, ok. 10 MB, desktopVersion 1.4.243; protokół bez zmian (3 / min 2,
+  pageVersion 1), więc działa też ze starszym desktopem — poza nowymi funkcjami, których on nie ma.
+
 ## Budowanie
 
 ```powershell
