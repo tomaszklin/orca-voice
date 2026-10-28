@@ -1,5 +1,5 @@
 import type { NativeChatSkillDiscoverySnapshot } from '../../../../../src/shared/native-chat/input/native-chat-picker-items'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Keyboard, Pressable, type TextInput, View } from 'react-native'
 import { ArrowUp, Mic, Plus, Square } from 'lucide-react-native'
 import { colors } from '../../../theme/mobile-theme'
@@ -23,6 +23,8 @@ import { keepHeldPressThroughLongPress } from '../../held-press-long-press'
 import { mobileNativeChatComposerShowsStop } from './mobile-native-chat-composer-layout'
 import { MobileNativeChatStopButton } from '../input/MobileNativeChatStopButton'
 import { mobileNativeChatComposerStyles as styles } from './mobile-native-chat-composer-styles'
+import { ChatFileAttachContext } from '../../../file-attach/chat-file-attach-context'
+import { terminalChatAttachActions } from '../../../file-attach/terminal-chat-attach-actions'
 import {
   recordMobileNativeChatSkillPick,
   useMobileNativeChatDraft
@@ -91,7 +93,7 @@ export function MobileNativeChatComposer({
   onAttachImage,
   attachments = NO_ATTACHMENTS,
   onRemoveAttachment,
-  isAttaching = false,
+  isAttaching: imagesAttaching = false,
   onMicPress,
   micActive = false,
   dictationMode = 'toggle',
@@ -111,6 +113,13 @@ export function MobileNativeChatComposer({
   const fieldRef = inputRef ?? fallbackInputRef
   const [focused, setFocused] = useState(false)
   const [attachOpen, setAttachOpen] = useState(false)
+  // Orca Voice fork: Files for a chat the official row skips (terminal-backed, or an older host).
+  const forkFileAttach = useContext(ChatFileAttachContext)
+  const forkFiles =
+    forkFileAttach?.available && !structured?.onAttachFiles
+      ? () => void forkFileAttach.attachFile()
+      : undefined
+  const isAttaching = imagesAttaching || (forkFileAttach?.isAttaching ?? false)
   const [picker, setPicker] = useState<MobileNativeChatPickerPresentation | null>(null)
   const request = sessionOptions?.controller.optionPickerRequest
   const [lastRequest, setLastRequest] = useState(request)
@@ -205,8 +214,8 @@ export function MobileNativeChatComposer({
   }
 
   // A terminal-backed chat has only photos to add, so its + opens the library at once.
-  const attachPress = structured ? () => setAttachOpen(true) : onAttachImage
-  const attachLabel = structured ? 'Add to message' : 'Attach image'
+  const attachPress = structured || forkFiles ? () => setAttachOpen(true) : onAttachImage
+  const attachLabel = structured || forkFiles ? 'Add to message' : 'Attach image'
 
   return (
     <View>
@@ -332,12 +341,18 @@ export function MobileNativeChatComposer({
           onClose={() => setAttachOpen(false)}
           actions={mobileNativeChatAttachActions({
             onPhotos: onAttachImage,
-            onFiles: structured.onAttachFiles,
+            onFiles: structured.onAttachFiles ?? forkFiles,
             onWorkspaceFile: menu.openFileMenu,
             onSkills: () => menu.openSlashMenu('skill'),
             onCommands: () => menu.openSlashMenu('command'),
             skillCount: menu.skillCount
           })}
+        />
+      ) : forkFiles ? (
+        <ActionSheetModal
+          visible={attachOpen}
+          onClose={() => setAttachOpen(false)}
+          actions={terminalChatAttachActions(onAttachImage, forkFiles)}
         />
       ) : null}
     </View>

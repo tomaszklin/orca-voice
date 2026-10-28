@@ -17,3 +17,5 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 // suites' own react-native and lucide mocks do not carry. It is the fork's, so it stays out of
 // upstream's suites rather than every one of them growing two more mock members.
 vi.mock('./src/components/MobileReplyReadButton', () => ({ MobileReplyReadButton: () => null }))
+// The attach-file hook reaches the Expo pickers, which need the React Native runtime.
+vi.mock('./src/file-attach/use-chat-file-attach', () => ({ useChatFileAttach: () => null }))

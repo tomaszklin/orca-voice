@@ -13,6 +13,8 @@ import { useHostProfile } from '../transport/use-host-profile'
 import { useHostDisplay } from '../transport/use-host-display'
 import { FileReader } from './MobileSessionFileReader'
 import { MarkdownReader } from './MobileSessionMarkdownReader'
+import { ChatFileAttachContext } from '../file-attach/chat-file-attach-context'
+import { useChatFileAttach } from '../file-attach/use-chat-file-attach'
 
 export function MobileSessionActiveContent({
   controller
@@ -96,6 +98,15 @@ export function MobileSessionActiveContent({
   } = controller
   const hostProfile = useHostProfile(hostId)
   const hostTitle = useHostDisplay(hostProfile).title
+  // Orca Voice fork: any-file attach for the chat composer.
+  const chatFileAttach = useChatFileAttach({
+    client,
+    connState,
+    getConnectionId: controller.getActiveWorktreeConnectionId,
+    // Read at attach time: test fakes of the controller carry no chat controller.
+    setComposerText: (update) => nativeChatController.setChatComposerText(update),
+    showToast
+  })
   const content = showLoadingState ? (
     <View style={styles.emptyState}>
       <ActivityIndicator size="small" color={colors.textSecondary} />
@@ -280,7 +291,9 @@ export function MobileSessionActiveContent({
         notifyTerminalFrame({ width, height })
       }}
     >
-      {content}
+      <ChatFileAttachContext.Provider value={chatFileAttach}>
+        {content}
+      </ChatFileAttachContext.Provider>
     </View>
   )
 }

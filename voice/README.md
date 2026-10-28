@@ -209,13 +209,11 @@ ustawienia „Zamiana tekstu na mowę”, wspólne dla całego telefonu).
   **Głosy online ukryte** (na trasie bez zasięgu milkną) — na liście tylko offline, chyba że głos
   online był już wybrany.
 
-## Dowolny plik w czacie (build 19, 2026-10-25) — usunięte 2026-10-28
+## Dowolny plik w czacie (build 19, 2026-10-25; przywrócone w buildzie 30)
 
-**Stan: usunięte przy przejściu na `v1.4.243`.** Oficjalna Orka ma to samo od `v1.4.240` (#30359):
-w polu wiadomości plus → „Files” (dowolny typ, kilka naraz), wysyłane jako prawdziwy załącznik
-czatu (`agentSessionAttachment.*`) z nazwą pliku (nazwa od `v1.4.243`, #32987). Wymaga desktopu
-co najmniej `v1.4.240`. Właściciel chciał to zgłosić do Orki jako PR — odpadło, bo już to mają.
-Opis obejścia poniżej zostaje dla historii.
+**Stan build 19–21: działało. Usunięte w buildzie 22 przez pomyłkę, przywrócone w buildzie 30
+(2026-10-28, niepotwierdzone na telefonie) — zob. „Plik w czacie po `v1.4.243`” niżej.** Opis
+pierwszej wersji poniżej zostaje dla historii.
 
 Właściciel chciał wysłać agentowi PDF, a czat pozwalał załączyć tylko zdjęcie (galeria).
 
@@ -262,8 +260,8 @@ Właściciel chciał słyszeć, z którego projektu jest czytana wiadomość.
 **Stan: zbudowane, niepotwierdzone na telefonie.**
 
 - Fork przeniesiony z `v1.4.229` na `v1.4.243` (scalenie, szczegóły w „Aktualizacja z upstream”).
-- Nasz spinacz usunięty — załączanie plików daje teraz oficjalna Orka (plus → „Files”). Wysyłanie
-  plików działa dopiero z desktopem co najmniej `v1.4.240`; nazwy plików od `v1.4.243`.
+- Nasz spinacz usunięty — **błąd**, przywrócone w buildzie 30: oficjalne „Files” jest tylko w
+  czatach strukturalnych i tylko z desktopem co najmniej `v1.4.240`.
 - Limit grantów trasy sesji podniesiony do 18 (przycisk „Read”).
 - `build-apk.ps1`: poprawka ścieżki dla `react-native-libsodium` (nowe w `v1.4.243`) — na Windowsie
   CMake odrzucał ścieżkę z `\`.
@@ -482,6 +480,31 @@ z mikrofonem uciszało Orkę.
   `USAGE_MEDIA`, więc nagranie ekranu je zapisuje. Działa od następnej wypowiedzi. Po nagraniu
   wyłączyć — w aucie lepszy jest tryb nawigacji.
 - Tylko w forku, nie w zgłoszeniu do Orki.
+
+## Plik w czacie po `v1.4.243` (build 30, 2026-10-28)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Po buildzie 22 właściciel nie mógł wybrać PDF-a: plus w czacie otwierał od razu galerię zdjęć.
+
+- Przyczyny: w `v1.4.243` plus → „Files” jest **tylko w czatach strukturalnych** (`agent-session`);
+  czat Claude'a w terminalu (zwykły u właściciela) ma sam wybór zdjęć — upstream mówi to wprost
+  (`MobileNativeChatComposer.tsx`: „A terminal-backed chat has only photos to add”). Do tego
+  **desktop właściciela stoi na `v1.4.229`** (sprawdzone 2026-10-28: `Orca.exe` 1.4.229, ostatnia
+  pobrana aktualizacja z 18.10), więc i czat strukturalny nie dostałby „Files”.
+- Teraz plus w czacie terminalowym otwiera arkusz z oficjalnymi wierszami „Photos” i „Files”
+  (`file-attach/terminal-chat-attach-actions.ts`). W czacie strukturalnym nasze „Files” wchodzi
+  tylko, gdy host nie dał oficjalnego. Wybór plików to oficjalne `useMediaPicker().pickFiles()`
+  (dowolny typ, kilka naraz, ≤ 18 MB, z nazwą — także na wbudowanej stronie).
+- Wysyłka jak w buildzie 19: `clipboard.*ImageUpload`, ale z `fileName`. Desktop od `v1.4.243`
+  zapisuje plik pod jego nazwą (`%TEMP%\orca-paste-<uuid>\raport.pdf`) i szkic dostaje
+  `[File from my phone "raport.pdf", saved on this computer as `…`]`. Starszy desktop nazwę
+  pomija (zapisuje `orca-paste-<czas>-<uuid>.png`) — wtedy wraca tekst z prośbą o kopię jako .pdf
+  (`hostKeptFileName` w `file-attach/chat-file-reference.ts`).
+- Wstawki: kontekst w `session/MobileSessionActiveContent.tsx`, arkusz i blokada Send podczas
+  wysyłania w `session/native-chat/composer/MobileNativeChatComposer.tsx`; mock haka w
+  `vitest.setup.ts` (sięga do pickerów Expo).
+- **Do zrobienia przez właściciela:** zaktualizować Orkę na komputerze (stoi na `v1.4.229`).
 
 ## Budowanie
 
