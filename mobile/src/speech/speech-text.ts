@@ -1,28 +1,10 @@
 import type { LinkReading } from '../storage/speech-preferences'
+import { readerWords, type ReaderWords } from './reader-words'
 
 // Android's TextToSpeech rejects longer inputs (TextToSpeech.getMaxSpeechInputLength() is 4000).
 export const MAX_SPEECH_CHUNK_LENGTH = 3900
 
-type Placeholders = { code: string; table: string; link: string }
-
-const PLACEHOLDERS: Record<'pl' | 'en', Placeholders> = {
-  pl: { code: 'Pomijam fragment kodu.', table: 'Pomijam tabelę.', link: 'link' },
-  en: { code: 'Code block skipped.', table: 'Table skipped.', link: 'link' }
-}
-
-/** The language of the words the reader adds itself: Polish on a Polish phone, else English. */
-export function deviceSpeechLanguage(): 'pl' | 'en' {
-  try {
-    const locale = Intl.DateTimeFormat().resolvedOptions().locale
-    return locale.toLowerCase().startsWith('pl') ? 'pl' : 'en'
-  } catch {
-    return 'en'
-  }
-}
-
-function devicePlaceholders(): Placeholders {
-  return PLACEHOLDERS[deviceSpeechLanguage()]
-}
+type Placeholders = Pick<ReaderWords, 'code' | 'table' | 'link'>
 
 /** `src/foo/plan-aktualny.md:12` → "plan aktualny": paths read aloud are noise, the name is not. */
 function speakableInlineCode(code: string): string {
@@ -74,7 +56,7 @@ function spokenLink(label: string | null, url: string, mode: LinkReading, word: 
  */
 export function toSpeechText(
   markdown: string,
-  placeholders = devicePlaceholders(),
+  placeholders: Placeholders = readerWords(),
   links = linkReading
 ): string {
   let text = markdown.replace(/\r/g, '')
@@ -106,7 +88,7 @@ export function toSpeechText(
           .trim()
       )
       .filter((line) => line.length > 0)
-      .map((line) => (/[.!?:;,…]$/.test(line) ? line : `${line}.`))
+      .map((line) => (/[.!?:;,…。！？]$/.test(line) ? line : `${line}.`))
       .join(' ')
   )
 }

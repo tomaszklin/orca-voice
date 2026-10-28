@@ -82,7 +82,8 @@ class OrcaVoiceBackgroundModule : Module() {
       mapOf(
         "rate" to rate?.toDouble(),
         "voice" to voice,
-        "phoneRate" to ReadAloudSpeech.systemRate(context).toDouble()
+        "phoneRate" to ReadAloudSpeech.systemRate(context).toDouble(),
+        "language" to ReadAloudSpeech.language(context)
       )
     }
 

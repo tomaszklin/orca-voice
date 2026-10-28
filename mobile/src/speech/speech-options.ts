@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { readerWords } from './reader-words'
 import { speakSample } from './reply-speaker'
 import { voiceNativeModule, type NativeVoiceList, type SpeechOptions } from './voice-native-module'
 
-export const VOICE_SAMPLE = 'Test czytania odpowiedzi. Test reading replies aloud.'
 // Why: a few taps on the speed buttons read one sample at the final speed, not one per tap.
 const SAMPLE_DELAY_MS = 600
 
+/** In the voice's own language, which is also what the reader's other words are said in. */
 export function speakVoiceSample(): void {
-  speakSample(VOICE_SAMPLE)
+  speakSample(readerWords().sample)
 }
 
 /**

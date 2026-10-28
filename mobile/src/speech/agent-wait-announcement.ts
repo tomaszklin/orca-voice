@@ -5,7 +5,7 @@ import {
   DEFAULT_ANNOUNCE_WAITS,
   type AnnounceWaits
 } from '../storage/speech-preferences'
-import { deviceSpeechLanguage } from './speech-text'
+import { readerLanguage, readerWords } from './reader-words'
 import { createStoredChoice } from './stored-choice'
 
 /**
@@ -64,20 +64,18 @@ export function findNewWaits(
   return { baseline: next, newWaits }
 }
 
-const PHRASES: Record<'pl' | 'en', Record<WaitKind, string>> = {
-  pl: {
-    question: 'Agent ma pytanie.',
-    permission: 'Agent prosi o zgodę.',
-    other: 'Agent czeka na ciebie.'
-  },
-  en: {
-    question: 'The agent has a question.',
-    permission: 'The agent asks for permission.',
-    other: 'The agent is waiting for you.'
+/**
+ * What is said for a wait, in the reading voice's language; the project name and chime go before
+ * it like before any message.
+ */
+export function waitAnnouncement(kind: WaitKind, language = readerLanguage()): string {
+  const words = readerWords(language)
+  switch (kind) {
+    case 'question':
+      return words.waitQuestion
+    case 'permission':
+      return words.waitPermission
+    case 'other':
+      return words.waitOther
   }
-}
-
-/** What is said for a wait; the project name and chime go before it like before any message. */
-export function waitAnnouncement(kind: WaitKind, language = deviceSpeechLanguage()): string {
-  return PHRASES[language][kind]
 }

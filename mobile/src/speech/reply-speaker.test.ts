@@ -16,7 +16,11 @@ vi.mock('./tts-engine', () => ({
   }
 }))
 
-const native = { setReaderState: vi.fn(), isPrivateOutput: vi.fn(() => true) }
+const native = {
+  setReaderState: vi.fn(),
+  isPrivateOutput: vi.fn(() => true),
+  getSpeechOptions: vi.fn(() => ({ rate: null, voice: null, phoneRate: 1, language: 'en-US' }))
+}
 vi.mock('./voice-native-module', () => ({ voiceNativeModule: () => native }))
 
 const { RESTART_AFTER_MS } = await import('./reader-model')

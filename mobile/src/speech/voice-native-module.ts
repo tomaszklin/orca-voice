@@ -36,8 +36,11 @@ export type VoiceNativeModule = {
   /** Plays the two-note chime as one utterance, with the speech's audio attributes and focus. */
   chime(id: string): boolean
   stopSpeech(): void
-  /** `phoneRate`: the rate the phone's text-to-speech settings give, 1 = normal. */
-  getSpeechOptions(): (SpeechOptions & { phoneRate: number }) | null
+  /**
+   * `phoneRate`: the rate the phone's text-to-speech settings give, 1 = normal. `language`: BCP 47
+   * tag of the voice the reader last read with, null before its engine first started.
+   */
+  getSpeechOptions(): (SpeechOptions & { phoneRate: number; language: string | null }) | null
   setSpeechOptions(rate: number | null, voice: string | null): boolean
   /** Null when the engine did not start. */
   getVoices(): Promise<NativeVoiceList | null>

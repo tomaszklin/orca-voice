@@ -66,8 +66,9 @@ describe('findNewWaits', () => {
 })
 
 describe('waitAnnouncement', () => {
-  it('speaks the phone language', () => {
+  it("speaks the reading voice's language", () => {
     expect(waitAnnouncement('question', 'pl')).toBe('Agent ma pytanie.')
     expect(waitAnnouncement('permission', 'en')).toBe('The agent asks for permission.')
+    expect(waitAnnouncement('other', 'es')).toBe('El agente te está esperando.')
   })
 })

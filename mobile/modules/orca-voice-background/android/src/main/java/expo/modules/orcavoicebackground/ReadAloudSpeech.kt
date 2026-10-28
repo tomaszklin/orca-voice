@@ -41,6 +41,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   private const val PREFS = "orca-voice-speech"
   private const val PREF_RATE = "rate"
   private const val PREF_VOICE = "voice"
+  private const val PREF_LANGUAGE = "language"
   // A dictation longer than this is unlikely; past it the held reading goes ahead anyway.
   private const val MIC_WAIT_LIMIT_MS = 120_000L
   // What a person talks into: dictation, calls, voice notes. Not the assistant's hotword
@@ -222,6 +223,8 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     // Some engines throw from these instead of returning null.
     val voices = runCatching { engine.voices }.getOrNull().orEmpty()
     val default = runCatching { engine.defaultVoice }.getOrNull()
+    // The phone's voice may have changed in its settings since the engine started.
+    if (!voiceApplied) rememberLanguage(default?.locale)
     return mapOf(
       "voices" to voices.map { voice ->
         mapOf(
@@ -255,7 +258,30 @@ object ReadAloudSpeech : UtteranceProgressListener() {
       runCatching { engine.defaultVoice }.getOrNull()?.let { engine.setVoice(it) }
       voiceApplied = false
     }
+    rememberLanguage(voice?.locale ?: defaultLocale(engine))
   }
+
+  @Suppress("DEPRECATION")
+  private fun defaultLocale(engine: TextToSpeech): Locale? =
+    runCatching { engine.defaultVoice?.locale ?: engine.defaultLanguage }.getOrNull()
+
+  /**
+   * The words the reader adds itself (a skipped code block, an agent waiting) are said in this
+   * language, so they match the voice. Kept with the options, so it is known before the engine
+   * starts again after a restart.
+   */
+  private fun rememberLanguage(locale: Locale?) {
+    val context = appContext ?: return
+    val tag = locale?.toLanguageTag()?.takeIf { it != "und" } ?: return
+    val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    if (prefs.getString(PREF_LANGUAGE, null) != tag) {
+      prefs.edit().putString(PREF_LANGUAGE, tag).apply()
+    }
+  }
+
+  /** The language the reader last read in; null before its engine first started. */
+  fun language(context: Context): String? =
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(PREF_LANGUAGE, null)
 
   // What the engine uses when it is given no rate (100 = normal).
   fun systemRate(context: Context): Float =

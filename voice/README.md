@@ -290,8 +290,8 @@ wiadomości, gdy agent stanie i czeka na niego — przy zgaszonym ekranie nie by
 - Settings → Read aloud → AUTO-READ → **„Say when an agent waits for you”** (domyślnie włączone,
   klucz `orca:voiceAnnounceWaits`). Gdy główny agent przejdzie w stan `waiting` / `blocked`, czytane
   jest raz na każde czekanie: „Agent ma pytanie.” (AskUserQuestion), „Agent prosi o zgodę.” (prośba
-  o uprawnienie do narzędzia), „Agent czeka na ciebie.” (reszta) — po angielsku na telefonie w innym
-  języku. Przed tym dźwięk i nazwa projektu jak przed wiadomością. Wyciszenie („Mute”) też to ucisza.
+  o uprawnienie do narzędzia), „Agent czeka na ciebie.” (reszta) — od buildu 25 w języku
+  głosu, który czyta (niżej), wcześniej według języka telefonu (polski albo angielski). Przed tym dźwięk i nazwa projektu jak przed wiadomością. Wyciszenie („Mute”) też to ucisza.
 - Źródło: ten sam `worktree.ps`, który odpytuje auto-czytanie (co 3 s na ekranie, co 15 s w tle);
   stan głównego agenta (`mainAgent.state`) obejmuje też czekanie, na które trafił podagent. Jak przy
   odpowiedziach, czekanie zastane przy włączeniu auto-czytania nie jest ogłaszane.
@@ -360,11 +360,36 @@ Punkty 1, 2, 3 i 5 z listy pomysłów właściciela (2026-10-28) plus jego proś
   (`ReadAloudOutput.kt`).
 - **Linki** (Settings → Read aloud → LINKS, klucz `orca:voiceLinks`): „link” + tekst (domyślnie),
   „link” + tekst + strona (`who.int`), sam tekst (jak do buildu 23), pomijanie. Goły adres to
-  „link” (z opcją strony: „link example.com”). Słowo „link” idzie przez `PLACEHOLDERS` w
-  `speech/speech-text.ts`. Dotyczy przycisku Read i auto-czytania.
+  „link” (z opcją strony: „link example.com”). Słowo „link” idzie przez `READER_WORDS` w
+  `speech/reader-words.ts` (od buildu 25; wcześniej `PLACEHOLDERS` w `speech/speech-text.ts`). Dotyczy przycisku Read i auto-czytania.
 - Kod JS: stan czytnika i akcje w `speech/reply-speaker.ts`, reguły w `speech/reader-model.ts`,
   przyciski i synchronizacja opcji w `speech/reader-controls.ts`, opcje w
   `speech/reading-preferences.ts`. Zdarzenia dźwięku z modułu: `onAudioEvent` w `speech/tts-engine.ts`.
+
+## Słowa czytnika w języku głosu (build 25, 2026-10-28)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel zauważył, że komunikat „agent czeka” źle brzmi. Słowa, które czytnik dodaje od siebie
+(pominięty kod i tabela, „link”, czekanie agenta, próbka głosu), szły według języka **interfejsu
+telefonu** i tylko po polsku albo angielsku, a czyta je głos w języku ustawień mowy — przy różnych
+ustawieniach polski głos czytał angielskie zdanie albo odwrotnie. To też blokowało zgłoszenie
+czytania do Orki (wszystko poza polskim słyszałoby angielski).
+
+- Teraz te słowa są w języku **głosu, który czyta**: wybranego w Settings → Read aloud → Voice
+  albo domyślnego głosu silnika („Phone setting”). `ReadAloudSpeech.kt` zapisuje ten język
+  (`language` w SharedPreferences `orca-voice-speech`) przy starcie silnika, zmianie głosu i
+  otwarciu listy głosów; JS czyta go synchronicznie z `getSpeechOptions().language`.
+- Języki: te, na które przetłumaczony jest desktop Orki (angielski, chiński, japoński, koreański,
+  hiszpański, francuski, portugalski), plus polski — `speech/reader-words.ts` (`READER_WORDS`).
+  Głos w innym języku (np. włoski) dostaje angielski. Zanim silnik raz ruszy (pierwsze czytanie
+  po instalacji), działa jak dawniej: język telefonu; wtedy też silnik jest uruchamiany w tle.
+- Próbka głosu w ustawieniach jest już jednojęzyczna (wcześniej „Test czytania odpowiedzi. Test
+  reading replies aloud.”).
+- Zdania kończone „。！？” (chiński, japoński) nie dostają już dodatkowej kropki.
+- **Bez zmian:** sama odpowiedź agenta jest czytana jednym głosem — agent piszący po angielsku do
+  polskiego głosu dalej brzmi z polskim akcentem. Na to trzeba by rozpoznawać język wiadomości i
+  przełączać głos (Android pozwala na głos per wypowiedź) — osobny pomysł.
 
 ## Budowanie
 
