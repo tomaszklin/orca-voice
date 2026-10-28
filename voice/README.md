@@ -450,6 +450,22 @@ Właściciel: odpowiedź w nowej sesji (agent odpisał w 4 s) nie została przec
   tylko przy zmianie stanu) — ta sama odpowiedź w kolejnej turze też jest czytana (wcześniej nie,
   bo tekst się nie zmienił).
 
+## Poprzednia / Następna wyszarzone, gdy nie ma dokąd (build 28, 2026-10-28)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel: przyciski Poprzednia i Następna w powiadomieniu były aktywne, choć nie było wcześniejszej
+ani czekającej wiadomości.
+
+- `speech/reply-speaker.ts` podaje modułowi `canPrevious` (w historii jest wiadomość przed obecną) i
+  `canNext` (coś czeka w kolejce) — `setReaderState` ma dwa nowe argumenty.
+- Powiadomienie (`ReadAloudService.kt`): brakujący kierunek ma przyciemnioną ikonę
+  (`orca_voice_previous_off` / `orca_voice_next_off`, alfa 0,38) i nic nie robi — przyciski nie
+  zmieniają miejsc.
+- `ReadAloudMediaSession.kt`: `ACTION_SKIP_TO_PREVIOUS/NEXT` tylko, gdy jest dokąd — wyświetlacz auta
+  może je wtedy wyszarzyć. Przycisk słuchawek dalej działa jak dawniej (Poprzednia bez wcześniejszej
+  wiadomości czyta obecną od początku).
+
 ## Budowanie
 
 ```powershell

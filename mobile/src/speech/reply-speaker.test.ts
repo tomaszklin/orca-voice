@@ -144,11 +144,28 @@ describe('speakReply', () => {
       'reading',
       'OrcaVoice',
       'Reading · OrcaVoice · 1 more waiting',
+      true,
+      expect.any(Boolean),
       true
     )
     finishPiece()
+    expect(native.setReaderState).toHaveBeenLastCalledWith(
+      'reading',
+      null,
+      'Reading',
+      true,
+      true,
+      false
+    )
     finishPiece()
-    expect(native.setReaderState).toHaveBeenLastCalledWith('idle', null, null, true)
+    expect(native.setReaderState).toHaveBeenLastCalledWith(
+      'idle',
+      null,
+      null,
+      true,
+      expect.any(Boolean),
+      false
+    )
   })
 })
 
