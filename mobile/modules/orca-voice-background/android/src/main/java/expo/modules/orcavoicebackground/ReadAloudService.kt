@@ -1,17 +1,18 @@
 package expo.modules.orcavoicebackground
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
-import androidx.core.app.NotificationCompat
 
 /**
  * Orca Voice fork: a foreground service that keeps Orca alive and awake with the screen off, so
@@ -22,8 +23,10 @@ import androidx.core.app.NotificationCompat
  * lock), and React Native pauses JS timers in the background (the service ticks instead, and the
  * module forwards each tick to JS as an event, which the paused timers do not affect).
  *
- * Its notification carries a Mute / Unmute button: a temporary mute of auto-read that the app's
- * JS owns and forgets on restart (owner's request, 2026-10-21).
+ * Its notification carries icon buttons that show without expanding it (owner's requests,
+ * 2026-10-21 and 2026-10-28): a speaker that mutes and unmutes auto-read for now — a mute the
+ * app's JS owns and forgets on restart — and, while something is being read, Stop.
+ * [ReadAloudTileService] offers the same mute in Quick Settings.
  */
 class ReadAloudService : Service() {
   private var wakeLock: PowerManager.WakeLock? = null
@@ -46,13 +49,18 @@ class ReadAloudService : Service() {
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    if (intent?.action == ACTION_TOGGLE_MUTE) {
+    val control = when (intent?.action) {
+      ACTION_TOGGLE_MUTE -> ReadAloudControls.TOGGLE_MUTE
+      ACTION_STOP_READING -> ReadAloudControls.STOP_READING
+      else -> null
+    }
+    if (control != null) {
       // A button on a notification left behind by a service that is gone starts nothing.
       if (!isRunning) {
         stopSelf(startId)
         return START_NOT_STICKY
       }
-      ReadAloudControls.toggleMute()
+      ReadAloudControls.send(control)
       return START_STICKY
     }
     // A sticky restart (null intent) after the system killed only the service is worth keeping:
@@ -81,6 +89,7 @@ class ReadAloudService : Service() {
     handler.removeCallbacks(tick)
     handler.post(tick)
     isRunning = true
+    ReadAloudTileService.refresh(this)
     return START_STICKY
   }
 
@@ -96,6 +105,7 @@ class ReadAloudService : Service() {
     wakeLock?.let { if (it.isHeld) it.release() }
     wakeLock = null
     isRunning = false
+    ReadAloudTileService.refresh(this)
     super.onDestroy()
   }
 
@@ -105,41 +115,62 @@ class ReadAloudService : Service() {
     manager.notify(NOTIFICATION_ID, buildNotification())
   }
 
-  private fun buildNotification(): android.app.Notification {
-    val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+  private fun controlIntent(requestCode: Int, action: String): PendingIntent =
+    PendingIntent.getService(
+      this,
+      requestCode,
+      Intent(this, ReadAloudService::class.java).setAction(action),
+      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+    )
+
+  private fun buildNotification(): Notification {
+    val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
       manager.createNotificationChannel(
         NotificationChannel(CHANNEL_ID, "Reading replies aloud", NotificationManager.IMPORTANCE_LOW)
       )
+      Notification.Builder(this, CHANNEL_ID)
+    } else {
+      @Suppress("DEPRECATION")
+      Notification.Builder(this).setPriority(Notification.PRIORITY_LOW)
     }
     val launch = packageManager.getLaunchIntentForPackage(packageName)
     val content = launch?.let {
       PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
-    val toggle = PendingIntent.getService(
-      this,
-      1,
-      Intent(this, ReadAloudService::class.java).setAction(ACTION_TOGGLE_MUTE),
-      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-    )
+    val actions = buildList {
+      if (speaking) {
+        add(action(R.drawable.orca_voice_stop, "Stop reading", controlIntent(2, ACTION_STOP_READING)))
+      }
+      add(
+        if (isMuted) {
+          action(R.drawable.orca_voice_volume_off, "Unmute auto-read", controlIntent(1, ACTION_TOGGLE_MUTE))
+        } else {
+          action(R.drawable.orca_voice_volume_up, "Mute auto-read", controlIntent(1, ACTION_TOGGLE_MUTE))
+        }
+      )
+    }
     // The monochrome icon expo-notifications generates from app.json, else the launcher icon.
     val smallIcon = resources.getIdentifier("notification_icon", "drawable", packageName)
       .takeIf { it != 0 } ?: applicationInfo.icon
-    return NotificationCompat.Builder(this, CHANNEL_ID)
+    actions.forEach { builder.addAction(it) }
+    // Media style for its icon buttons, shown even while the notification is collapsed. Without a
+    // media session Android draws it as an ordinary notification, not as a player in Quick
+    // Settings, and the music app keeps the headset and steering-wheel buttons.
+    return builder
+      .setStyle(Notification.MediaStyle().setShowActionsInCompactView(*IntArray(actions.size) { it }))
       .setContentTitle(title)
-      .setContentText(if (muted) MUTED_TEXT else text)
+      .setContentText(if (isMuted) MUTED_TEXT else text)
       .setSmallIcon(smallIcon)
-      .addAction(
-        if (muted) android.R.drawable.ic_lock_silent_mode_off else android.R.drawable.ic_lock_silent_mode,
-        if (muted) "Unmute" else "Mute",
-        toggle
-      )
       .setOngoing(true)
-      .setSilent(true)
-      .setPriority(NotificationCompat.PRIORITY_LOW)
+      .setOnlyAlertOnce(true)
+      .setShowWhen(false)
       .setContentIntent(content)
       .build()
   }
+
+  private fun action(icon: Int, label: String, intent: PendingIntent): Notification.Action =
+    Notification.Action.Builder(Icon.createWithResource(this, icon), label, intent).build()
 
   companion object {
     const val EXTRA_TITLE = "title"
@@ -147,17 +178,32 @@ class ReadAloudService : Service() {
     const val EXTRA_TICK_MS = "tickMs"
     const val DEFAULT_TICK_MS = 3000L
     private const val ACTION_TOGGLE_MUTE = "expo.modules.orcavoicebackground.TOGGLE_MUTE"
-    private const val MUTED_TEXT = "Auto-read muted until you unmute or restart Orca"
+    private const val ACTION_STOP_READING = "expo.modules.orcavoicebackground.STOP_READING"
+    private const val MUTED_TEXT = "Auto-read muted"
     private const val CHANNEL_ID = "orca-voice-read-aloud"
     private const val NOTIFICATION_ID = 7417
     @Volatile var isRunning = false
       private set
-    @Volatile private var muted = false
+    @Volatile var isMuted = false
+      private set
+    @Volatile private var speaking = false
     private var current: ReadAloudService? = null
 
-    /** Shows the mute JS decided on; a later start keeps showing it. */
+    /** Shows the mute JS decided on, here and on the tile; a later start keeps showing it. */
     fun showMuted(next: Boolean) {
-      muted = next
+      isMuted = next
+      Handler(Looper.getMainLooper()).post {
+        current?.let {
+          it.refreshNotification()
+          ReadAloudTileService.refresh(it)
+        }
+      }
+    }
+
+    /** Whether something is being read, which brings Stop into the notification. */
+    fun showSpeaking(next: Boolean) {
+      if (speaking == next) return
+      speaking = next
       Handler(Looper.getMainLooper()).post { current?.refreshNotification() }
     }
   }
@@ -172,11 +218,16 @@ object ReadAloudTicker {
   }
 }
 
-/** The notification's Mute button, handed to whichever module instance is listening. */
+/** The notification's and the tile's buttons, handed to whichever module instance is listening. */
 object ReadAloudControls {
-  @Volatile var listener: (() -> Unit)? = null
+  const val TOGGLE_MUTE = "toggleMute"
+  const val STOP_READING = "stopReading"
 
-  fun toggleMute() {
-    listener?.invoke()
+  @Volatile var listener: ((String) -> Unit)? = null
+
+  fun send(control: String) {
+    listener?.invoke(control)
   }
+
+  fun toggleMute() = send(TOGGLE_MUTE)
 }

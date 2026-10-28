@@ -1,6 +1,7 @@
 package expo.modules.orcavoicebackground
 
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import expo.modules.kotlin.Promise
@@ -15,7 +16,7 @@ class OrcaVoiceBackgroundModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("OrcaVoiceBackground")
 
-    Events("onTick", "onSpeech", "onMuteToggle")
+    Events("onTick", "onSpeech", "onMuteToggle", "onStopReading")
 
     // Wired at creation rather than on first observer: a module instance exists only while the
     // app's JS runs, which is exactly what the sticky service checks the ticker listener for.
@@ -24,7 +25,10 @@ class OrcaVoiceBackgroundModule : Module() {
       ReadAloudSpeech.listener = { event, id, message ->
         sendEvent("onSpeech", mapOf("event" to event, "id" to id, "message" to message))
       }
-      ReadAloudControls.listener = { sendEvent("onMuteToggle", emptyMap<String, Any>()) }
+      ReadAloudControls.listener = { control ->
+        val event = if (control == ReadAloudControls.STOP_READING) "onStopReading" else "onMuteToggle"
+        sendEvent(event, emptyMap<String, Any>())
+      }
     }
 
     /** False when Android refused the service, e.g. a start attempted from the background. */
@@ -111,9 +115,23 @@ class OrcaVoiceBackgroundModule : Module() {
       UpdateInstaller.start(context, url)
     }
 
-    /** What the notification's Mute button shows; the mute itself lives in JS. */
+    /** What the notification's speaker and the tile show; the mute itself lives in JS. */
     Function("setMuted") { muted: Boolean ->
       ReadAloudService.showMuted(muted)
+    }
+
+    /** Whether something is being read, which brings Stop into the notification. */
+    Function("setSpeaking") { speaking: Boolean ->
+      ReadAloudService.showSpeaking(speaking)
+    }
+
+    /** Android 13+ asks to add the Quick Settings tile; older ones resolve `unsupported`. */
+    AsyncFunction("requestAddTile") { promise: Promise ->
+      val context = appContext.currentActivity ?: appContext.reactContext
+      if (context == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        return@AsyncFunction promise.resolve(if (context == null) "error" else "unsupported")
+      }
+      ReadAloudTileService.requestAdd(context) { promise.resolve(it) }
     }
 
     OnDestroy {

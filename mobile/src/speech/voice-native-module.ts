@@ -21,6 +21,8 @@ export type NativeVoiceList = {
 /** `rate` 1 = normal; null rate or voice = the phone's text-to-speech setting. */
 export type SpeechOptions = { rate: number | null; voice: string | null }
 
+export type TileAddResult = 'added' | 'already-added' | 'not-added' | 'unsupported' | 'error'
+
 export type VoiceNativeModule = {
   start(title: string, text: string, tickMs: number): boolean
   stop(): boolean
@@ -36,11 +38,18 @@ export type VoiceNativeModule = {
   getVoices(): Promise<NativeVoiceList | null>
   /** The phone's text-to-speech settings: engine, more voices to download. */
   openTtsSettings(): boolean
-  /** What the notification's Mute button shows. */
+  /** What the notification's speaker button and the Quick Settings tile show. */
   setMuted(muted: boolean): void
+  /** Whether something is being read, which brings Stop into the notification. */
+  setSpeaking(speaking: boolean): void
+  /** Android's "Add tile to Quick Settings?" prompt (Android 13+). */
+  requestAddTile(): Promise<TileAddResult>
   /** Starts downloading an update and opening the installer; false when it could not start. */
   installUpdate(url: string): boolean
-  addListener(event: 'onTick' | 'onMuteToggle', listener: () => void): { remove(): void }
+  addListener(
+    event: 'onTick' | 'onMuteToggle' | 'onStopReading',
+    listener: () => void
+  ): { remove(): void }
   addListener(
     event: 'onSpeech',
     listener: (payload: { event: string; id: string; message: string | null }) => void

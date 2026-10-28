@@ -10,6 +10,20 @@
       android:name="expo.modules.orcavoicebackground.ReadAloudService"
       android:exported="false"
       android:foregroundServiceType="mediaPlayback" />
+    <!-- Orca Voice fork: the Quick Settings tile that mutes auto-read for now. -->
+    <service
+      android:name="expo.modules.orcavoicebackground.ReadAloudTileService"
+      android:exported="true"
+      android:icon="@drawable/orca_voice_volume_up"
+      android:label="Read aloud"
+      android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+      <intent-filter>
+        <action android:name="android.service.quicksettings.action.QS_TILE" />
+      </intent-filter>
+      <meta-data
+        android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+        android:value="true" />
+    </service>
     <provider
       android:name="expo.modules.orcavoicebackground.UpdateFileProvider"
       android:authorities="${applicationId}.orcavoice.updates"

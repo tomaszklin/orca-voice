@@ -8,6 +8,7 @@ import {
   type UtteranceCallbacks
 } from './tts-engine'
 import { splitForSpeech, toSpeechText } from './speech-text'
+import { voiceNativeModule } from './voice-native-module'
 
 // A few sentences per piece: when the engine drops one midway (2026-10-21: replies went quiet
 // seconds in), only that piece is repeated instead of the rest of the reply being lost.
@@ -25,7 +26,15 @@ let queue: Utterance[] = []
 let current: Utterance | null = null
 const listeners = new Set<() => void>()
 
+let reportedBusy = false
+
 function emit(): void {
+  // Told synchronously rather than from a render, so the notification's Stop keeps up off screen.
+  const busy = current !== null
+  if (busy !== reportedBusy) {
+    reportedBusy = busy
+    voiceNativeModule()?.setSpeaking(busy)
+  }
   for (const listener of listeners) {
     listener()
   }

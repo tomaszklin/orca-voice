@@ -13,6 +13,9 @@ vi.mock('./tts-engine', () => ({
   }
 }))
 
+const setSpeaking = vi.fn()
+vi.mock('./voice-native-module', () => ({ voiceNativeModule: () => ({ setSpeaking }) }))
+
 const { speakReply, stopSpeaking } = await import('./reply-speaker')
 
 const sentence = (n: number) => `Sentence number ${n} is long enough to fill some of a piece.`
@@ -91,5 +94,14 @@ describe('speakReply', () => {
     stale.onError?.({ message: 'text-to-speech was stopped by the system' })
     stale.onDone?.()
     expect(spoken).toHaveLength(1)
+  })
+
+  it('tells the notification when reading starts and when the queue runs out', () => {
+    setSpeaking.mockClear()
+    speakReply('a', 'One.', 'queue')
+    speakReply('b', 'Two.', 'queue')
+    last().handlers.onDone?.()
+    last().handlers.onDone?.()
+    expect(setSpeaking.mock.calls).toEqual([[true], [false]])
   })
 })

@@ -11,6 +11,7 @@ import { setAutoReadMuted, useAutoReadMuted } from './auto-read-mute'
 import { useAutoReadRepliesPreference } from './auto-read-preference'
 import { useBuiltInPagePreference } from './built-in-page-preference'
 import { useBackgroundReadingPreference } from './background-reading'
+import { QuickSettingsTileRow } from './quick-settings-tile-row'
 import { readAloudStyles as styles } from './read-aloud-settings-styles'
 import {
   ReadAloudVoiceGroup,
@@ -153,8 +154,8 @@ export default function ReadAloudSettingsScreen() {
               <Text style={styles.rowLabel}>Mute for now</Text>
               <Text style={styles.rowSublabel}>
                 {muted
-                  ? 'Muted — until you unmute here or in the notification, or restart Orca'
-                  : 'Also on the reading notification; a restart of Orca unmutes'}
+                  ? 'Muted — until you unmute here, in the notification or on the tile, or restart Orca'
+                  : 'Also in the reading notification and the Quick Settings tile; a restart of Orca unmutes'}
               </Text>
             </View>
             <Switch
@@ -165,6 +166,7 @@ export default function ReadAloudSettingsScreen() {
               thumbColor={colors.textPrimary}
             />
           </View>
+          <QuickSettingsTileRow />
           <View style={[styles.row, styles.rowDivider]}>
             <View style={styles.rowContent}>
               <Text style={styles.rowLabel}>Keep reading with the screen off</Text>

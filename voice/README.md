@@ -182,6 +182,7 @@ Zgłoszenia właściciela z 2026-10-21:
   Przycisk Read pod wiadomością dalej czyta.
 - Powiadomienie istnieje tylko przy włączonym „Keep reading with the screen off”. Jest ciche
   (niski priorytet), więc przycisk może być widoczny dopiero po rozwinięciu powiadomienia.
+  Od buildu 23 zamiast napisu jest ikona głośnika i kafelek w szybkich ustawieniach (niżej).
 
 ## Szybkość i głos czytania (build 17, 2026-10-23)
 
@@ -296,6 +297,32 @@ wiadomości, gdy agent stanie i czeka na niego — przy zgaszonym ekranie nie by
   odpowiedziach, czekanie zastane przy włączeniu auto-czytania nie jest ogłaszane.
   Kod: `speech/agent-wait-announcement.ts`.
 - Treści pytania nie czytamy — `worktree.ps` jej nie niesie (tylko nazwę narzędzia).
+
+## Wyciszanie: kafelek w szybkich ustawieniach, ikony w powiadomieniu (build 23, 2026-10-28)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel uznał tekstowy przycisk „Mute / Unmute” z buildu 14 za mało elegancki (widoczny dopiero
+po rozwinięciu powiadomienia) i wybrał kafelek plus ikony.
+
+- **Kafelek „Read aloud”** w szybkich ustawieniach (`ReadAloudTileService.kt`, wpis w manifeście
+  modułu), jak latarka: włączony = czyta, wyłączony = wyciszone („Muted”). Działa, póki działa usługa
+  czytania (ten sam czas życia co powiadomienie, czyli przy „Keep reading with the screen off”);
+  inaczej jest wyszarzony („Orca is not reading”). Dotknięcie idzie tą samą drogą co przycisk w
+  powiadomieniu (`ReadAloudControls` → `onMuteToggle` → JS), wyciszenie dalej żyje w pamięci JS.
+  Działa też przy zablokowanym ekranie.
+- Settings → Read aloud → AUTO-READ → **„Add the Quick Settings tile”** (`speech/quick-settings-tile-row.tsx`):
+  na Androidzie 13+ systemowe okno „dodać kafelek?” (`requestAddTileService`); na starszym — opis,
+  jak dodać ręcznie (ołówek w panelu).
+- **Powiadomienie w stylu odtwarzacza** (`Notification.MediaStyle`, bez sesji multimediów), żeby
+  przyciski były ikonami widocznymi bez rozwijania: głośnik (przekreślony, gdy wyciszone) i — tylko
+  podczas czytania — Stop (zdarzenie `onStopReading` → `stopSpeaking`). Czytnik zgłasza „czytam /
+  nie czytam” synchronicznie z `emit()` w `speech/reply-speaker.ts` (`setSpeaking`), nie z renderu,
+  żeby działało przy zgaszonym ekranie. Bez sesji multimediów Android rysuje to jak zwykłe
+  powiadomienie, nie jako odtwarzacz w szybkich ustawieniach, a przyciski słuchawek i kierownicy
+  zostają przy aplikacji z muzyką.
+- Ikony: wektorowe Material Icons (`res/drawable/orca_voice_*.xml`, licencja Apache 2.0).
+- Napisy (kafelek, powiadomienie) po angielsku, jak reszta interfejsu aplikacji.
 
 ## Budowanie
 
