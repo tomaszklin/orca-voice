@@ -541,6 +541,16 @@ czytelne — przyciski zmieniały miejsca. Przyjęta propozycja:
 - Granie jednego kawałka z ponowieniem wydzielone do `speech/piece-player.ts` (limit linii pliku).
 - Zdarzenie modułu `onMuteToggle` → `onAutoReadToggle`, funkcja `setMuted` → `setAutoReadPaused`.
 
+## Bez dziennika w ustawieniach (build 33, 2026-10-29)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel: dziennik czytnika na dole Settings → Read aloud nie jest już potrzebny. Zniknął razem ze
+zbieraniem stanu (`recordSpeechDiagnostics`: ostatnie sprawdzenie, hosty, usługa, tyknięcia).
+`logSpeechEvent` w `speech/speech-diagnostics.ts` pisze teraz kroki czytnika do logu aplikacji
+(`adb logcat`, znacznik `[read-aloud]`) — na wypadek, gdyby telefon znowu milczał. Numer buildu
+dalej widać przy aktualizacji aplikacji.
+
 ## Budowanie
 
 ```powershell

@@ -7,7 +7,7 @@ import {
 } from '../storage/speech-preferences'
 import { isAutoReadPaused, setAutoReadPaused } from './auto-read-pause'
 import { setBackgroundReadingActive } from './background-reading-state'
-import { recordSpeechDiagnostics } from './speech-diagnostics'
+import { logSpeechEvent } from './speech-diagnostics'
 import { voiceNativeModule } from './voice-native-module'
 
 /**
@@ -75,10 +75,7 @@ export function useBackgroundReadingService(wanted: boolean, onTick: () => void)
     if (!wanted || native === null) {
       return
     }
-    const subscription = native.addListener('onTick', () => {
-      recordSpeechDiagnostics({ lastTickAt: Date.now() })
-      onTick()
-    })
+    const subscription = native.addListener('onTick', onTick)
     // The notification's and the Quick Settings tile's auto-read pause; the reading buttons go
     // through `reader-controls.ts`, which works without the service too.
     const pauseButton = native.addListener('onAutoReadToggle', () =>
@@ -96,7 +93,6 @@ export function useBackgroundReadingService(wanted: boolean, onTick: () => void)
   useEffect(() => {
     const native = background()
     if (native === null) {
-      recordSpeechDiagnostics({ service: 'unavailable' })
       return
     }
     const sync = () => {
@@ -107,26 +103,21 @@ export function useBackgroundReadingService(wanted: boolean, onTick: () => void)
           native.stop()
         }
         setBackgroundReadingActive(false)
-        recordSpeechDiagnostics({ service: 'off' })
         return
       }
       if (native.isRunning()) {
         setBackgroundReadingActive(true)
-        recordSpeechDiagnostics({ service: 'running' })
         return
       }
       if (AppState.currentState !== 'active') {
         setBackgroundReadingActive(false)
-        recordSpeechDiagnostics({ service: 'stopped off screen' })
         return
       }
       const started = native.start('Orca', 'Reading agent replies aloud', TICK_MS)
       setBackgroundReadingActive(started)
-      recordSpeechDiagnostics(
-        started
-          ? { service: 'running', serviceStartedAt: Date.now() }
-          : { service: 'refused by Android' }
-      )
+      if (!started) {
+        logSpeechEvent('background service refused by Android')
+      }
     }
     sync()
     const subscription = AppState.addEventListener('change', (state) => {

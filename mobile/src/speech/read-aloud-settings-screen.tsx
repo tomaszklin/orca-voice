@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, Switch } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import Constants from 'expo-constants'
 import { Check, ChevronLeft } from 'lucide-react-native'
 import { colors, spacing } from '../theme/mobile-theme'
 import type {
@@ -27,7 +26,6 @@ import { useChimeMode, useProjectNameMode } from './project-name-announcement'
 import { useReadScopePreference } from './read-scope-preference'
 import { useHeadphonesOnly, useLinkReading } from './reading-preferences'
 import { playChimeSample } from './reply-speaker'
-import { describeSpeechDiagnostics, useSpeechDiagnostics } from './speech-diagnostics'
 import { useSpeechOptions } from './speech-options'
 
 const READ_SCOPES: { scope: ReadScope; label: string; sublabel: string }[] = [
@@ -105,7 +103,6 @@ export default function ReadAloudSettingsScreen() {
   const { value: headphonesOnly, setValue: setHeadphonesOnly } = useHeadphonesOnly()
   const { value: linkReading, setValue: setLinkReading } = useLinkReading()
   const autoReadPaused = useAutoReadPaused()
-  const diagnostics = useSpeechDiagnostics()
   const speechOptions = useSpeechOptions()
   const [picker, setPicker] = useState<VoicePicker | null>(null)
 
@@ -353,10 +350,6 @@ export default function ReadAloudSettingsScreen() {
             )
           })}
         </View>
-
-        <Text style={styles.diagnostics} selectable>
-          {describeSpeechDiagnostics(diagnostics, Constants.expoConfig?.extra?.voiceBuild)}
-        </Text>
       </ScrollView>
 
       <ReadAloudVoicePickers
