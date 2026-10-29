@@ -3,7 +3,6 @@ package expo.modules.orcavoicebackground
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
-import androidx.core.content.ContextCompat
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -38,21 +37,12 @@ class OrcaVoiceBackgroundModule : Module() {
     /** False when Android refused the service, e.g. a start attempted from the background. */
     Function("start") { title: String, text: String, tickMs: Double ->
       val context = appContext.reactContext ?: return@Function false
-      val intent = Intent(context, ReadAloudService::class.java)
-        .putExtra(ReadAloudService.EXTRA_TITLE, title)
-        .putExtra(ReadAloudService.EXTRA_TEXT, text)
-        .putExtra(ReadAloudService.EXTRA_TICK_MS, tickMs.toLong())
-      try {
-        ContextCompat.startForegroundService(context, intent)
-        true
-      } catch (_: Exception) {
-        false
-      }
+      ReadAloudService.start(context, title, text, tickMs.toLong())
     }
 
     Function("stop") {
       val context = appContext.reactContext ?: return@Function false
-      context.stopService(Intent(context, ReadAloudService::class.java))
+      ReadAloudService.stop(context)
     }
 
     Function("isRunning") { ReadAloudService.isRunning }

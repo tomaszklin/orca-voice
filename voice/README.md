@@ -551,6 +551,34 @@ zbieraniem stanu (`recordSpeechDiagnostics`: ostatnie sprawdzenie, hosty, usług
 (`adb logcat`, znacznik `[read-aloud]`) — na wypadek, gdyby telefon znowu milczał. Numer buildu
 dalej widać przy aktualizacji aplikacji.
 
+## Poprawki po przeglądzie kodu (build 34, 2026-10-29)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel zlecił przegląd zgłoszenia stablyai/orca#35166 i poprawienie wszystkiego, co wyszło. Te same
+poprawki są w zgłoszeniu (commit `ebaffe3fa5` na gałęzi `read-aloud`); tu przeniesione z zachowaniem
+rzeczy tylko z forka (wbudowana strona, przełącznik nagrywania ekranu, napis „Read”, limit 18).
+
+- **Czytnik:** Read na wiadomości czekającej w kolejce nie przeczyta jej drugi raz; pauza czytania
+  automatycznego w czasie rozmowy zostaje po rozmowie; „Pomijam fragment kodu.” zawsze głosem czytania;
+  japoński z kaną to japoński; próbka w ustawieniach pauzuje czytanie zamiast je kasować; kod w tekście
+  skracany do nazwy pliku tylko, gdy wygląda na ścieżkę; linki nie zjadają nawiasów, obrazki czytane
+  tekstem alternatywnym; Poprzednia aktywna, gdy wiadomości czekają.
+- **Czytanie automatyczne:** kanały czatu otwierają się na nowo po ponownym połączeniu z komputerem,
+  nie biorą błędnego „snapshotu” za historię i nie czytają drugi raz tego, co już padło; odpowiedź
+  końcowa, której kanał nie przeczytał, czyta się po dwóch sprawdzeniach. Każda odpowiedź ma własne id
+  (`paneKey@czas`), więc przy pauzie nie wypierają się w kolejce. Zawieszone sprawdzenie zastępowane
+  po 60 s. `worktree.ps` przez typowaną operację `worktreeCatalogRead` (nowe `speech/auto-read-agent-rows.ts`,
+  `speech/chat-feed-target.ts`).
+- **Moduł Androida:** brak działającego silnika mowy nie wiesza czytania; zwykłe zatrzymanie nie
+  przebudowuje silnika (koniec przerwy po pauzie i utraty głosów innych języków); w czasie rozmowy
+  telefonicznej mowa czeka na fokus audio zamiast mówić do ucha; bezpieczne zatrzymanie usługi tuż po
+  starcie; przyciski słuchawek na Androidzie 7; mikrofony nie liczą się jako słuchawki.
+- **Ustawienia i mostek:** `MobileSwitch` i wspólne style ustawień głosu; kolory nadążają za trybem
+  jasnym/ciemnym; przycisk Read widoczny (wyszarzony) już w trakcie pisania odpowiedzi, więc wiersz nie
+  skacze; akcja `stop` czasownika `native.speech.control` usunięta (nikt jej nie wołał), strona woła go
+  przez `useNativeVerbs`; limit tekstu 81 920 znaków; test limitu uprawnień liczy z limitu (18).
+
 ## Budowanie
 
 ```powershell

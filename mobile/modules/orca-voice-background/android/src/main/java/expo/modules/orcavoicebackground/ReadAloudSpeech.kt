@@ -27,7 +27,9 @@ import java.util.Locale
  * the pieces of one reply. Like a music player it gives way to dictation and calls: losing focus
  * stops the reading, and nothing starts while someone is talking into the mic (2026-10-21). A
  * call or dictation only holds it; the reader continues when they give the focus back (2026-10-28).
- * The chime before an auto-read message (2026-10-28) is played the same way, as one more piece.
+ * A focus request refused or delayed by a call holds the reading too, rather than speaking into
+ * the call. The chime before an auto-read message (2026-10-28) is played the same way, as one
+ * more piece.
  */
 object ReadAloudSpeech : UtteranceProgressListener() {
   /**
@@ -39,6 +41,9 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   @Volatile var listener: ((String, String, String?) -> Unit)? = null
 
   private const val FOCUS_GRACE_MS = 1500L
+  // A refused focus request registers no listener, so only asking again shows when a call ended.
+  private const val FOCUS_RETRY_MS = 3000L
+  private const val ENGINE_FAILED = "text-to-speech engine did not start"
   private const val PREFS = "orca-voice-speech"
   private const val PREF_RATE = "rate"
   private const val PREF_VOICE = "voice"
@@ -86,6 +91,9 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   private var appContext: Context? = null
   private var tts: TextToSpeech? = null
   private var ready = false
+  // With no usable engine, onInit runs inside the TextToSpeech constructor, before `tts` is set.
+  private var startingEngine = false
+  private var startStatus: Int? = null
   private var audioManager: AudioManager? = null
   private var focusRequest: AudioFocusRequest? = null
   private var legacyFocusHeld = false
@@ -100,10 +108,12 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   private val releaseFocus = Runnable {
     synchronized(ReadAloudSpeech) { if (active.isEmpty()) abandonFocus() }
   }
+  private val focusRetry = Runnable { retryFocus() }
   // (id, text); null text is the chime.
   private val heldForMic = mutableListOf<Pair<String, String?>>()
   // The chime being played, released when it has run its length or on stop.
   private var chimeTrack: AudioTrack? = null
+  private var chimeId: String? = null
   private var chimeFinished: Runnable? = null
   // Callers waiting for the engine to start, e.g. the voice list opened before anything was read.
   private val whenReady = mutableListOf<(TextToSpeech?) -> Unit>()
@@ -117,8 +127,9 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   private var readingVoice: Voice? = null
   private var recordingCallback: AudioManager.AudioRecordingCallback? = null
   private val micWaitLimit = Runnable { synchronized(ReadAloudSpeech) { releaseHeld() } }
-  // Set while a call or dictation holds the audio: the focus request is kept, so Android hands the
-  // focus back when they end and the reader can continue (2026-10-28).
+  // Set while a call or dictation has the audio: nothing is spoken. The focus request is kept, or
+  // asked for again every few seconds when Android refused it, so the end of the call is reported
+  // and the reader can continue (2026-10-28).
   private var heldByInterruption = false
   private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
     when (change) {
@@ -130,7 +141,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
         holdForInterruption()
         listener?.invoke("held", "", "a call or dictation took the audio")
       }
-      AudioManager.AUDIOFOCUS_GAIN -> if (endInterruption()) listener?.invoke("regained", "", null)
+      AudioManager.AUDIOFOCUS_GAIN -> if (endInterruption()) reportRegained()
     }
   }
 
@@ -167,10 +178,16 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   // Played here rather than as a TTS earcon: the engine runs in another app, which may not be
   // allowed to read this app's resources. Same attributes and focus as the speech.
   private fun playChime(id: String) {
-    handler.removeCallbacks(releaseFocus)
-    requestFocus()
-    active.add(id)
+    // A chime cut short by this one still reports, or its id would keep the focus forever.
+    val replaced = chimeId
     endChime()
+    if (replaced != null && finish(replaced)) listener?.invoke("done", replaced, null)
+    handler.removeCallbacks(releaseFocus)
+    if (!requestFocus()) {
+      holdForFocus()
+      return
+    }
+    active.add(id)
     val track = ReadAloudChime.track(attributes)
     val started = track != null && runCatching { track.play() }.isSuccess
     if (!started) {
@@ -180,6 +197,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
       return
     }
     chimeTrack = track
+    chimeId = id
     val finished = Runnable {
       val done = synchronized(ReadAloudSpeech) {
         endChime()
@@ -195,6 +213,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   private fun endChime() {
     chimeFinished?.let { handler.removeCallbacks(it) }
     chimeFinished = null
+    chimeId = null
     chimeTrack?.let { track ->
       runCatching { track.stop() }
       track.release()
@@ -204,7 +223,11 @@ object ReadAloudSpeech : UtteranceProgressListener() {
 
   private fun speakNow(id: String, text: String) {
     val context = appContext ?: return
-    ensureEngine(context)
+    if (!ensureEngine(context)) {
+      languages.remove(id)
+      listener?.invoke("error", id, ENGINE_FAILED)
+      return
+    }
     if (!ready) {
       pending.add(id to text)
       return
@@ -212,11 +235,18 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     enqueue(id, text)
   }
 
-  private fun ensureEngine(context: Context) {
-    if (tts == null) {
-      audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-      tts = TextToSpeech(context) { status -> onInit(status) }
-    }
+  /** False when no engine could start; the next call tries again. */
+  private fun ensureEngine(context: Context): Boolean {
+    if (tts != null) return true
+    audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    startingEngine = true
+    startStatus = null
+    val engine = runCatching { TextToSpeech(context) { status -> onInit(status) } }.getOrNull()
+    startingEngine = false
+    tts = engine
+    val early = if (engine == null) TextToSpeech.ERROR else startStatus
+    if (early != null) onInit(early)
+    return tts != null
   }
 
   /** Calls back with the started engine, or with null when it could not start. */
@@ -224,12 +254,11 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   fun withEngine(context: Context, callback: (TextToSpeech?) -> Unit) {
     val app = context.applicationContext
     appContext = app
-    if (ready && tts != null) {
-      callback(tts)
-      return
+    when {
+      !ensureEngine(app) -> callback(null)
+      ready -> callback(tts)
+      else -> whenReady.add(callback)
     }
-    whenReady.add(callback)
-    ensureEngine(app)
   }
 
   /** The rate (1 = normal) and voice name chosen in Orca; null means the phone's setting. */
@@ -375,6 +404,31 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     return held
   }
 
+  // Focus refused or delayed by a call: held like a transient loss rather than spoken into the call.
+  private fun holdForFocus() {
+    holdForInterruption()
+    listener?.invoke("held", "", "a call or dictation has the audio")
+    if (!focusRegistered()) handler.postDelayed(focusRetry, FOCUS_RETRY_MS)
+  }
+
+  private fun retryFocus() {
+    val regained = synchronized(this) {
+      // A registered request hears of the grant through focusListener instead.
+      if (!heldByInterruption || focusRegistered()) return
+      requestFocus().also { granted ->
+        if (!granted && !focusRegistered()) handler.postDelayed(focusRetry, FOCUS_RETRY_MS)
+      }
+    }
+    if (regained) reportRegained()
+  }
+
+  // The reader resumes on "regained"; should it not, the focus goes back instead of ducking music.
+  private fun reportRegained() {
+    handler.removeCallbacks(releaseFocus)
+    handler.postDelayed(releaseFocus, FOCUS_GRACE_MS)
+    listener?.invoke("regained", "", null)
+  }
+
   private fun silence() {
     pending.clear()
     languages.clear()
@@ -385,10 +439,16 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     tts?.stop()
     endChime()
     handler.removeCallbacks(releaseFocus)
+    handler.removeCallbacks(focusRetry)
   }
 
   @Synchronized
   private fun onInit(status: Int) {
+    // Handled by ensureEngine once the constructor has returned and `tts` is this engine.
+    if (startingEngine) {
+      startStatus = status
+      return
+    }
     ready = status == TextToSpeech.SUCCESS
     val queued = pending.toList()
     pending.clear()
@@ -397,8 +457,9 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     if (!ready) {
       queued.forEach { (id, _) ->
         languages.remove(id)
-        listener?.invoke("error", id, "text-to-speech engine did not start")
+        listener?.invoke("error", id, ENGINE_FAILED)
       }
+      runCatching { tts?.shutdown() }
       tts = null
       waiting.forEach { it(null) }
       return
@@ -416,7 +477,10 @@ object ReadAloudSpeech : UtteranceProgressListener() {
 
   private fun enqueue(id: String, text: String) {
     handler.removeCallbacks(releaseFocus)
-    requestFocus()
+    if (!requestFocus()) {
+      holdForFocus()
+      return
+    }
     active.add(id)
     val engine = tts
     val voice = languages.remove(id)?.let { voiceFor(it) }
@@ -465,8 +529,12 @@ object ReadAloudSpeech : UtteranceProgressListener() {
 
   /** Finished before the reader hears of it, so a retry it sends lands on a rebuilt engine. */
   private fun fail(id: String, message: String) {
-    synchronized(this) { rebuildEngine = true }
-    if (finish(id)) {
+    val failed = synchronized(this) {
+      // Ids a deliberate stop forgot are not failures, so their onStop costs no rebuild.
+      if (id in active) rebuildEngine = true
+      finish(id)
+    }
+    if (failed) {
       listener?.invoke("error", id, message)
     }
   }
@@ -528,22 +596,38 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     held.forEach { (id, text) -> playNow(id, text) }
   }
 
-  private fun requestFocus() {
-    val manager = audioManager ?: return
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      if (focusRequest != null) return
+  // Whether the audio is ours; a request delayed by a call stays registered and is granted later.
+  private fun requestFocus(): Boolean {
+    if (focusRegistered()) return !heldByInterruption
+    val manager = audioManager ?: return true
+    val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
         .setAudioAttributes(attributes)
+        .setAcceptsDelayedFocusGain(true)
         .setOnAudioFocusChangeListener(focusListener, handler)
         .build()
-      manager.requestAudioFocus(request)
-      focusRequest = request
-    } else if (!legacyFocusHeld) {
+      val result = manager.requestAudioFocus(request)
+      if (result != AudioManager.AUDIOFOCUS_REQUEST_FAILED) focusRequest = request
+      result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+    } else {
       @Suppress("DEPRECATION")
-      manager.requestAudioFocus(focusListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
-      legacyFocusHeld = true
+      val result = manager.requestAudioFocus(
+        focusListener,
+        AudioManager.STREAM_MUSIC,
+        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+      )
+      legacyFocusHeld = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+      legacyFocusHeld
     }
+    if (granted) {
+      heldByInterruption = false
+      handler.removeCallbacks(focusRetry)
+    }
+    return granted
   }
+
+  private fun focusRegistered(): Boolean =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) focusRequest != null else legacyFocusHeld
 
   private fun abandonFocus() {
     val manager = audioManager ?: return

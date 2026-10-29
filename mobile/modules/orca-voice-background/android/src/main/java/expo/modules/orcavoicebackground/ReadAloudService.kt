@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.drawable.Icon
@@ -13,6 +14,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import androidx.core.content.ContextCompat
 
 /**
  * Orca Voice fork: a foreground service that keeps Orca alive and awake with the screen off, so
@@ -75,6 +77,10 @@ class ReadAloudService : Service() {
       startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
     } else {
       startForeground(NOTIFICATION_ID, notification)
+    }
+    if (intent != null && stopRequestedWhileStarting()) {
+      stopSelf()
+      return START_NOT_STICKY
     }
     if (wakeLock == null) {
       val power = getSystemService(POWER_SERVICE) as PowerManager
@@ -220,6 +226,44 @@ class ReadAloudService : Service() {
     @Volatile private var canPrevious = false
     @Volatile private var canNext = false
     private var current: ReadAloudService? = null
+    // Stopping before onStartCommand's startForeground crashes the app, so such a stop waits for it.
+    private val startLock = Any()
+    private var pendingStarts = 0
+    private var stopWhenStarted = false
+
+    /** False when Android refused the service, e.g. a start attempted from the background. */
+    fun start(context: Context, title: String, text: String, tickMs: Long): Boolean {
+      val intent = Intent(context, ReadAloudService::class.java)
+        .putExtra(EXTRA_TITLE, title)
+        .putExtra(EXTRA_TEXT, text)
+        .putExtra(EXTRA_TICK_MS, tickMs)
+      return synchronized(startLock) {
+        try {
+          ContextCompat.startForegroundService(context, intent)
+          pendingStarts += 1
+          stopWhenStarted = false
+          true
+        } catch (_: Exception) {
+          false
+        }
+      }
+    }
+
+    fun stop(context: Context): Boolean = synchronized(startLock) {
+      if (pendingStarts > 0) {
+        stopWhenStarted = true
+        true
+      } else {
+        context.stopService(Intent(context, ReadAloudService::class.java))
+      }
+    }
+
+    private fun stopRequestedWhileStarting(): Boolean = synchronized(startLock) {
+      if (pendingStarts > 0) pendingStarts -= 1
+      val stop = stopWhenStarted && pendingStarts == 0
+      if (stop) stopWhenStarted = false
+      stop
+    }
 
     /** Shows the auto-read pause JS decided on, here and on the tile; a later start keeps it. */
     fun showAutoReadPaused(next: Boolean) {
@@ -257,10 +301,7 @@ object ReadAloudTicker {
   }
 }
 
-/**
- * The notification's, the tile's and the headset's buttons, handed to whichever module instance
- * is listening; the values are what JS receives.
- */
+/** Notification, tile and headset buttons for whichever module instance listens; values go to JS. */
 object ReadAloudControls {
   const val TOGGLE_AUTO_READ = "toggleAutoRead"
   const val STOP_READING = "stop"

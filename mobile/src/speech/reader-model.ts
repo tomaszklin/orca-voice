@@ -11,16 +11,17 @@ const HISTORY_LENGTH = 10
 export type Piece = { kind: 'chime' } | { kind: 'text'; text: string; language?: string | null }
 
 /**
- * `auto`: queued by auto-read, which the headphones-only option holds back. `kept`: goes into
- * the history Previous and Play use; samples from the settings do not. `title` names it in the
- * notification and on a car's display.
+ * `auto`: queued by auto-read, which the headphones-only option holds back. `body`: the speech
+ * text without the intro, since the same reply reaches the reader under different ids (the Read
+ * button, auto-read's feed, its final reply). `title` names it in the notification and on a
+ * car's display.
  */
 export type Utterance = {
   id: string
   pieces: Piece[]
   title: string | null
   auto: boolean
-  kept: boolean
+  body: string
 }
 
 /**
@@ -63,9 +64,6 @@ export function readerStatus(
 
 /** The history once `utterance` starts; a message read again keeps its place in it. */
 export function remembered(history: readonly Utterance[], utterance: Utterance): Utterance[] {
-  if (!utterance.kept) {
-    return [...history]
-  }
   const at = history.findIndex((kept) => kept.id === utterance.id)
   return at === -1
     ? [...history, utterance].slice(-HISTORY_LENGTH)
@@ -86,4 +84,17 @@ export function previousTarget(
   }
   const at = history.findIndex((kept) => kept.id === playing.id)
   return playedForMs >= RESTART_AFTER_MS || at <= 0 ? playing : history[at - 1]
+}
+
+/** Whether Previous has a message to go back to; while idle the notification's Play repeats. */
+export function canGoPrevious(
+  history: readonly Utterance[],
+  current: Utterance | null,
+  waiting: number
+): boolean {
+  if (current === null) {
+    // Messages wait while auto-read is paused; Previous reads the last one again.
+    return waiting > 0 && history.length > 0
+  }
+  return history.findIndex((kept) => kept.id === current.id) > 0
 }

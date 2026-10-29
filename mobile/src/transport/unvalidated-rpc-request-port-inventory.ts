@@ -42,9 +42,6 @@ export const UNVALIDATED_RPC_REQUEST_PORT_OWNERS: readonly UnvalidatedRpcRequest
 
 /** Call sites awaiting migration to a typed operation. Grouped by the feature area that owns them. */
 export const UNVALIDATED_RPC_REQUEST_PORT_PENDING: readonly UnvalidatedRpcRequestPortEntry[] = [
-  // src/speech/ — Orca Voice fork: auto-read polls worktree.ps and reads only the agent rows,
-  // tolerating any shape it does not recognise.
-  { file: 'src/speech/use-auto-read-replies.ts', references: 1 },
   // Accounts recording needs useFocusEffect/ScrollView substitutes and an accounts.subscribe stream scenario.
   { file: 'src/accounts/MobileAccountsScreen.tsx', references: 2 },
 

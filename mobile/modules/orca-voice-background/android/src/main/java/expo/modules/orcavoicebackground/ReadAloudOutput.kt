@@ -49,7 +49,8 @@ internal object ReadAloudOutput {
 
   private val devices = object : AudioDeviceCallback() {
     override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) {
-      if (added.any { it.type in PRIVATE_TYPES }) {
+      // A headset's microphone is reported here too; only where sound goes counts.
+      if (added.any { it.isSink && it.type in PRIVATE_TYPES }) {
         ReadAloudSpeech.listener?.invoke("private-output", "", null)
       }
     }

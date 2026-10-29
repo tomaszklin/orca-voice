@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 
@@ -67,6 +68,13 @@ internal object ReadAloudMediaSession {
     }
     val existing = session
     val media = existing ?: MediaSession(context, "OrcaVoiceReadAloud").also {
+      // Before Android 8 a session without these flags gets no headset buttons.
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+        @Suppress("DEPRECATION")
+        it.setFlags(
+          MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS
+        )
+      }
       it.setCallback(callback, handler)
       session = it
     }
