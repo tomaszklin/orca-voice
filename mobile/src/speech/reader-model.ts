@@ -12,7 +12,7 @@ export type Piece = { kind: 'chime' } | { kind: 'text'; text: string; language?:
 
 /**
  * `auto`: queued by auto-read, which the headphones-only option holds back. `kept`: goes into
- * the history Previous and Repeat use; samples from the settings do not. `title` names it in the
+ * the history Previous and Play use; samples from the settings do not. `title` names it in the
  * notification and on a car's display.
  */
 export type Utterance = {
@@ -36,22 +36,27 @@ const HOLD_STATUS: Record<Hold['reason'], string> = {
   unplugged: 'Paused until headphones are back'
 }
 
-/** The notification's text, e.g. "Reading · OrcaVoice · 2 more waiting"; null while idle. */
+/**
+ * The notification's text, e.g. "Reading · OrcaVoice · 2 more waiting"; null while idle.
+ * `autoPlay` is false while auto-read is paused.
+ */
 export function readerStatus(
   state: ReaderState,
   hold: Hold | null,
   current: Utterance | null,
-  waiting: number
+  waiting: number,
+  autoPlay = true
 ): string | null {
   if (state === 'idle') {
     return null
   }
-  const parts = [hold ? HOLD_STATUS[hold.reason] : 'Reading']
+  const autoReadHeld = !autoPlay && (current === null || hold?.reason === 'paused')
+  const parts = [autoReadHeld ? 'Auto-read paused' : hold ? HOLD_STATUS[hold.reason] : 'Reading']
   if (current?.title) {
     parts.push(current.title)
   }
   if (waiting > 0) {
-    parts.push(`${waiting} more waiting`)
+    parts.push(current ? `${waiting} more waiting` : `${waiting} waiting`)
   }
   return parts.join(' · ')
 }

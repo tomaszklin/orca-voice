@@ -16,7 +16,7 @@ class OrcaVoiceBackgroundModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("OrcaVoiceBackground")
 
-    Events("onTick", "onSpeech", "onMuteToggle", "onReaderControl")
+    Events("onTick", "onSpeech", "onAutoReadToggle", "onReaderControl")
 
     // Wired at creation rather than on first observer: a module instance exists only while the
     // app's JS runs, which is exactly what the sticky service checks the ticker listener for.
@@ -26,8 +26,8 @@ class OrcaVoiceBackgroundModule : Module() {
         sendEvent("onSpeech", mapOf("event" to event, "id" to id, "message" to message))
       }
       ReadAloudControls.listener = { control ->
-        if (control == ReadAloudControls.TOGGLE_MUTE) {
-          sendEvent("onMuteToggle", emptyMap<String, Any>())
+        if (control == ReadAloudControls.TOGGLE_AUTO_READ) {
+          sendEvent("onAutoReadToggle", emptyMap<String, Any>())
         } else {
           sendEvent("onReaderControl", mapOf("action" to control))
         }
@@ -137,9 +137,9 @@ class OrcaVoiceBackgroundModule : Module() {
       UpdateInstaller.start(context, url)
     }
 
-    /** What the notification's speaker and the tile show; the mute itself lives in JS. */
-    Function("setMuted") { muted: Boolean ->
-      ReadAloudService.showMuted(muted)
+    /** What the notification's auto-read button and the tile show; the pause itself lives in JS. */
+    Function("setAutoReadPaused") { paused: Boolean ->
+      ReadAloudService.showAutoReadPaused(paused)
     }
 
     /** The reader's state ("idle", "reading", "paused") for the notification and the headset. */

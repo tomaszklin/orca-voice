@@ -16,7 +16,7 @@ const RESULT_TEXT: Record<TileAddResult, string> = {
 }
 
 /**
- * Orca Voice fork: puts the Read aloud tile (mute for now) into Quick Settings. Android 13+ asks
+ * Orca Voice fork: puts the Read aloud tile (pause auto-read) into Quick Settings. Android 13+ asks
  * with its own prompt; older phones get told where to add it by hand.
  */
 export function QuickSettingsTileRow(): React.JSX.Element | null {
@@ -38,7 +38,7 @@ export function QuickSettingsTileRow(): React.JSX.Element | null {
         <Text style={styles.rowSublabel}>
           {result
             ? RESULT_TEXT[result]
-            : 'Mute and unmute from the panel you pull down from the top, like the flashlight'}
+            : 'Pause and resume auto-read from the panel you pull down from the top, like the flashlight'}
         </Text>
       </View>
       <Plus size={18} color={colors.textSecondary} />

@@ -516,6 +516,31 @@ bazowa była inna, a małe litery wyglądały na przesunięte w dół. Teraz ety
 (`metaSize` ze skalą tekstu czatu i tą samą interlinią), ikona 14 — `MobileNativeChatMessage.tsx`
 przekazuje `fontScale` do `MobileReplyReadButton`.
 
+## Stały układ przycisków, pauza czytania automatycznego (build 32, 2026-10-29)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel: po dodaniu Play, Pauzy, Poprzedniej, Następnej, Powtórki i wyciszenia działanie było mało
+czytelne — przyciski zmieniały miejsca. Przyjęta propozycja:
+
+- **Powiadomienie** (`ReadAloudService.kt`): zawsze pięć przycisków w tej samej kolejności —
+  Poprzednia, Play/Pauza, Następna (widoczne bez rozwijania), Stop, czytanie automatyczne.
+  Nieaktywny jest przyciemniony (`*_off`, alfa 0,38) i nic nie robi. Osobnej Powtórki nie ma: gdy nic
+  nie jest czytane, Play czyta ostatnią wiadomość jeszcze raz (`playReading` w
+  `speech/reply-speaker.ts`).
+- **Wyciszenie → pauza czytania automatycznego** (`speech/auto-read-pause.ts`, dawniej
+  `auto-read-mute.ts`): nowe wiadomości (także „agent czeka”) **czekają w kolejce** zamiast przepadać,
+  a czytana wiadomość pauzuje się w miejscu. Play czyta jedną czekającą (albo dokończa wstrzymaną),
+  Następna przechodzi do kolejnej; wznowienie czyta dalej od słowa i wszystko, co czekało. Tekst
+  powiadomienia: „Auto-read paused · 2 waiting”. Ikona: Material „record_voice_over” /
+  „voice_over_off” (głowa z falą głosu, przekreślona przy pauzie) zamiast głośnika, który wyglądał na
+  ściszanie. To samo na kafelku („Paused”) i w ustawieniach („Pause auto-read”). Po restarcie Orki
+  pauza znika (jak wyciszenie).
+- Przycisk Read w czacie przerywa czytaną wiadomość, ale **nie kasuje kolejki**.
+- Play/Następna naciśnięte ręcznie czytają też przez głośnik przy „Only with headphones”.
+- Granie jednego kawałka z ponowieniem wydzielone do `speech/piece-player.ts` (limit linii pliku).
+- Zdarzenie modułu `onMuteToggle` → `onAutoReadToggle`, funkcja `setMuted` → `setAutoReadPaused`.
+
 ## Budowanie
 
 ```powershell

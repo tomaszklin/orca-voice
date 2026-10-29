@@ -24,7 +24,7 @@ export type SpeechOptions = { rate: number | null; voice: string | null }
 export type ReaderState = 'idle' | 'reading' | 'paused'
 
 /** `ReadAloudControls` in the module. */
-export type ReaderControl = 'stop' | 'previous' | 'pause' | 'play' | 'next' | 'repeat'
+export type ReaderControl = 'stop' | 'previous' | 'pause' | 'play' | 'next'
 
 export type TileAddResult = 'added' | 'already-added' | 'not-added' | 'unsupported' | 'error'
 
@@ -58,8 +58,8 @@ export type VoiceNativeModule = {
   getVoices(): Promise<NativeVoiceList | null>
   /** The phone's text-to-speech settings: engine, more voices to download. */
   openTtsSettings(): boolean
-  /** What the notification's speaker button and the Quick Settings tile show. */
-  setMuted(muted: boolean): void
+  /** What the notification's auto-read button and the Quick Settings tile show. */
+  setAutoReadPaused(paused: boolean): void
   /**
    * The reader's state: picks the notification's buttons and text (`status`), and holds the
    * headset and steering-wheel buttons while not idle; `title` is what a car's display shows.
@@ -78,7 +78,7 @@ export type VoiceNativeModule = {
   requestAddTile(): Promise<TileAddResult>
   /** Starts downloading an update and opening the installer; false when it could not start. */
   installUpdate(url: string): boolean
-  addListener(event: 'onTick' | 'onMuteToggle', listener: () => void): { remove(): void }
+  addListener(event: 'onTick' | 'onAutoReadToggle', listener: () => void): { remove(): void }
   /** The notification's and the headset's reading buttons. */
   addListener(
     event: 'onReaderControl',
