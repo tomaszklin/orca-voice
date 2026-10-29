@@ -506,6 +506,16 @@ Po buildzie 22 właściciel nie mógł wybrać PDF-a: plus w czacie otwierał od
   `vitest.setup.ts` (sięga do pickerów Expo).
 - **Do zrobienia przez właściciela:** zaktualizować Orkę na komputerze (stoi na `v1.4.229`).
 
+## „Read” w jednej linii z kopiowaniem i godziną (build 31, 2026-10-29)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel: przycisk „Read” wygląda na niższy od sąsiadów. Pomiar zrzutu: środki elementów są
+równe (±0,5 px), ale „Read” miał czcionkę 10 (godzina 12) i ikonę 13 (kopiowanie 14), więc jego linia
+bazowa była inna, a małe litery wyglądały na przesunięte w dół. Teraz etykieta ma typ godziny
+(`metaSize` ze skalą tekstu czatu i tą samą interlinią), ikona 14 — `MobileNativeChatMessage.tsx`
+przekazuje `fontScale` do `MobileReplyReadButton`.
+
 ## Budowanie
 
 ```powershell

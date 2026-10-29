@@ -343,7 +343,7 @@ function MobileNativeChatMessageImpl({
               />
             ) : null}
             {message.role === 'assistant' && copyText.length > 0 && growingBlock === undefined ? (
-              <MobileReplyReadButton id={message.id} text={copyText} />
+              <MobileReplyReadButton id={message.id} text={copyText} fontScale={fontScale} />
             ) : null}
             <MobileNativeChatMessageTime timestamp={message.timestamp} fontScale={fontScale} />
           </View>

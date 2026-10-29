@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text } from 'react-native'
 import { Volume2 } from 'lucide-react-native'
 import { useReplySpeech } from '../platform/reply-speech'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
+import { scaledType } from '../session/native-chat/transcript/mobile-native-chat-message-styles'
 
 /**
  * Orca Voice fork: "Read" under an assistant reply, beside Copy. Reads the reply aloud with the
@@ -10,10 +11,13 @@ import { colors, radii, spacing, typography } from '../theme/mobile-theme'
  */
 export function MobileReplyReadButton({
   id,
-  text
+  text,
+  fontScale = 1
 }: {
   id: string
   text: string
+  /** The transcript's text scale, so the label sits on the message time's baseline. */
+  fontScale?: number
 }): React.JSX.Element | null {
   const speech = useReplySpeech()
   if (!speech.canSpeak || text.length === 0) {
@@ -27,8 +31,9 @@ export function MobileReplyReadButton({
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}
       onPress={() => speech.speak(id, text)}
     >
-      <Volume2 size={13} color={colors.textMuted} />
-      <Text style={styles.label}>Read</Text>
+      {/* Copy's icon size, and the time's type, so the footer row lines up (owner, 2026-10-29). */}
+      <Volume2 size={14} color={colors.textMuted} />
+      <Text style={[styles.label, scaledType(typography.metaSize, fontScale, 5)]}>Read</Text>
     </Pressable>
   )
 }
@@ -46,7 +51,6 @@ const styles = StyleSheet.create({
     opacity: 0.6
   },
   label: {
-    fontSize: typography.bodySize - 4,
     color: colors.textMuted
   }
 })
