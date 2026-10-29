@@ -1,5 +1,6 @@
-import type { LinkReading } from '../storage/speech-preferences'
+import type { LinkReading, TableReading } from '../storage/speech-preferences'
 import { readerWords, type ReaderWords } from './reader-words'
+import { speakableTables } from './speech-tables'
 
 // Android's TextToSpeech rejects longer inputs (TextToSpeech.getMaxSpeechInputLength() is 4000).
 export const MAX_SPEECH_CHUNK_LENGTH = 3900
@@ -35,6 +36,13 @@ let linkReading: LinkReading = 'word-and-text'
 /** From the Read aloud settings; every reading after it uses it. */
 export function setLinkReading(mode: LinkReading): void {
   linkReading = mode
+}
+
+let tableReading: TableReading = 'with-headers'
+
+/** From the Read aloud settings; every reading after it uses it. */
+export function setTableReading(mode: TableReading): void {
+  tableReading = mode
 }
 
 const ADDRESS = /^<?https?:\/\//i
@@ -80,18 +88,19 @@ function spokenLink(label: string | null, url: string, mode: LinkReading, word: 
 }
 
 /**
- * Turns an agent's markdown reply into text worth hearing: code blocks and tables become a short
- * cue, links are read as `links` says, formatting is stripped, and every line ends as a sentence
- * so list items get a pause instead of running together.
+ * Turns an agent's markdown reply into text worth hearing: code blocks become a short cue, links
+ * and tables are read as `links` and `tables` say, formatting is stripped, and every line ends as
+ * a sentence so list items and table rows get a pause instead of running together.
  */
 export function toSpeechText(
   markdown: string,
   placeholders: Placeholders = readerWords(),
-  links = linkReading
+  links = linkReading,
+  tables = tableReading
 ): string {
   let text = markdown.replace(/\r/g, '')
   text = text.replace(/^[ \t]*```[\s\S]*?^[ \t]*```[^\n]*$/gm, `\n${placeholders.code}\n`)
-  text = text.replace(/(^[ \t]*\|.*\|[ \t]*(\n|$))+/gm, `${placeholders.table}\n`)
+  text = speakableTables(text, tables, placeholders.table)
   // An image is read as its alt text; one without any is dropped.
   text = text.replace(IMAGE, (_, alt: string) => alt)
   text = text.replace(LINK, (_, label: string, url: string) =>
@@ -121,7 +130,7 @@ export function toSpeechText(
           .trim()
       )
       .filter((line) => line.length > 0)
-      .map((line) => (/[.!?:;,…。！？]$/.test(line) ? line : `${line}.`))
+      .map((line) => (/[.!?:;,…。！？：；，]$/.test(line) ? line : `${line}.`))
       .join(' ')
   )
 }

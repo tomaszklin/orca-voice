@@ -27,16 +27,14 @@ import androidx.core.content.ContextCompat
  *
  * Its notification carries five icon buttons that never move (owner's requests, 2026-10-21 to
  * 2026-10-29): Previous, Play or Pause and Next, which show without expanding it, then Stop and
- * one that pauses and resumes auto-read — a pause the app's JS owns and forgets on restart.
- * [ReadAloudTileService] offers the same pause in Quick Settings, [ReadAloudMediaSession] the
- * reading buttons to headsets.
+ * one that pauses and resumes auto-read — a pause the app's JS owns and forgets on restart. While
+ * auto-read is paused, the collapsed notification shows only that one. [ReadAloudMediaSession]
+ * offers the reading buttons to headsets.
  */
 class ReadAloudService : Service() {
   private var wakeLock: PowerManager.WakeLock? = null
   private val handler = Handler(Looper.getMainLooper())
   private var tickIntervalMs = DEFAULT_TICK_MS
-  private var title = "Orca"
-  private var text = "Reading replies aloud"
   private val tick = object : Runnable {
     override fun run() {
       ReadAloudTicker.tick()
@@ -69,8 +67,6 @@ class ReadAloudService : Service() {
       stopSelf()
       return START_NOT_STICKY
     }
-    title = intent?.getStringExtra(EXTRA_TITLE) ?: title
-    text = intent?.getStringExtra(EXTRA_TEXT) ?: text
     tickIntervalMs = intent?.getLongExtra(EXTRA_TICK_MS, DEFAULT_TICK_MS) ?: DEFAULT_TICK_MS
     val notification = buildNotification()
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -92,7 +88,6 @@ class ReadAloudService : Service() {
     handler.removeCallbacks(tick)
     handler.post(tick)
     isRunning = true
-    ReadAloudTileService.refresh(this)
     return START_STICKY
   }
 
@@ -108,7 +103,6 @@ class ReadAloudService : Service() {
     wakeLock?.let { if (it.isHeld) it.release() }
     wakeLock = null
     isRunning = false
-    ReadAloudTileService.refresh(this)
     super.onDestroy()
   }
 
@@ -179,10 +173,12 @@ class ReadAloudService : Service() {
     // Media style for its icon buttons, shown even while the notification is collapsed. Without a
     // media session Android draws it as an ordinary notification, not as a player in Quick
     // Settings, and the music app keeps the headset and steering-wheel buttons.
+    val compact = if (autoReadPaused) intArrayOf(4) else intArrayOf(0, 1, 2)
+    // One line while nothing is read: the reader's status joins it only when there is one.
     return builder
-      .setStyle(Notification.MediaStyle().setShowActionsInCompactView(0, 1, 2))
-      .setContentTitle(title)
-      .setContentText(readerStatus ?: if (autoReadPaused) PAUSED_TEXT else text)
+      .setStyle(Notification.MediaStyle().setShowActionsInCompactView(*compact))
+      .setContentTitle(if (autoReadPaused) PAUSED_TITLE else ACTIVE_TITLE)
+      .setContentText(readerStatus)
       .setSmallIcon(smallIcon)
       .setOngoing(true)
       .setOnlyAlertOnce(true)
@@ -195,8 +191,6 @@ class ReadAloudService : Service() {
     Notification.Action.Builder(Icon.createWithResource(this, icon), label, intent).build()
 
   companion object {
-    const val EXTRA_TITLE = "title"
-    const val EXTRA_TEXT = "text"
     const val EXTRA_TICK_MS = "tickMs"
     const val DEFAULT_TICK_MS = 3000L
     private const val ACTION_TOGGLE_AUTO_READ = "expo.modules.orcavoicebackground.TOGGLE_AUTO_READ"
@@ -213,7 +207,8 @@ class ReadAloudService : Service() {
       ACTION_PLAY to ReadAloudControls.PLAY,
       ACTION_NEXT to ReadAloudControls.NEXT
     )
-    private const val PAUSED_TEXT = "Auto-read paused"
+    private const val ACTIVE_TITLE = "Auto-read active"
+    private const val PAUSED_TITLE = "Auto-read paused"
     private const val CHANNEL_ID = "orca-voice-read-aloud"
     private const val NOTIFICATION_ID = 7417
     @Volatile var isRunning = false
@@ -232,11 +227,8 @@ class ReadAloudService : Service() {
     private var stopWhenStarted = false
 
     /** False when Android refused the service, e.g. a start attempted from the background. */
-    fun start(context: Context, title: String, text: String, tickMs: Long): Boolean {
-      val intent = Intent(context, ReadAloudService::class.java)
-        .putExtra(EXTRA_TITLE, title)
-        .putExtra(EXTRA_TEXT, text)
-        .putExtra(EXTRA_TICK_MS, tickMs)
+    fun start(context: Context, tickMs: Long): Boolean {
+      val intent = Intent(context, ReadAloudService::class.java).putExtra(EXTRA_TICK_MS, tickMs)
       return synchronized(startLock) {
         try {
           ContextCompat.startForegroundService(context, intent)
@@ -265,15 +257,10 @@ class ReadAloudService : Service() {
       stop
     }
 
-    /** Shows the auto-read pause JS decided on, here and on the tile; a later start keeps it. */
+    /** Shows the auto-read pause JS decided on; a later start keeps it. */
     fun showAutoReadPaused(next: Boolean) {
       autoReadPaused = next
-      Handler(Looper.getMainLooper()).post {
-        current?.let {
-          it.refreshNotification()
-          ReadAloudTileService.refresh(it)
-        }
-      }
+      Handler(Looper.getMainLooper()).post { current?.refreshNotification() }
     }
 
     /** The reader's state ("idle", "reading", "paused"), which picks the buttons and the text. */
@@ -301,7 +288,7 @@ object ReadAloudTicker {
   }
 }
 
-/** Notification, tile and headset buttons for whichever module instance listens; values go to JS. */
+/** Notification and headset buttons for whichever module instance listens; values go to JS. */
 object ReadAloudControls {
   const val TOGGLE_AUTO_READ = "toggleAutoRead"
   const val STOP_READING = "stop"
@@ -315,6 +302,4 @@ object ReadAloudControls {
   fun send(control: String) {
     listener?.invoke(control)
   }
-
-  fun toggleAutoRead() = send(TOGGLE_AUTO_READ)
 }

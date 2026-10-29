@@ -579,6 +579,31 @@ rzeczy tylko z forka (wbudowana strona, przełącznik nagrywania ekranu, napis �
   skacze; akcja `stop` czasownika `native.speech.control` usunięta (nikt jej nie wołał), strona woła go
   przez `useNativeVerbs`; limit tekstu 81 920 znaków; test limitu uprawnień liczy z limitu (18).
 
+## Tabele, przykłady w ustawieniach, krótsze powiadomienie, bez kafelka (build 35, 2026-10-29)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel po zainstalowaniu buildu 34:
+
+- **Tabele czytane na głos** (`speech/speech-tables.ts`): użytkownicy nie będą mieli umiejętności
+  voice-mode, więc agent odpowie tabelą. Nowa sekcja TABLES (`orca:voiceTables`): wiersz po wierszu z
+  nazwami kolumn („Day: Tuesday, Run: Intervals.”, domyślnie), same wartości (nagłówek raz, jako
+  pierwszy wiersz) albo „Table skipped.” jak dotąd. Tabela bez wiersza `|---|` czytana samymi
+  wartościami; puste komórki pomijane, `\|` zostaje w komórce.
+- **Przykład po wybraniu opcji** linków i tabel: czytane zdanie i tabelka w języku głosu
+  (`linkSample`, `tableSample` w `speech/reader-words.ts`); opisy opcji pokazują, co słychać.
+- **Test voice** jako przycisk na końcu sekcji VOICE; próbka zależy od języka głosu („Tak będą
+  brzmiały odpowiedzi.”).
+- Sekcja CONTROLS (samo objaśnienie) usunięta. Gdy czytanie automatyczne jest wyłączone, jego opcje
+  (pauza, ekran wyłączony, „agent czeka”, słuchawki, WHAT TO READ, PROJECT NAME, SOUND) są wyszarzone.
+  Wiersze opcji w `speech/read-aloud-setting-rows.tsx`, listy w `speech/read-aloud-choices.ts`.
+- **Kafelek w szybkich ustawieniach usunięty** w całości (`ReadAloudTileService`, wpis w manifeście,
+  `requestAddTile`) — pauzę ma powiadomienie.
+- **Powiadomienie:** tytuł „Auto-read active” / „Auto-read paused” zamiast „Orca” i „Reading agent
+  replies aloud”; druga linijka tylko, gdy coś jest czytane albo czeka („Reading · projekt”, „2
+  waiting”). Przy pauzie czytania automatycznego zwinięte powiadomienie pokazuje tylko przycisk
+  wznowienia. `start` modułu bierze już tylko `tickMs`.
+
 ## Budowanie
 
 ```powershell

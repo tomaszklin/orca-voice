@@ -4,10 +4,10 @@ import { logSpeechEvent } from './speech-diagnostics'
 import { voiceNativeModule } from './voice-native-module'
 
 /**
- * Orca Voice fork: pausing auto-read for now, from the reading notification's button, the Quick
- * Settings tile or the Read aloud settings (owner's requests, 2026-10-21 and 2026-10-29). New
- * messages wait in the queue rather than being dropped, and the one being read pauses. It leaves
- * the auto-read setting alone and lives only in memory, so a restart of Orca always resumes it.
+ * Orca Voice fork: pausing auto-read for now, from the reading notification's button or the Read
+ * aloud settings (owner's requests, 2026-10-21 and 2026-10-29). New messages wait in the queue
+ * rather than being dropped, and the one being read pauses. It leaves the auto-read setting alone
+ * and lives only in memory, so a restart of Orca always resumes it.
  */
 let paused = false
 const listeners = new Set<() => void>()

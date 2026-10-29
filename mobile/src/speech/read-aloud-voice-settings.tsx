@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { View, Text, Pressable } from 'react-native'
-import { ChevronRight, Minus, Plus, type LucideIcon } from 'lucide-react-native'
+import { ChevronRight, Minus, Plus, Volume2, type LucideIcon } from 'lucide-react-native'
 import { MobileSwitch } from '../components/MobileSwitch'
 import { PickerModal } from '../components/PickerModal'
 import { voiceSettingsStyles as styles } from '../settings/voice-settings-styles'
@@ -187,37 +187,39 @@ export function ReadAloudVoiceGroup({
       <Text style={readAloudStyles.groupDescription}>
         Applies to the Read button and auto-read. Every change reads a short sample.
       </Text>
-      <View style={[styles.section, styles.sectionTopGap]}>
-        {state.available ? (
-          <>
-            <SpeedRows state={state} />
-            <View style={styles.separator} />
-            <ValueRow
-              label="Voice"
-              value={describeVoice(state.options.voice, choices)}
-              onPress={() => onOpenPicker('voice')}
-            />
-            <View style={styles.separator} />
-            <LanguageVoicesRow />
-            <View style={styles.separator} />
-            <ScreenRecordingRow />
-            <View style={styles.separator} />
-          </>
-        ) : null}
-        <Pressable accessibilityRole="button" style={styles.row} onPress={speakVoiceSample}>
-          <Text style={styles.rowLabel}>Test voice</Text>
-        </Pressable>
-        {state.available ? (
-          <>
-            <View style={styles.separator} />
-            <ValueRow
-              label="Phone text-to-speech settings"
-              value="More voices to download, another speech engine"
-              onPress={state.openPhoneSettings}
-            />
-          </>
-        ) : null}
-      </View>
+      {state.available ? (
+        <View style={[styles.section, styles.sectionTopGap]}>
+          <SpeedRows state={state} />
+          <View style={styles.separator} />
+          <ValueRow
+            label="Voice"
+            value={describeVoice(state.options.voice, choices)}
+            onPress={() => onOpenPicker('voice')}
+          />
+          <View style={styles.separator} />
+          <LanguageVoicesRow />
+          <View style={styles.separator} />
+          <ScreenRecordingRow />
+          <View style={styles.separator} />
+          <ValueRow
+            label="Phone text-to-speech settings"
+            value="More voices to download, another speech engine"
+            onPress={state.openPhoneSettings}
+          />
+        </View>
+      ) : null}
+      {/* Last in the group, as a button: it was missed as one more row of settings. */}
+      <Pressable
+        accessibilityRole="button"
+        style={({ pressed }) => [
+          readAloudStyles.testButton,
+          pressed && readAloudStyles.testButtonPressed
+        ]}
+        onPress={speakVoiceSample}
+      >
+        <Volume2 size={18} color={colors.textPrimary} />
+        <Text style={styles.rowLabel}>Test voice</Text>
+      </Pressable>
     </>
   )
 }

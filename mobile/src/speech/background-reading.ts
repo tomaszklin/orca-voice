@@ -59,8 +59,8 @@ export function useBackgroundReadingService(wanted: boolean, onTick: () => void)
       return
     }
     const subscription = native.addListener('onTick', onTick)
-    // The notification's and the Quick Settings tile's auto-read pause; the reading buttons go
-    // through `reader-controls.ts`, which works without the service too.
+    // The notification's auto-read pause; the reading buttons go through `reader-controls.ts`,
+    // which works without the service too.
     const pauseButton = native.addListener('onAutoReadToggle', () =>
       setAutoReadPaused(!isAutoReadPaused())
     )
@@ -97,7 +97,7 @@ export function useBackgroundReadingService(wanted: boolean, onTick: () => void)
         setBackgroundReadingActive(false)
         return
       }
-      const started = native.start('Orca', 'Reading agent replies aloud', TICK_MS)
+      const started = native.start(TICK_MS)
       startRequested = started
       setBackgroundReadingActive(started)
       if (!started) {

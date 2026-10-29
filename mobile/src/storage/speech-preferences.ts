@@ -89,3 +89,14 @@ export const LANGUAGE_VOICES_KEY = 'orca:voiceLanguageVoices'
 export type LanguageVoices = 'on' | 'off'
 
 export const DEFAULT_LANGUAGE_VOICES: LanguageVoices = 'on'
+
+export const TABLE_READING_KEY = 'orca:voiceTables'
+
+/**
+ * How a table is read: `with-headers` row by row as "Day: Tuesday, Run: intervals", `values` the
+ * header row and then each row's cells, `skip` a short "Table skipped".
+ */
+export type TableReading = 'with-headers' | 'values' | 'skip'
+
+// Why: the owner asked for tables to be read (2026-10-29); agents answer with them often.
+export const DEFAULT_TABLE_READING: TableReading = 'with-headers'
