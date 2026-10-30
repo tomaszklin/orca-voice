@@ -79,8 +79,6 @@ export function useBackgroundReadingService(wanted: boolean, onTick: () => void)
       return
     }
     const sync = () => {
-      // The notification shows this process's pause, never one a previous run left behind.
-      native.setAutoReadPaused(isAutoReadPaused())
       if (!wanted) {
         if (startRequested || native.isRunning()) {
           native.stop()
@@ -89,6 +87,10 @@ export function useBackgroundReadingService(wanted: boolean, onTick: () => void)
         setBackgroundReadingActive(false)
         return
       }
+      // The notification shows this process's pause, never one a previous run left behind. Only
+      // here: a refresh it queued just before a stop re-posted the notification once the service
+      // was gone (2026-10-30, the notification stayed after auto-read was switched off).
+      native.setAutoReadPaused(isAutoReadPaused())
       if (native.isRunning()) {
         setBackgroundReadingActive(true)
         return

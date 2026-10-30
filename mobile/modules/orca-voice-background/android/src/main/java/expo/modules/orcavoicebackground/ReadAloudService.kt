@@ -103,6 +103,9 @@ class ReadAloudService : Service() {
     wakeLock?.let { if (it.isHeld) it.release() }
     wakeLock = null
     isRunning = false
+    // Why: a refresh that ran after Android dropped the foreground notification posted it again as
+    // a plain ongoing one, which then stayed with the service gone.
+    (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).cancel(NOTIFICATION_ID)
     super.onDestroy()
   }
 
@@ -246,6 +249,8 @@ class ReadAloudService : Service() {
         stopWhenStarted = true
         true
       } else {
+        // Refreshes still queued for the main thread must not post the notification again.
+        isRunning = false
         context.stopService(Intent(context, ReadAloudService::class.java))
       }
     }

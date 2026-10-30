@@ -604,6 +604,17 @@ Właściciel po zainstalowaniu buildu 34:
   waiting”). Przy pauzie czytania automatycznego zwinięte powiadomienie pokazuje tylko przycisk
   wznowienia. `start` modułu bierze już tylko `tickMs`.
 
+## Powiadomienie znika po wyłączeniu czytania automatycznego (build 36, 2026-10-30)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel: wyłączenie czytania automatycznego nie zdejmowało powiadomienia. Usługa się zatrzymywała,
+ale tuż przed zatrzymaniem JS kazał odświeżyć powiadomienie (stan pauzy, a przy wyłączeniu też stan
+czytnika). Gdy odświeżenie trafiło na wątek główny już po tym, jak Android zdjął powiadomienie usługi,
+`notify` wystawiało je od nowa jako zwykłe, nieusuwalne — i zostawało bez usługi. Teraz:
+- `stop` usługi od razu przestaje odświeżać powiadomienie, a `onDestroy` je kasuje;
+- `background-reading.ts` wysyła stan pauzy tylko wtedy, gdy usługa ma działać.
+
 ## Budowanie
 
 ```powershell
