@@ -163,10 +163,11 @@ class ReadAloudService : Service() {
       } else {
         action(R.drawable.orca_voice_stop_off, "Nothing to stop", null)
       },
+      // Unlike Play / Pause, the icon shows auto-read's state (owner's choice); the label says the tap.
       if (autoReadPaused) {
-        action(R.drawable.orca_voice_auto_read_play, "Resume auto-read", controlIntent(1, ACTION_TOGGLE_AUTO_READ))
+        action(R.drawable.orca_voice_auto_read_pause, "Resume auto-read", controlIntent(1, ACTION_TOGGLE_AUTO_READ))
       } else {
-        action(R.drawable.orca_voice_auto_read_pause, "Pause auto-read", controlIntent(1, ACTION_TOGGLE_AUTO_READ))
+        action(R.drawable.orca_voice_auto_read_play, "Pause auto-read", controlIntent(1, ACTION_TOGGLE_AUTO_READ))
       }
     )
     // The monochrome icon expo-notifications generates from app.json, else the launcher icon.

@@ -626,6 +626,10 @@ przycisk zrobi, jak sąsiedni Play / Pause: przy czytaniu automatycznym dymek z 
 z trójkątem (sam on w zwiniętym powiadomieniu). Pliki `orca_voice_auto_read_pause.xml` /
 `orca_voice_auto_read_play.xml` (ścieżki z widoku 0 −960 960 960, stąd przesunięcie grupy o 960).
 
+**Build 38 (2026-10-30):** właściciel chce, żeby ikona pokazywała **stan**, a nie to, co zrobi
+dotknięcie — odwrotnie: przy czytaniu automatycznym dymek z trójkątem, przy pauzie dymek z pauzą
+(sam on w zwiniętym powiadomieniu). Etykiety dostępności dalej mówią, co zrobi dotknięcie.
+
 ## Budowanie
 
 ```powershell
