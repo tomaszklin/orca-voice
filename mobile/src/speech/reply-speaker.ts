@@ -11,7 +11,7 @@ import {
   type Piece,
   type Utterance
 } from './reader-model'
-import { replyPieces } from './reply-pieces'
+import { replyPieces, replyUtterance, type ReplyIntro } from './reply-pieces'
 import { voiceNativeModule, type ReaderState } from './voice-native-module'
 
 // A call, dictation or unplugged headphones longer than this end the reading instead of resuming
@@ -22,7 +22,7 @@ export const RESUME_WITHIN_MS = 10 * 60_000
  * Said before a message (auto-read): a chime, then the project name, each a piece of its own.
  * `title` names the message in the notification and on a car's display.
  */
-export type ReplyIntro = { chime?: boolean; name?: string | null; title?: string | null }
+export type { ReplyIntro } from './reply-pieces'
 
 let queue: Utterance[] = []
 let current: Utterance | null = null
@@ -76,6 +76,8 @@ function privateOutput(): boolean {
 function begin(utterance: Utterance): void {
   hold = null
   current = utterance
+  // Why: Previous can pick a message that also waits in the queue, which would read it twice.
+  queue = queue.filter((queued) => queued.id !== utterance.id)
   startedAt = Date.now()
   history = remembered(history, utterance)
   emit()
@@ -159,18 +161,10 @@ export function speakReply(
   mode: 'interrupt' | 'queue',
   intro: ReplyIntro = {}
 ): void {
-  const pieces = replyPieces(markdown)
-  if (pieces.length === 0) {
-    return
+  const utterance = replyUtterance(id, markdown, mode === 'queue', intro)
+  if (utterance) {
+    start(utterance, mode)
   }
-  const body = pieces.map((part) => (part.kind === 'text' ? part.text : '')).join(' ')
-  if (intro.name) {
-    pieces.unshift({ kind: 'text', text: `${intro.name}.` })
-  }
-  if (intro.chime) {
-    pieces.unshift({ kind: 'chime' })
-  }
-  start({ id, pieces, title: intro.title ?? null, auto: mode === 'queue', body }, mode)
 }
 
 // A sample pauses the reading, which goes on from the word only when Play is pressed.
@@ -307,6 +301,16 @@ export function stopSpeaking(reason = 'stop'): void {
 // --- What happens to the audio meanwhile. ---
 
 /** From the Read aloud settings: auto-read only through headphones or a car. */
+/** Ends only auto-read's part: what it queued, and the message being read if it started it. */
+export function stopAutoReading(reason: string): void {
+  const kept = queue.filter((queued) => !queued.auto)
+  if (current?.auto) {
+    stopSpeaking(`auto-read: ${reason}`)
+  }
+  queue = kept
+  emit()
+}
+
 export function setAutoReadNeedsHeadphones(on: boolean): void {
   headphonesOnly = on
 }

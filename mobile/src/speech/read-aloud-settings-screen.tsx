@@ -30,6 +30,7 @@ import { useReadScopePreference } from './read-scope-preference'
 import { useHeadphonesOnly, useLinkReading, useTableReading } from './reading-preferences'
 import { playChimeSample } from './reply-speaker'
 import { speakLinkSample, speakTableSample, useSpeechOptions } from './speech-options'
+import { voiceNativeModule } from './voice-native-module'
 
 /** Orca Voice fork: every option of auto-read but the switch itself, greyed out while it is off. */
 function AutoReadOptions({ enabled }: { enabled: boolean }) {
@@ -42,6 +43,8 @@ function AutoReadOptions({ enabled }: { enabled: boolean }) {
   const { value: headphonesOnly, setValue: setHeadphonesOnly } = useHeadphonesOnly()
   const autoReadPaused = useAutoReadPaused()
   const disabled = !enabled
+  // Why: screen-off reading and headphones-only need the Android reader; elsewhere they do nothing.
+  const nativeReader = voiceNativeModule() !== null
 
   return (
     <View style={disabled && styles.disabled}>
@@ -57,18 +60,20 @@ function AutoReadOptions({ enabled }: { enabled: boolean }) {
           onValueChange={setAutoReadPaused}
           disabled={disabled}
         />
-        <View style={styles.separator} />
-        <SwitchRow
-          label="Keep reading with the screen off"
-          sublabel={
-            backgroundReading
-              ? 'On — a notification keeps Orca awake (uses more battery)'
-              : 'Off — auto-read stops when Orca leaves the screen'
-          }
-          value={backgroundReading}
-          onValueChange={setBackgroundReading}
-          disabled={disabled}
-        />
+        {nativeReader ? <View style={styles.separator} /> : null}
+        {nativeReader ? (
+          <SwitchRow
+            label="Keep reading with the screen off"
+            sublabel={
+              backgroundReading
+                ? 'On — a notification keeps Orca awake (uses more battery)'
+                : 'Off — auto-read stops when Orca leaves the screen'
+            }
+            value={backgroundReading}
+            onValueChange={setBackgroundReading}
+            disabled={disabled}
+          />
+        ) : null}
         <View style={styles.separator} />
         <SwitchRow
           label="Say when an agent waits for you"
@@ -81,19 +86,21 @@ function AutoReadOptions({ enabled }: { enabled: boolean }) {
           onValueChange={(on) => setAnnounceWaits(on ? 'on' : 'off')}
           disabled={disabled}
         />
-        <View style={styles.separator} />
-        <SwitchRow
-          label="Only with headphones or a car"
-          accessibilityLabel="Auto-read only with headphones or a car"
-          sublabel={
-            headphonesOnly === 'on'
-              ? 'On — through the phone’s own speaker auto-read stays quiet; unplugging pauses it'
-              : 'Off — also through the phone’s speaker'
-          }
-          value={headphonesOnly === 'on'}
-          onValueChange={(on) => setHeadphonesOnly(on ? 'on' : 'off')}
-          disabled={disabled}
-        />
+        {nativeReader ? <View style={styles.separator} /> : null}
+        {nativeReader ? (
+          <SwitchRow
+            label="Only with headphones or a car"
+            accessibilityLabel="Auto-read only with headphones or a car"
+            sublabel={
+              headphonesOnly === 'on'
+                ? 'On — through the phone’s own speaker auto-read stays quiet; unplugging pauses it'
+                : 'Off — also through the phone’s speaker'
+            }
+            value={headphonesOnly === 'on'}
+            onValueChange={(on) => setHeadphonesOnly(on ? 'on' : 'off')}
+            disabled={disabled}
+          />
+        ) : null}
       </View>
 
       <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>WHAT TO READ</Text>

@@ -93,6 +93,7 @@ class ReadAloudService : Service() {
 
   override fun onTaskRemoved(rootIntent: Intent?) {
     // Swiping Orca away is the user ending it; the reading goes with it.
+    ReadAloudSpeech.stop()
     stopSelf()
     super.onTaskRemoved(rootIntent)
   }
