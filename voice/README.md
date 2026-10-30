@@ -645,6 +645,17 @@ Automatyczny recenzent zgłoszenia do Orki (#35166) znalazł drobiazgi; te same 
 - odpowiedź przycięta do limitu mostka (81 920 znaków) zamyka urwany blok kodu, żeby kod nie był
   czytany (`limitedMarkdown` w `platform/reply-speech.web.ts`).
 
+**Build 40 (2026-10-30), druga runda CodeRabbita:**
+- Previous nie czyta dwa razy wiadomości, która jednocześnie czeka w kolejce;
+- bez „Keep reading with the screen off” czytanie automatyczne kończy się, gdy Orka schodzi z
+  ekranu (jak mówi opis opcji); to, co włączył przycisk Read, czyta dalej (`stopAutoReading`);
+- „Keep reading with the screen off” i „Only with headphones or a car” są ukryte, gdy nie ma
+  natywnego czytnika (iOS), bo nic by tam nie robiły;
+- zamknięcie Orki z listy aplikacji zatrzymuje też mowę;
+- budowanie wypowiedzi z odpowiedzi przeniesione do `reply-pieces.ts` (limit 300 linii).
+- Nie zmienione: Previous przy pierwszej wiadomości zostaje wyszarzony (wybór właściciela), choć
+  CodeRabbit proponował, żeby wtedy zaczynał ją od nowa.
+
 ## Budowanie
 
 ```powershell
