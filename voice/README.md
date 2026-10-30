@@ -630,6 +630,21 @@ z trójkątem (sam on w zwiniętym powiadomieniu). Pliki `orca_voice_auto_read_p
 dotknięcie — odwrotnie: przy czytaniu automatycznym dymek z trójkątem, przy pauzie dymek z pauzą
 (sam on w zwiniętym powiadomieniu). Etykiety dostępności dalej mówią, co zrobi dotknięcie.
 
+## Poprawki z recenzji CodeRabbita (build 39, 2026-10-30)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Automatyczny recenzent zgłoszenia do Orki (#35166) znalazł drobiazgi; te same poprawki są w forku:
+- gdy JS aplikacji znika (przeładowanie), moduł zatrzymuje mowę i usługę, zamiast trzymać blokadę
+  uśpienia bez nikogo, kto by nią sterował;
+- sesja multimediów zwolniona po 10 minutach pauzy nie wraca przy każdej zmianie statusu (nowa
+  czekająca wiadomość), tylko przy wznowieniu czytania; zmiany statusu w pauzie nie przedłużają
+  już tych 10 minut;
+- opis wyłączonego „Pause auto-read” mówi o stanie wyłączonym („Off — new messages are read as
+  they arrive…”);
+- odpowiedź przycięta do limitu mostka (81 920 znaków) zamyka urwany blok kodu, żeby kod nie był
+  czytany (`limitedMarkdown` w `platform/reply-speech.web.ts`).
+
 ## Budowanie
 
 ```powershell

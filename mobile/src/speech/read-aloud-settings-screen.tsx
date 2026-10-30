@@ -51,7 +51,7 @@ function AutoReadOptions({ enabled }: { enabled: boolean }) {
           sublabel={
             autoReadPaused
               ? 'Paused — new messages wait for Play. Resume here or in the notification'
-              : 'New messages wait instead of being read. Also in the notification; restarting Orca resumes'
+              : 'Off — new messages are read as they arrive. The notification can pause it too; restarting Orca resumes'
           }
           value={autoReadPaused}
           onValueChange={setAutoReadPaused}
