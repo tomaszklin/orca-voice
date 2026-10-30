@@ -615,6 +615,17 @@ czytnika). Gdy odświeżenie trafiło na wątek główny już po tym, jak Androi
 - `stop` usługi od razu przestaje odświeżać powiadomienie, a `onDestroy` je kasuje;
 - `background-reading.ts` wysyła stan pauzy tylko wtedy, gdy usługa ma działać.
 
+## Ikona pauzy czytania automatycznego: dymek (build 37, 2026-10-30)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel: głowa z falą głosu (przekreślona przy pauzie) wyglądała, jak głośnik wcześniej, na
+wyłączenie czytania, a nie na pauzę. Z kilku propozycji wybrał parę Material Symbols „auto_read_pause”
+/ „auto_read_play”: dymek rozmowy z dwiema kreskami pauzy albo z trójkątem. Ikona pokazuje, co
+przycisk zrobi, jak sąsiedni Play / Pause: przy czytaniu automatycznym dymek z pauzą, przy pauzie dymek
+z trójkątem (sam on w zwiniętym powiadomieniu). Pliki `orca_voice_auto_read_pause.xml` /
+`orca_voice_auto_read_play.xml` (ścieżki z widoku 0 −960 960 960, stąd przesunięcie grupy o 960).
+
 ## Budowanie
 
 ```powershell
