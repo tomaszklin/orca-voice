@@ -104,7 +104,7 @@ export function MobileSessionActiveContent({
     connState,
     getConnectionId: controller.getActiveWorktreeConnectionId,
     // Read at attach time: test fakes of the controller carry no chat controller.
-    setComposerText: (update) => nativeChatController.setChatComposerText(update),
+    getDraftKey: () => nativeChatController.chatDraftKey,
     showToast
   })
   const content = showLoadingState ? (

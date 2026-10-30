@@ -69,7 +69,7 @@ export function buildChatFileReference(input: ChatFileReferenceInput): string {
   const saved = `\`${input.path}\``
   const named = ` "${input.name}"`
   if (hostKeptFileName(input.path)) {
-    return `[File from my phone${named}, saved on this computer as ${saved}]`
+    return `[File from my phone, saved on this computer as ${saved}]`
   }
   if (input.mime.toLowerCase().startsWith('image/')) {
     return `[Image from my phone${named}, saved on this computer as ${saved}]`

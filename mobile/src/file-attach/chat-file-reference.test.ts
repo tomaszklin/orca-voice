@@ -21,7 +21,7 @@ describe('buildChatFileReference', () => {
   it('gives the kept path as it is', () => {
     expect(
       buildChatFileReference({ path: NAMED, mime: 'application/pdf', name: 'report.pdf' })
-    ).toBe(`[File from my phone "report.pdf", saved on this computer as \`${NAMED}\`]`)
+    ).toBe(`[File from my phone, saved on this computer as \`${NAMED}\`]`)
   })
 
   it('names a PDF on an older desktop and asks for a .pdf copy', () => {

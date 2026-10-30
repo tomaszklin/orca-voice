@@ -504,7 +504,7 @@ Po buildzie 22 właściciel nie mógł wybrać PDF-a: plus w czacie otwierał od
 - Wstawki: kontekst w `session/MobileSessionActiveContent.tsx`, arkusz i blokada Send podczas
   wysyłania w `session/native-chat/composer/MobileNativeChatComposer.tsx`; mock haka w
   `vitest.setup.ts` (sięga do pickerów Expo).
-- **Do zrobienia przez właściciela:** zaktualizować Orkę na komputerze (stoi na `v1.4.229`).
+- Desktop właściciela zaktualizowany do `v1.4.245` (2026-10-30).
 
 ## „Read” w jednej linii z kopiowaniem i godziną (build 31, 2026-10-29)
 
@@ -655,6 +655,25 @@ Automatyczny recenzent zgłoszenia do Orki (#35166) znalazł drobiazgi; te same 
 - budowanie wypowiedzi z odpowiedzi przeniesione do `reply-pieces.ts` (limit 300 linii).
 - Nie zmienione: Previous przy pierwszej wiadomości zostaje wyszarzony (wybór właściciela), choć
   CodeRabbit proponował, żeby wtedy zaczynał ją od nowa.
+
+## Plik w czacie: ta sama linijka co w zgłoszeniu do Orki (build 41, 2026-10-30)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Dodawanie plików jest zgłoszone do Orki ([#36361](https://github.com/stablyai/orca/pull/36361), szkic).
+Ten build to wersja testowa do nagrania filmu. Zgłoszenie stoi na nowszej bazie Orki (w `v1.4.243` nie
+ma jego magazynu szkiców), więc do forka przeszło to samo zachowanie, nie ten sam kod:
+
+- Linijka w szkicu: `` [File from my phone, saved on this computer as `…`] ``, bez osobnej nazwy (jest
+  w ścieżce). To nie wzmianka `@`: Claude Code podaje modelowi przy wzmiance tylko rozmiar PDF-a. W
+  próbie z `claude -p` tekst znalazł 3 na 5 razy przez `@`, 5 na 5 z samej ścieżki i 10 na 10 z tej
+  linijki.
+- Plik wraca do czatu, który o niego poprosił, także gdy w trakcie wysyłania zmienisz kartę.
+- Błąd jednego pliku nie kasuje pozostałych, a komunikat podaje jego nazwę.
+- Różnica: przy desktopie, który nie zachowuje nazw, fork dalej prosi agenta o kopię z właściwym
+  rozszerzeniem, a zgłoszenie odmawia wysłania.
+
+Do filmu potrzebny jest desktop co najmniej `v1.4.243`; desktop właściciela ma `v1.4.245` od 2026-10-30.
 
 ## Budowanie
 
