@@ -790,6 +790,11 @@ otwierało przeglądarkę. Do tego ekran blokady („Get Orca build N”) zawsze
   zaproponuje prawdziwe wydanie z GitHuba. `adb emu network speed` nie spowalnia tego pobierania.
 - Tylko w forku, nie w zgłoszeniu do Orki.
 
+## Wydanie do testu aktualizacji (build 46, 2026-11-01)
+
+Bez zmian w kodzie. Właściciel chciał wypróbować nową aktualizację na telefonie, a z buildu 45 nie
+było na co aktualizować.
+
 ## Budowanie
 
 ```powershell
