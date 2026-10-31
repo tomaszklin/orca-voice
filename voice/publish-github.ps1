@@ -6,7 +6,7 @@
 # Wydanie `voice-b<N>` (znacznik na bieżącym commicie, jeśli go jeszcze nie ma) z dwoma plikami:
 # orca-voice-<wersja>-b<N>.apk i version.json { build, version, file, date }. Aplikacja czyta version.json
 # przez https://github.com/tomaszklin/orca-voice/releases/latest/download/, czyli zawsze z najnowszego
-# wydania, a APK pobiera od buildu 44 z adresu znacznika voice-b<N> (app-update/voice-build-update-source.ts).
+# wydania, a APK pobiera od buildu 45 z adresu znacznika voice-b<N> (app-update/voice-build-update-source.ts).
 param([int]$Build)
 
 $ErrorActionPreference = 'Stop'

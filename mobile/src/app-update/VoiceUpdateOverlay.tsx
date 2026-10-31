@@ -33,7 +33,9 @@ export function VoiceUpdateOverlay(): React.JSX.Element | null {
           style={styles.card}
         >
           <View style={styles.row}>
-            <Text style={styles.title}>Downloading update</Text>
+            <View style={styles.text}>
+              <Text style={styles.title}>Downloading update</Text>
+            </View>
             <Text style={styles.value}>{status.percent}%</Text>
           </View>
           <View style={styles.track}>
@@ -100,7 +102,6 @@ const styles = themedStyleSheet(() => ({
   },
   text: { flex: 1, minWidth: 0 },
   title: {
-    flex: 1,
     fontSize: typography.bodySize,
     fontWeight: '600',
     color: colors.textPrimary

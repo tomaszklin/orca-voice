@@ -1,14 +1,20 @@
 package expo.modules.orcavoicebackground
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.net.Uri
 import android.os.Build
+import android.os.IBinder
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.IOException
@@ -19,37 +25,86 @@ import java.net.URL
 class UpdateFileProvider : FileProvider()
 
 /**
+ * Why a service: Android cuts the network of an app that left the screen, which ended downloads
+ * with "connection abort" (seen on Android 16). The wake lock covers a phone put in a pocket.
+ */
+class UpdateDownloadService : Service() {
+  override fun onBind(intent: Intent?): IBinder? = null
+
+  override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    val notification = UpdateInstaller.progressNotification(this, 0)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      startForeground(UpdateInstaller.NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+    } else {
+      startForeground(UpdateInstaller.NOTIFICATION_ID, notification)
+    }
+    val url = intent?.getStringExtra(UpdateInstaller.EXTRA_URL).orEmpty()
+    Thread {
+      val power = getSystemService(POWER_SERVICE) as PowerManager
+      val wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OrcaVoice:update")
+      wakeLock.acquire(WAKE_LOCK_TIMEOUT_MS)
+      try {
+        UpdateInstaller.run(this, url) {
+          stopForeground(STOP_FOREGROUND_REMOVE)
+          stopSelf()
+        }
+      } finally {
+        if (wakeLock.isHeld) wakeLock.release()
+      }
+    }.start()
+    return START_NOT_STICKY
+  }
+
+  private companion object {
+    const val WAKE_LOCK_TIMEOUT_MS = 15 * 60 * 1000L
+  }
+}
+
+/**
  * Orca Voice fork: downloads a build from the fork's GitHub releases. JS follows it through
  * [listener] and opens the system installer when the file is ready; a notification shows the same
  * and also opens the installer, for when Orca was left during the download.
  */
 object UpdateInstaller {
+  const val NOTIFICATION_ID = 7419
+  const val EXTRA_URL = "url"
   private const val CHANNEL_ID = "orca-voice-updates"
-  private const val NOTIFICATION_ID = 7419
   @Volatile private var running = false
 
   /** Called with `progress` and a percent, then with `done`, or `failed` and a message. */
   @Volatile var listener: ((event: String, percent: Int?, message: String?) -> Unit)? = null
 
-  /** False when a download is already running; the work itself happens on its own thread. */
+  /** False when a download is already running, or Android refused the service in the background. */
   fun start(context: Context, url: String): Boolean {
     if (running) return false
     running = true
-    val appContext = context.applicationContext
-    Thread {
-      try {
-        download(appContext, url)
-        notify(appContext, "Update downloaded", "Tap to install", null, installerIntent(appContext))
-        listener?.invoke("done", null, null)
-      } catch (error: Exception) {
-        val message = error.message ?: "Could not download the update"
-        notify(appContext, "Update failed", message, null, null)
-        listener?.invoke("failed", null, message)
-      } finally {
-        running = false
-      }
-    }.start()
-    return true
+    return try {
+      val service = Intent(context, UpdateDownloadService::class.java).putExtra(EXTRA_URL, url)
+      ContextCompat.startForegroundService(context, service)
+      true
+    } catch (_: Exception) {
+      running = false
+      false
+    }
+  }
+
+  /** On the service's thread; `leaveForeground` ends the service before the last notification. */
+  fun run(context: Context, url: String, leaveForeground: () -> Unit) {
+    val failure = try {
+      download(context, url)
+      null
+    } catch (error: Exception) {
+      error.message ?: "Could not download the update"
+    }
+    leaveForeground()
+    running = false
+    if (failure == null) {
+      notify(context, "Update downloaded", "Tap to install", null, installerIntent(context))
+      listener?.invoke("done", null, null)
+    } else {
+      notify(context, "Update failed", failure, null, null)
+      listener?.invoke("failed", null, failure)
+    }
   }
 
   /** False when the download is gone or the installer did not start. */
@@ -96,7 +151,6 @@ object UpdateInstaller {
     val dir = updatesDir(context).apply { mkdirs() }
     dir.listFiles()?.forEach { it.delete() }
     val partial = File(dir, "orca-voice-update.part")
-    notify(context, "Downloading update", "0%", 0, null)
     val connection = URL(url).openConnection() as HttpURLConnection
     connection.connectTimeout = 15_000
     connection.readTimeout = 30_000
@@ -118,7 +172,7 @@ object UpdateInstaller {
             val percent = if (total > 0) (done * 100 / total).toInt() else 0
             if (percent != shown) {
               if (percent / 5 != shown / 5) {
-                notify(context, "Downloading update", "$percent%", percent, null)
+                notificationManager(context).notify(NOTIFICATION_ID, progressNotification(context, percent))
               }
               shown = percent
               listener?.invoke("progress", percent, null)
@@ -141,10 +195,16 @@ object UpdateInstaller {
   private fun notificationManager(context: Context) =
     context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+  fun progressNotification(context: Context, percent: Int): Notification =
+    notification(context, "Downloading update", "$percent%", percent, null)
+
   private fun notify(context: Context, title: String, text: String, percent: Int?, open: Intent?) {
-    val manager = notificationManager(context)
+    notificationManager(context).notify(NOTIFICATION_ID, notification(context, title, text, percent, open))
+  }
+
+  private fun notification(context: Context, title: String, text: String, percent: Int?, open: Intent?): Notification {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      manager.createNotificationChannel(
+      notificationManager(context).createNotificationChannel(
         NotificationChannel(CHANNEL_ID, "App updates", NotificationManager.IMPORTANCE_LOW)
       )
     }
@@ -163,6 +223,6 @@ object UpdateInstaller {
     if (open != null) {
       builder.setContentIntent(PendingIntent.getActivity(context, 2, open, PendingIntent.FLAG_IMMUTABLE))
     }
-    manager.notify(NOTIFICATION_ID, builder.build())
+    return builder.build()
   }
 }

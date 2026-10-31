@@ -5,11 +5,16 @@
   <uses-permission android:name="android.permission.WAKE_LOCK" />
   <!-- Orca Voice fork: installs its own builds from the fork's GitHub releases. -->
   <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
   <application>
     <service
       android:name="expo.modules.orcavoicebackground.ReadAloudService"
       android:exported="false"
       android:foregroundServiceType="mediaPlayback" />
+    <service
+      android:name="expo.modules.orcavoicebackground.UpdateDownloadService"
+      android:exported="false"
+      android:foregroundServiceType="dataSync" />
     <provider
       android:name="expo.modules.orcavoicebackground.UpdateFileProvider"
       android:authorities="${applicationId}.orcavoice.updates"

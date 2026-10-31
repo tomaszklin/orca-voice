@@ -747,9 +747,11 @@ powiadomieniu z pauzą. Całość ma działać jak odtwarzacz audio.
   reading with the screen off”; bez nich ręczny Read ma tylko pastylki w aplikacji.
 - Tylko w forku, nie w zgłoszeniu do Orki.
 
-## Aktualizacja w aplikacji z paskiem postępu (build 44, 2026-10-31)
+## Aktualizacja w aplikacji z paskiem postępu (build 45, 2026-10-31)
 
-**Stan: zbudowane, niepotwierdzone na telefonie.**
+**Stan: sprawdzone na emulatorze (Android 16, prawdziwe pobieranie z GitHuba i instalacja),
+niepotwierdzone na telefonie.** Build 44 powstał po drodze i nie został wydany: bez usługi z punktu
+niżej wyjście z Orki przerywało pobieranie.
 
 Właściciel: w jego aplikacji On the Road widać pasek pobierania i od razu rusza instalacja, a w Orce
 trzeba było otwierać przeglądarkę. Pobieranie w aplikacji istniało od buildu 15, ale jedynym śladem
@@ -772,11 +774,20 @@ otwierało przeglądarkę. Do tego ekran blokady („Get Orca build N”) zawsze
 - **APK z adresu wydania** (`releases/download/voice-b<N>/…`), nie z `latest/download/`: plik starszego
   buildu pod `latest/` to 404, gdy tylko wyjdzie nowszy (sprawdzone), a buildów bywa kilka dziennie.
   `version.json` dalej przez `latest/download/`.
+- **Usługa pierwszoplanowa na czas pobierania** (`UpdateDownloadService`, typ `dataSync`, nowe
+  uprawnienie `FOREGROUND_SERVICE_DATA_SYNC`, blokada uśpienia do 15 minut). Bez niej Android odcinał
+  sieć po wyjściu z Orki: pobieranie padało z „Software caused connection abort”. Działało tylko przy
+  włączonej usłudze czytania, która trzyma proces. Sprawdzone: wyjście z Orki i zgaszony ekran.
 - `UpdateInstaller.kt`: pobiera do pliku `.part` i przenosi po sprawdzeniu długości, żeby urwane
   połączenie nie dało uszkodzonego APK. Nowe funkcje modułu: `openUpdateInstaller`,
   `canInstallUpdates`, `openInstallPermission`, zdarzenie `onUpdateDownload`.
-- Wejście tej zmiany: aktualizacja **do** buildu 44 idzie jeszcze starą drogą, bo robi ją kod buildu
+- Wejście tej zmiany: aktualizacja **do** buildu 45 idzie jeszcze starą drogą, bo robi ją kod buildu
   43. Nowy pasek widać od aktualizacji na kolejny build.
+- **Test na emulatorze:** APK na telefon (tylko arm64) wywraca się na starcie
+  (`couldn't find DSO to load: libreactnative.so`), także build 43, mimo tłumaczenia ARM. Trzeba
+  zbudować x86_64: po `build-apk.ps1` w `mobile/android` `gradlew assembleRelease
+  -PreactNativeArchitectures=x86_64` z `ORCA_VOICE_BUILD` niższym od wydanego numeru, to aplikacja sama
+  zaproponuje prawdziwe wydanie z GitHuba. `adb emu network speed` nie spowalnia tego pobierania.
 - Tylko w forku, nie w zgłoszeniu do Orki.
 
 ## Budowanie
@@ -810,7 +821,7 @@ pwsh -File E:\Projects\OrcaVoice\voice\publish-github.ps1
   oznaczone jako najnowsze. Najpierw commit, potem publikacja — znacznik idzie na bieżący commit.
 - Aplikacja (`app-update/voice-build-update-source.ts`) czyta
   `https://github.com/tomaszklin/orca-voice/releases/latest/download/version.json`; adres
-  `latest/download/<plik>` przekierowuje do pliku najnowszego wydania. APK pobiera od buildu 44 z
+  `latest/download/<plik>` przekierowuje do pliku najnowszego wydania. APK pobiera od buildu 45 z
   adresu konkretnego wydania (`releases/download/voice-b<N>/<plik>`).
 - Build 19 jest na GitHubie, ale sam jeszcze pyta serwer HAL. Build 20 wystawiony też na HAL
   (ostatni raz), żeby telefony na buildach 15–19 przeszły na GitHuba same.
@@ -831,7 +842,7 @@ Mechanizm aktualizacji w aplikacji został ten sam:
   wydań Orki) i porównuje numery buildów („Orca build 15 is available”).
   „Update” pobiera APK w aplikacji i otwiera systemowy instalator (`UpdateInstaller.kt`,
   `UpdateFileProvider`, uprawnienie `REQUEST_INSTALL_PACKAGES`); przy pierwszym razie Android prosi
-  o zgodę na instalowanie z Orki. Od buildu 44 z paskiem w aplikacji (sekcja wyżej).
+  o zgodę na instalowanie z Orki. Od buildu 45 z paskiem w aplikacji (sekcja wyżej).
 - Oficjalnych wersji Orki aplikacja już nie zgłasza — nowy tag desktopu sprawdzać ręcznie.
 
 ## Przesłanie na telefon (ręcznie)
