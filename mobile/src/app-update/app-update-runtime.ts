@@ -14,6 +14,7 @@ import { githubReleaseUpdateSource } from './github-release-update-source'
 import {
   isNewerVoiceBuild,
   isVoiceUpdateUrl,
+  VOICE_UPDATE_CHECK_INTERVAL_MS,
   voiceBuildLabel,
   voiceBuildUpdateSource
 } from './voice-build-update-source'
@@ -40,7 +41,9 @@ function resolveAppUpdateSource(): AppUpdateSource | null {
 export const appUpdateChecker = createAppUpdateChecker({
   source: resolveAppUpdateSource(),
   installedVersion: voiceBuild ? voiceBuildLabel(voiceBuild) : installedAppVersion,
-  ...(voiceBuild ? { isNewer: isNewerVoiceBuild } : {}),
+  ...(voiceBuild
+    ? { isNewer: isNewerVoiceBuild, checkIntervalMs: VOICE_UPDATE_CHECK_INTERVAL_MS }
+    : {}),
   now: () => Date.now(),
   setTimer: (run, delayMs) => setTimeout(run, delayMs),
   clearTimer: (handle) => clearTimeout(handle),

@@ -6,8 +6,11 @@ import type { AppUpdateSource } from './app-update-source'
  * server before). `latest/download/<name>` redirects to that asset of the newest release, which
  * `voice/publish-github.ps1` gives an APK and a `version.json`.
  */
-export const VOICE_UPDATE_BASE =
-  'https://github.com/tomaszklin/orca-voice/releases/latest/download/'
+const VOICE_RELEASES = 'https://github.com/tomaszklin/orca-voice/releases/'
+export const VOICE_UPDATE_BASE = `${VOICE_RELEASES}latest/download/`
+
+// Builds come several a day, and Orca stays alive for days with background reading on.
+export const VOICE_UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000
 
 const indexSchema = z.looseObject({
   build: z.number().int().positive(),
@@ -32,7 +35,7 @@ export function isNewerVoiceBuild(candidate: string, installed: string): boolean
 
 /** An update this channel offered: installed inside the app rather than opened in a browser. */
 export function isVoiceUpdateUrl(url: string): boolean {
-  return url.startsWith(VOICE_UPDATE_BASE)
+  return url.startsWith(VOICE_RELEASES)
 }
 
 export function createVoiceBuildUpdateSource(fetchImpl: typeof fetch): AppUpdateSource {
@@ -51,7 +54,8 @@ export function createVoiceBuildUpdateSource(fetchImpl: typeof fetch): AppUpdate
         ? {
             kind: 'available',
             version,
-            url: `${VOICE_UPDATE_BASE}${encodeURIComponent(index.file)}`
+            // Why the tag: under `latest/` this file is a 404 as soon as a newer build is released.
+            url: `${VOICE_RELEASES}download/voice-b${index.build}/${encodeURIComponent(index.file)}`
           }
         : { kind: 'current' }
     }

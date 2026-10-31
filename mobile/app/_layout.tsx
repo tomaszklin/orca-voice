@@ -29,6 +29,7 @@ import { loadHostCatalog } from '../src/transport/host-store'
 import { extractPairingCodeFromUrl } from '../src/transport/pairing'
 import { recoverMobileRelayPairing } from '../src/transport/mobile-relay-pairing-recovery'
 import { appUpdateChecker } from '../src/app-update/app-update-runtime'
+import { VoiceUpdateOverlay } from '../src/app-update/VoiceUpdateOverlay'
 import { SideSafeArea } from '../src/layout/side-safe-area'
 
 // Keep splash visible until React content is ready to avoid a blank frame.
@@ -72,8 +73,12 @@ export default function RootLayout() {
 
   // Re-register rolled APNs/FCM tokens with every paired host or delivery silently stops.
   useEffect(() => startPushTokenSync(), [])
-  // Cold start, then foreground and timer checks on the desktop updater's cadence.
-  useEffect(() => appUpdateChecker.start(), [])
+  // Cold start, then foreground and timer checks on the update channel's cadence.
+  useEffect(() => {
+    const stop = appUpdateChecker.start()
+    void appUpdateChecker.checkNow()
+    return stop
+  }, [])
   useEffect(() => startAndroidForegroundPushPresentation(), [])
 
   // Route pair links through confirmation; getInitialURL covers cold starts and the listener covers warm starts.
@@ -236,6 +241,7 @@ export default function RootLayout() {
           </Stack>
         </SideSafeArea>
         <ReplyReaderOverlay />
+        <VoiceUpdateOverlay />
       </View>
     </RpcClientProvider>
   )

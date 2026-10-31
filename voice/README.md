@@ -747,6 +747,38 @@ powiadomieniu z pauzą. Całość ma działać jak odtwarzacz audio.
   reading with the screen off”; bez nich ręczny Read ma tylko pastylki w aplikacji.
 - Tylko w forku, nie w zgłoszeniu do Orki.
 
+## Aktualizacja w aplikacji z paskiem postępu (build 44, 2026-10-31)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel: w jego aplikacji On the Road widać pasek pobierania i od razu rusza instalacja, a w Orce
+trzeba było otwierać przeglądarkę. Pobieranie w aplikacji istniało od buildu 15, ale jedynym śladem
+było ciche powiadomienie w tle. Drugie dotknięcie „Update” trafiało na „pobieranie już trwa”, a to
+otwierało przeglądarkę. Do tego ekran blokady („Get Orca build N”) zawsze szedł przez przeglądarkę.
+
+- **Nakładka** `app-update/VoiceUpdateOverlay.tsx` u dołu ekranu, nad nawigacją, więc widać ją też na
+  stronach z desktopu: „Downloading update” z paskiem i procentami, potem system otwiera instalator.
+  Stan i przejścia w `app-update/voice-update-installer.ts`, kolejne dotknięcia w trakcie nic nie robią.
+- **Przeglądarka już nie jest zapasem.** Zostaje tylko dla kompilacji bez modułu natywnego, czyli poza
+  naszymi buildami. Błąd pokazuje „Update failed” z przyczyną i „Try again”.
+- **Instalator:** otwiera go JS, gdy Orka jest na ekranie, bo Android zabrania tego aplikacji w tle.
+  Pobieranie skończone poza Orką czeka na powrót do niej, a powiadomienie „Tap to install” działa od
+  razu. Po anulowaniu instalatora nakładka zostaje z „Install”, bez ponownego pobierania.
+- **Zgoda na instalowanie** sprawdzana przed pobieraniem, jak w On the Road. Bez niej otwiera się
+  systemowy ekran, a po powrocie ze zgodą pobieranie rusza samo.
+- **Sprawdzanie:** przy każdym starcie, przy każdym wejściu do Settings i przy powrocie do Orki, jeśli
+  minęła godzina (`VOICE_UPDATE_CHECK_INTERVAL_MS`, wcześniej doba). Sam „start” by nie wystarczył: z
+  czytaniem w tle proces żyje całymi dniami.
+- **APK z adresu wydania** (`releases/download/voice-b<N>/…`), nie z `latest/download/`: plik starszego
+  buildu pod `latest/` to 404, gdy tylko wyjdzie nowszy (sprawdzone), a buildów bywa kilka dziennie.
+  `version.json` dalej przez `latest/download/`.
+- `UpdateInstaller.kt`: pobiera do pliku `.part` i przenosi po sprawdzeniu długości, żeby urwane
+  połączenie nie dało uszkodzonego APK. Nowe funkcje modułu: `openUpdateInstaller`,
+  `canInstallUpdates`, `openInstallPermission`, zdarzenie `onUpdateDownload`.
+- Wejście tej zmiany: aktualizacja **do** buildu 44 idzie jeszcze starą drogą, bo robi ją kod buildu
+  43. Nowy pasek widać od aktualizacji na kolejny build.
+- Tylko w forku, nie w zgłoszeniu do Orki.
+
 ## Budowanie
 
 ```powershell
@@ -778,7 +810,8 @@ pwsh -File E:\Projects\OrcaVoice\voice\publish-github.ps1
   oznaczone jako najnowsze. Najpierw commit, potem publikacja — znacznik idzie na bieżący commit.
 - Aplikacja (`app-update/voice-build-update-source.ts`) czyta
   `https://github.com/tomaszklin/orca-voice/releases/latest/download/version.json`; adres
-  `latest/download/<plik>` przekierowuje do pliku najnowszego wydania, stamtąd też pobiera APK.
+  `latest/download/<plik>` przekierowuje do pliku najnowszego wydania. APK pobiera od buildu 44 z
+  adresu konkretnego wydania (`releases/download/voice-b<N>/<plik>`).
 - Build 19 jest na GitHubie, ale sam jeszcze pyta serwer HAL. Build 20 wystawiony też na HAL
   (ostatni raz), żeby telefony na buildach 15–19 przeszły na GitHuba same.
 - **E-mail w commitach:** prywatny Gmail podmieniony przed pierwszym wypchnięciem na
@@ -796,10 +829,9 @@ Mechanizm aktualizacji w aplikacji został ten sam:
 - Aplikacja (`app-update/voice-build-update-source.ts`, wstawki w `app-update-runtime.ts` i
   `app-update-checker.ts`): build z numerem (`extra.voiceBuild`) pyta o `version.json` (zamiast
   wydań Orki) i porównuje numery buildów („Orca build 15 is available”).
-  „Update” pobiera APK w aplikacji z postępem w powiadomieniu i otwiera systemowy instalator
-  (`UpdateInstaller.kt`, `UpdateFileProvider`, uprawnienie `REQUEST_INSTALL_PACKAGES`); przy
-  pierwszym razie Android prosi o zgodę na instalowanie z Orki. Sprawdzanie: raz dziennie, przy
-  starcie i przyciskiem „Check for updates”.
+  „Update” pobiera APK w aplikacji i otwiera systemowy instalator (`UpdateInstaller.kt`,
+  `UpdateFileProvider`, uprawnienie `REQUEST_INSTALL_PACKAGES`); przy pierwszym razie Android prosi
+  o zgodę na instalowanie z Orki. Od buildu 44 z paskiem w aplikacji (sekcja wyżej).
 - Oficjalnych wersji Orki aplikacja już nie zgłasza — nowy tag desktopu sprawdzać ręcznie.
 
 ## Przesłanie na telefon (ręcznie)

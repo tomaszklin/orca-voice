@@ -3,7 +3,7 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
   <uses-permission android:name="android.permission.WAKE_LOCK" />
-  <!-- Orca Voice fork: installs its own builds from the home server. -->
+  <!-- Orca Voice fork: installs its own builds from the fork's GitHub releases. -->
   <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
   <application>
     <service

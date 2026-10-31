@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   appUpdateChecker,
   installedAppVersion,
@@ -29,12 +29,15 @@ export function SettingsAppUpdateSection() {
     return () => clearTimeout(hide)
   }, [result])
 
-  const runCheck = () => {
+  const runCheck = useCallback(() => {
     setResult(null)
     void appUpdateChecker.checkNow().then((outcome) => {
       setResult(outcome === 'available' ? null : outcome)
     })
-  }
+  }, [])
+
+  // Orca Voice fork: opening Settings checks too.
+  useEffect(runCheck, [runCheck])
 
   const checkStatus: AppUpdateCheckRowStatus = state.checking ? 'checking' : (result ?? 'idle')
   return (

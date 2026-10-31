@@ -26,6 +26,13 @@ export type ReaderState = 'idle' | 'reading' | 'paused' | 'stopped'
 /** `ReadAloudControls` in the module. */
 export type ReaderControl = 'stop' | 'previous' | 'pause' | 'play' | 'next'
 
+/** `progress` carries `percent`, `failed` a `message`. */
+export type UpdateDownloadEvent = {
+  event: 'progress' | 'done' | 'failed'
+  percent: number | null
+  message: string | null
+}
+
 export type VoiceNativeModule = {
   start(tickMs: number): boolean
   stop(): boolean
@@ -74,9 +81,19 @@ export type VoiceNativeModule = {
   ): void
   /** Whether sound goes to headphones, a car or the like rather than the phone's own speaker. */
   isPrivateOutput(): boolean
-  /** Starts downloading an update and opening the installer; false when it could not start. */
+  /** Starts downloading an update, reported by `onUpdateDownload`; false when it could not start. */
   installUpdate(url: string): boolean
+  /** Opens the system installer on the downloaded update; false when it could not. */
+  openUpdateInstaller(): boolean
+  /** Whether Android lets Orca open the installer; the user allows that once per app. */
+  canInstallUpdates(): boolean
+  /** The system screen with Orca's "Install unknown apps" switch; false when it did not open. */
+  openInstallPermission(): boolean
   addListener(event: 'onTick' | 'onAutoReadToggle', listener: () => void): { remove(): void }
+  addListener(
+    event: 'onUpdateDownload',
+    listener: (payload: UpdateDownloadEvent) => void
+  ): { remove(): void }
   /** The notification's and the headset's reading buttons. */
   addListener(
     event: 'onReaderControl',

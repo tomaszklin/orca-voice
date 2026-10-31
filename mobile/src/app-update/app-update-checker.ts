@@ -39,9 +39,12 @@ export type AppUpdateCheckerDeps = {
   saveDismissedVersion: (version: string) => Promise<void>
   /** Orca Voice fork: a channel whose versions are not semver (its own build numbers). */
   isNewer?: (candidate: string, installed: string) => boolean
+  /** Orca Voice fork: a channel that releases more often than the desktop updater's cadence. */
+  checkIntervalMs?: number
 }
 
 export function createAppUpdateChecker(deps: AppUpdateCheckerDeps) {
+  const checkIntervalMs = deps.checkIntervalMs ?? APP_UPDATE_CHECK_INTERVAL_MS
   let prefs = EMPTY_APP_UPDATE_PREFERENCES
   let loaded: Promise<void> | null = null
   let inFlight: Promise<AppUpdateCheckOutcome> | null = null
@@ -104,8 +107,7 @@ export function createAppUpdateChecker(deps: AppUpdateCheckerDeps) {
       prefs = stored
       // A stored check time ahead of the clock (clock since corrected) would defer the next check.
       const checkedAt = stored.lastCheckedAt
-      nextDueAt =
-        checkedAt === null || checkedAt > deps.now() ? 0 : checkedAt + APP_UPDATE_CHECK_INTERVAL_MS
+      nextDueAt = checkedAt === null || checkedAt > deps.now() ? 0 : checkedAt + checkIntervalMs
       publish()
     })
     return loaded
@@ -133,7 +135,7 @@ export function createAppUpdateChecker(deps: AppUpdateCheckerDeps) {
       const latest =
         result.kind === 'available' ? { version: result.version, url: result.url } : null
       prefs = { ...prefs, lastCheckedAt: checkedAt, latest }
-      schedule(checkedAt + APP_UPDATE_CHECK_INTERVAL_MS)
+      schedule(checkedAt + checkIntervalMs)
       await deps.saveCheck(checkedAt, latest).catch(() => {})
       return latest ? 'available' : 'up-to-date'
     } catch {

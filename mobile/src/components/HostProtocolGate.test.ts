@@ -38,7 +38,10 @@ vi.mock('../transport/host-client-hooks', () => ({
   useHostClient: () => hostClient.current
 }))
 // The wall's release offer: the native hook imports the update checker module.
-vi.mock('../app-update/use-wall-app-update', () => ({ useWallAppUpdate: () => null }))
+vi.mock('../app-update/use-wall-app-update', () => ({
+  useWallAppUpdate: () => null,
+  openWallLink: (url: string) => nativeTestState.openUrl(url)
+}))
 // Descriptor bookkeeping only; the real recorder reaches the native keychain through host-store.
 vi.mock('../transport/host-descriptor-recorder', () => ({
   recordHostDescriptorFromStatus: vi.fn()

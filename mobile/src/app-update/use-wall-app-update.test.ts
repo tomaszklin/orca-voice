@@ -11,6 +11,7 @@ const runtime = vi.hoisted(() => {
 })
 
 vi.mock('./app-update-runtime', () => ({ useAppUpdateState: () => runtime.snapshot }))
+vi.mock('../platform/external-link', () => ({ openExternalLink: vi.fn() }))
 
 const RELEASE = { version: '0.0.52', url: 'https://example.test/0.0.52' }
 

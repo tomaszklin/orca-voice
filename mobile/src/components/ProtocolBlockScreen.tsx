@@ -1,5 +1,4 @@
-import { useWallAppUpdate } from '../app-update/use-wall-app-update'
-import { openExternalLink } from '../platform/external-link'
+import { openWallLink, useWallAppUpdate } from '../app-update/use-wall-app-update'
 import { useRouteHandoff } from '../navigation/route-handoff'
 import { Platform, Pressable, Text, View } from 'react-native'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
@@ -105,7 +104,7 @@ export function ProtocolBlockScreen({ verdict }: Props) {
             style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
             onPress={() => {
               // Use external-link seam: page’s RN openURL calls window.open, which both shells refuse despite resolving.
-              openExternalLink(primaryAction.url)
+              openWallLink(primaryAction.url)
             }}
           >
             <Text style={styles.primaryButtonText}>{primaryAction.label}</Text>

@@ -31,7 +31,7 @@ describe('voice build updates', () => {
     expect(result).toEqual({
       kind: 'available',
       version: 'build 15',
-      url: `${VOICE_UPDATE_BASE}orca-voice-0.0.57-b15.apk`
+      url: 'https://github.com/tomaszklin/orca-voice/releases/download/voice-b15/orca-voice-0.0.57-b15.apk'
     })
     expect(result.kind === 'available' && isVoiceUpdateUrl(result.url)).toBe(true)
   })

@@ -14,7 +14,7 @@ class OrcaVoiceBackgroundModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("OrcaVoiceBackground")
 
-    Events("onTick", "onSpeech", "onAutoReadToggle", "onReaderControl")
+    Events("onTick", "onSpeech", "onAutoReadToggle", "onReaderControl", "onUpdateDownload")
 
     // Wired at creation rather than on first observer: a module instance exists only while the
     // app's JS runs, which is exactly what the sticky service checks the ticker listener for.
@@ -29,6 +29,9 @@ class OrcaVoiceBackgroundModule : Module() {
         } else {
           sendEvent("onReaderControl", mapOf("action" to control))
         }
+      }
+      UpdateInstaller.listener = { event, percent, message ->
+        sendEvent("onUpdateDownload", mapOf("event" to event, "percent" to percent, "message" to message))
       }
       appContext.reactContext?.let { ReadAloudOutput.watch(it) }
     }
@@ -120,10 +123,25 @@ class OrcaVoiceBackgroundModule : Module() {
       }
     }
 
-    /** Downloads a build from the home server and opens the installer; false if one is running. */
+    /** Downloads a build, reported by `onUpdateDownload` events; false if one is running. */
     Function("installUpdate") { url: String ->
       val context = appContext.reactContext ?: return@Function false
       UpdateInstaller.start(context, url)
+    }
+
+    Function("openUpdateInstaller") {
+      val context = appContext.reactContext ?: return@Function false
+      UpdateInstaller.openInstaller(context)
+    }
+
+    Function("canInstallUpdates") {
+      val context = appContext.reactContext ?: return@Function false
+      UpdateInstaller.canInstall(context)
+    }
+
+    Function("openInstallPermission") {
+      val context = appContext.reactContext ?: return@Function false
+      UpdateInstaller.openInstallPermission(context)
     }
 
     /** What the notification's auto-read button shows; the pause itself lives in JS. */
@@ -152,6 +170,7 @@ class OrcaVoiceBackgroundModule : Module() {
       ReadAloudTicker.listener = null
       ReadAloudSpeech.listener = null
       ReadAloudControls.listener = null
+      UpdateInstaller.listener = null
       // Why: with no JS left to drive them, speech and the service's wake lock would only linger.
       ReadAloudSpeech.stop()
       appContext.reactContext?.let { ReadAloudService.stop(it) }
