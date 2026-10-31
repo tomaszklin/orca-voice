@@ -109,6 +109,43 @@ describe('findNewReplies', () => {
     expect(nextTurn.newReplies).toEqual([{ paneKey: 'pane-1', message: 'Same', endedAt: 2 }])
   })
 
+  it('waits for the turn after a subagent, and reads the text if no such turn comes', () => {
+    const subagents = [{ id: 'child', state: 'working', startedAt: 0 }] as const
+    const held = findNewReplies(new Map([['pane-1', 'A']]), [
+      agent({ stateStartedAt: 1, lastAssistantMessage: 'Back soon', subagents: [...subagents] })
+    ])
+    expect(held.newReplies).toEqual([])
+    const settled = findNewReplies(held.baseline, [
+      agent({ stateStartedAt: 1, lastAssistantMessage: 'Back soon' })
+    ])
+    expect(settled.newReplies).toEqual([{ paneKey: 'pane-1', message: 'Back soon', endedAt: 1 }])
+  })
+
+  it('does not wait for a subagent that is only parked', () => {
+    const { newReplies } = findNewReplies(new Map([['pane-1', 'A']]), [
+      agent({
+        lastAssistantMessage: 'Done',
+        subagents: [{ id: 'mate', state: 'idle', startedAt: 0 }]
+      })
+    ])
+    expect(newReplies).toEqual([{ paneKey: 'pane-1', message: 'Done', endedAt: 0 }])
+  })
+
+  it('reads the subagents of a row, and a row whose subagents it cannot read', () => {
+    const worktrees = [
+      {
+        agents: [
+          { ...agent({ paneKey: 'a' }), subagents: [{ id: 'child', state: 'working' }] },
+          { ...agent({ paneKey: 'b' }), subagents: 'unreadable' }
+        ]
+      }
+    ]
+    expect(agentRowsFromWorktreePs('h', worktrees).map((row) => row.subagents)).toEqual([
+      [{ state: 'working' }],
+      undefined
+    ])
+  })
+
   it('keeps panes of different hosts apart', () => {
     const worktrees = [
       { agents: [agent({ paneKey: 'p', parentPaneKey: 'root' })] },

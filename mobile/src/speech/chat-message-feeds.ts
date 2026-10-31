@@ -96,9 +96,15 @@ export type ChatMessageFeeds = {
   closeAll(): void
 }
 
-/** `speak` answers whether it read the message, which is what `heard` remembers. */
+type IsNested = (client: RpcClient, paneKey: string, target: ChatTarget) => Promise<boolean>
+
+/**
+ * `speak` answers whether it read the message, which is what `heard` remembers. `isNested` says
+ * whether a pane's reported session is only a run its agent started, which a feed does not follow.
+ */
 export function createChatMessageFeeds(
-  speak: (paneKey: string, messageId: string, text: string) => boolean
+  speak: (paneKey: string, messageId: string, text: string) => boolean,
+  isNested: IsNested = async () => false
 ): ChatMessageFeeds {
   const feeds = new Map<string, Feed>()
   const lastAttempt = new Map<string, number>()
@@ -257,6 +263,12 @@ export function createChatMessageFeeds(
           }
           if (feed && feed.client === client && feed.target.sessionId === target.sessionId) {
             feed.resolvedAt = now
+            continue
+          }
+          if (await isNested(client, pane.paneKey, target)) {
+            if (feed) {
+              feed.resolvedAt = now
+            }
             continue
           }
           if (feed) {

@@ -21,6 +21,7 @@ import {
   useProjectNameMode,
   type LastReadMessage
 } from './project-name-announcement'
+import { createNestedSessionGuard } from './nested-session-guard'
 import { useReadScopePreference } from './read-scope-preference'
 import { expireHolds, speakReply, stopAutoReading } from './reply-speaker'
 import { logSpeechEvent } from './speech-diagnostics'
@@ -37,6 +38,9 @@ export type ReplyBaseline = ReadonlyMap<string, string>
 
 /** `endedAt` is when the reply's turn ended, by the host's clock. */
 export type NewReply = { paneKey: string; message: string; endedAt: number }
+
+const isRunningSubagent = ({ state }: { state: string }) =>
+  state === 'working' || state === 'blocked' || state === 'waiting'
 
 /**
  * Compares the agents' finished replies against what was already seen.
@@ -74,6 +78,11 @@ export function findNewReplies(
     const seen = next.get(agent.paneKey)
     if (seen === undefined && !hostSeenBefore) {
       next.set(agent.paneKey, key)
+      continue
+    }
+    // Why: an agent that left a subagent working ends its turn with "I'll be back" and wakes when
+    // the subagent ends. Left unrecorded, so the text is still read if that turn never comes.
+    if (finished !== null && agent.subagents?.some(isRunningSubagent)) {
       continue
     }
     if (finished !== null && key !== seen) {
@@ -149,13 +158,14 @@ export function useAutoReadReplies(): void {
     const readsEveryMessage = () =>
       readScopeRef.current === 'all' ||
       (readScopeRef.current === 'all-on-screen' && AppState.currentState === 'active')
+    const nestedSessions = createNestedSessionGuard()
     const feeds = createChatMessageFeeds((paneKey, messageId, text) => {
       if (!readsEveryMessage()) {
         return false
       }
       speakAutoRead(`${paneKey}#${messageId}`, paneKey, text)
       return true
-    })
+    }, nestedSessions.isNested)
 
     const poll = async () => {
       const now = Date.now()
@@ -197,16 +207,19 @@ export function useAutoReadReplies(): void {
           ...agents.map((row) => [row.paneKey, row.project] as const)
         ])
         const newReplies: NewReply[] = []
-        connected.forEach(({ hostId }, index) => {
+        for (const [index, { hostId, client }] of connected.entries()) {
           const hostRows = rows[index]
           if (!hostRows) {
-            return
+            continue
           }
           const found = findNewReplies(baselineRef.current, hostRows, hostsSeen.has(hostId))
           baselineRef.current = found.baseline
           hostsSeen.add(hostId)
-          newReplies.push(...found.newReplies)
-        })
+          newReplies.push(...(await nestedSessions.ownReplies(client, hostRows, found.newReplies)))
+        }
+        if (cancelled || run !== generation) {
+          return
+        }
         const feedsReading = readsEveryMessage()
         for (const reply of feeds.overdue(feedsReading)) {
           speakAutoRead(reply.id, reply.paneKey, reply.text)

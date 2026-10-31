@@ -675,6 +675,39 @@ ma jego magazynu szkiców), więc do forka przeszło to samo zachowanie, nie ten
 
 Do filmu potrzebny jest desktop co najmniej `v1.4.243`; desktop właściciela ma `v1.4.245` od 2026-10-30.
 
+## Bez odpowiedzi z zagnieżdżonych sesji i bez „zaraz wrócę” (build 42, 2026-10-31)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel przy „Final replies only” słyszał urywki z sesji, która testowała wtyczkę. Rozumowania
+czytnik nie czyta, a wiadomości ze środka tury przy tej opcji nie przechodzą: to były dwie inne rzeczy.
+
+- **`claude -p` uruchomiony w panelu Orki melduje się jako ten panel.** Dziedziczy `ORCA_PANE_KEY` i
+  `CLAUDE_CONFIG_DIR`, więc jego hooki idą do Orki jak hooki agenta panelu. Zmierzone: wiersz
+  `worktree.ps` przechodzi na `done` z odpowiedzią zagnieżdżonej sesji i tak stoi, aż skończy się
+  polecenie agenta, a panel zgłasza numer zagnieżdżonej sesji. Host chroni przed tym tylko Codexa i
+  Groka (`server-foreign-turn-hook.ts`), a desktopu nie zmieniamy.
+- `speech/nested-session-guard.ts`: czytnik pamięta sesję panelu (od pierwszego `working` albo
+  odpowiedzi). Odpowiedź z innej sesji odpada tylko wtedy, gdy zapis sesji panelu kończy się wywołaniem
+  narzędzia albo jego wynikiem (`nativeChat.readSession`, koszt tylko w tym rzadkim przypadku).
+  Odpowiedź z tej samej sesji idzie bez dodatkowego pytania i bez opóźnienia. Bez dowodu (błąd
+  odczytu, brak sesji) odpowiedź jest czytana: zgubiona odpowiedź kosztuje więcej niż przypadkowa.
+- Odpowiedź z tej samej sesji, gdy panel już wrócił do pracy: wyścig, zagnieżdżona sesja skończyła się
+  między `worktree.ps` a `session.tabs.list`. Też sprawdzana po zapisie sesji panelu.
+- Agent ubity w trakcie polecenia wygląda na zajętego na zawsze. Sesja, która ma w zapisie więcej niż
+  jedno polecenie użytkownika, przejmuje wtedy panel; koszt to pierwsza odpowiedź nowej sesji.
+- Strumienie czatu przy „Every message” też zostają na sesji panelu (`isNested` w `sync`).
+- **Tura zakończona przy pracującym podagencie** („Zaraz wrócę z odpowiedzią”): `findNewReplies` nie
+  czyta jej, póki podagent ma stan `working`, `blocked` albo `waiting`, i nie zapisuje jej jako
+  przeczytanej. Agent budzi się po podagencie, a końcem tej tury jest prawdziwa odpowiedź; gdyby się
+  nie obudził, tekst zostanie przeczytany po końcu podagenta.
+- Sprawdzone na prawdziwych zapisach sesji przez dekoder Orki: zapis w chwili uruchamiania
+  zagnieżdżonych sesji jest „w trakcie”, pięć zakończonych sesji nie.
+- **Znane braki:** zagnieżdżona sesja przy agencie, który już skończył turę (test w tle), zostanie
+  przeczytana, bo nic nie odróżnia jej od nowej sesji w panelu. Tura zakończona przy poleceniu w tle
+  (nie podagencie) też: serwer deweloperski działa bez końca, więc nie można na niego czekać.
+- Tylko w forku, nie w zgłoszeniu do Orki.
+
 ## Budowanie
 
 ```powershell

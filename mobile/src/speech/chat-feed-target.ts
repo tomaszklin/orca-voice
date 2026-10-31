@@ -18,6 +18,8 @@ const tabSchema = z.looseObject({
   agentStatus: z
     .looseObject({
       agentType: z.string().nullish(),
+      state: z.string().nullish(),
+      mainAgent: z.looseObject({ state: z.string().nullish() }).nullish(),
       providerSession: z
         .looseObject({ id: z.string().nullish(), transcriptPath: z.string().nullish() })
         .nullish()
@@ -42,18 +44,24 @@ export async function readWorktreeTabs(client: RpcClient, worktreeId: string): P
   return tabsOf(sessionTabsListRead.interpret(response))
 }
 
-/** The transcript a terminal pane's chat reads, by the rules of `resolveMobileNativeChat`. */
-export function chatTargetForPane(tabs: readonly Tab[], rawPaneKey: string): ChatTarget | null {
+export function tabForPane(tabs: readonly Tab[], rawPaneKey: string): Tab | null {
   const pane = parsePaneKey(rawPaneKey)
   if (!pane) {
     return null
   }
-  const tab = tabs.find(
-    (candidate) =>
-      candidate.type === 'terminal' &&
-      (candidate.parentTabId ?? candidate.id) === pane.tabId &&
-      candidate.leafId === pane.leafId
+  return (
+    tabs.find(
+      (candidate) =>
+        candidate.type === 'terminal' &&
+        (candidate.parentTabId ?? candidate.id) === pane.tabId &&
+        candidate.leafId === pane.leafId
+    ) ?? null
   )
+}
+
+/** The transcript a terminal pane's chat reads, by the rules of `resolveMobileNativeChat`. */
+export function chatTargetForPane(tabs: readonly Tab[], rawPaneKey: string): ChatTarget | null {
+  const tab = tabForPane(tabs, rawPaneKey)
   if (!tab) {
     return null
   }

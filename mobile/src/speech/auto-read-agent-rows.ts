@@ -17,7 +17,7 @@ export type SpokenAgentRow = Pick<
   | 'mainAgent'
   | 'lastAssistantMessage'
   | 'toolName'
->
+> & { subagents?: readonly { state: string }[] }
 
 export type AutoReadAgentRow = SpokenAgentRow & {
   rawPaneKey: string
@@ -38,7 +38,11 @@ const agentRowSchema = z.object({
   lastAssistantMessage: z.string().nullable().catch(null),
   toolName: z.string().nullable().catch(null),
   // Why: an unreadable main agent falls back to the row's state, as rows from older hosts do.
-  mainAgent: mainAgentSchema.optional().catch(undefined)
+  mainAgent: mainAgentSchema.optional().catch(undefined),
+  subagents: z
+    .array(z.object({ state: z.string() }))
+    .optional()
+    .catch(undefined)
 })
 
 function worktreeProjectName(worktree: Record<string, unknown>): string | null {

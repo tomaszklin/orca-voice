@@ -146,6 +146,25 @@ describe('createChatMessageFeeds', () => {
     expect(streams[1].closed).toBe(true)
   })
 
+  it('stays on the agent’s chat while a run it started reports as the pane', async () => {
+    const feeds = createChatMessageFeeds(
+      () => true,
+      async (_client, _paneKey, target) => target.sessionId === 'session-2'
+    )
+    const { client, streams } = fakeClient()
+    await feeds.sync('host', client, [{ ...pane, turnStartedAt: null }], 100_000)
+    tabsReply.current = {
+      tabs: [
+        {
+          ...claudeTab,
+          agentStatus: { agentType: 'claude', providerSession: { id: 'session-2' } }
+        }
+      ]
+    }
+    await feeds.sync('host', client, [{ ...pane, turnStartedAt: null }], 200_000)
+    expect(streams.map((stream) => stream.closed)).toEqual([false])
+  })
+
   it('reopens a feed on the client that replaced the one it was opened on', async () => {
     const feeds = feedsUnderTest()
     const first = fakeClient()
