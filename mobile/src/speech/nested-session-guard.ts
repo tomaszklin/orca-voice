@@ -39,7 +39,7 @@ type TailMessage = z.infer<typeof tailSchema>['messages'][number]
 
 /** Whether a transcript ends on a tool call or its result: the agent has not finished its turn. */
 export function endsMidTurn(messages: readonly TailMessage[]): boolean {
-  const last = messages.filter(({ role }) => role !== 'system' && role !== 'reasoning').at(-1)
+  const last = messages.findLast(({ role }) => role !== 'system' && role !== 'reasoning')
   return (
     last !== undefined &&
     (last.role === 'tool' ||
