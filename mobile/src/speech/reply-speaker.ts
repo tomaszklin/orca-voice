@@ -1,22 +1,19 @@
 import { useSyncExternalStore } from 'react'
-import { playAside, playPieceRun } from './piece-player'
+import { playPieceRun } from './piece-player'
 import { logSpeechEvent } from './speech-diagnostics'
-import { onAudioEvent, spokenOffset, stopUtterances } from './tts-engine'
+import { spokenOffset, stopUtterances } from './tts-engine'
 import {
-  canGoPrevious,
+  heldByUser,
   previousTarget,
-  readerStatus,
+  readerReport,
+  readingState,
   remembered,
   type Hold,
-  type Piece,
+  type Parked,
   type Utterance
 } from './reader-model'
-import { replyPieces, replyUtterance, type ReplyIntro } from './reply-pieces'
+import { replyUtterance, type ReplyIntro } from './reply-pieces'
 import { voiceNativeModule, type ReaderState } from './voice-native-module'
-
-// A call, dictation or unplugged headphones longer than this end the reading instead of resuming
-// it; the message stays for Previous and Play.
-export const RESUME_WITHIN_MS = 10 * 60_000
 
 /**
  * Said before a message (auto-read): a chime, then the project name, each a piece of its own.
@@ -33,7 +30,9 @@ let pieceFrom = 0
 let resumeFrom = 0
 let startedAt = 0
 let hold: Hold | null = null
-/** Messages read lately, oldest first. */
+/** The queue's message the Read button cut in on; it goes on once that one ends. */
+let parked: Parked | null = null
+/** Messages auto-read read lately, oldest first. */
 let history: Utterance[] = []
 let headphonesOnly = false
 // Off while auto-read is paused: nothing starts by itself, new messages wait for Play or Next.
@@ -41,27 +40,18 @@ let autoPlay = true
 const listeners = new Set<() => void>()
 
 function readerState(): ReaderState {
-  if (current === null && queue.length === 0) {
-    return 'idle'
-  }
-  // Messages waiting while auto-read is paused show as paused: Play reads the next one.
-  return hold || current === null ? 'paused' : 'reading'
+  return readingState(current, hold, queue.length)
 }
 
 let reported = ''
 
 function emit(): void {
   // Told synchronously rather than from a render, so the notification keeps up off screen.
-  const state = readerState()
-  const title = current?.title ?? null
-  const status = readerStatus(state, hold, current, queue.length)
-  const canRepeat = history.length > 0
-  const canPrevious = canGoPrevious(history, current, queue.length)
-  const canNext = queue.length > 0
-  const report = JSON.stringify([state, title, status, canRepeat, canPrevious, canNext])
+  const state = readerReport(current, hold, queue.length, parked !== null, history)
+  const report = JSON.stringify(state)
   if (report !== reported) {
     reported = report
-    voiceNativeModule()?.setReaderState(state, title, status, canRepeat, canPrevious, canNext)
+    voiceNativeModule()?.setReaderState(...state)
   }
   for (const listener of listeners) {
     listener()
@@ -79,7 +69,10 @@ function begin(utterance: Utterance): void {
   // Why: Previous can pick a message that also waits in the queue, which would read it twice.
   queue = queue.filter((queued) => queued.id !== utterance.id)
   startedAt = Date.now()
-  history = remembered(history, utterance)
+  // What the Read button reads stays outside the queue, so Previous never goes back to it.
+  if (utterance.auto) {
+    history = remembered(history, utterance)
+  }
   emit()
   playPiece(utterance, 0)
 }
@@ -103,7 +96,9 @@ function advance(utterance: Utterance, index: number): void {
     playPiece(utterance, index + 1)
   } else {
     logSpeechEvent(`finished ${utterance.id}`)
-    if (autoPlay) {
+    if (!utterance.auto) {
+      endOutsideQueue()
+    } else if (autoPlay) {
       playNext()
     } else {
       current = null
@@ -127,6 +122,46 @@ function playPiece(utterance: Utterance, index: number, from = 0): void {
   })
 }
 
+/**
+ * The Read button: reads beside the queue, which keeps its place and everything waiting. Pressed
+ * again it replaces its own message, never the place it took.
+ */
+function readOutsideQueue(utterance: Utterance): void {
+  if (current?.auto) {
+    const from = hold ? resumeFrom : pieceFrom + spokenOffset()
+    parked = { utterance: current, piece, from, hold }
+  }
+  // The message being read, asked for again: it starts over rather than being read twice.
+  if (parked?.hold === null && parked.utterance.body === utterance.body) {
+    parked = null
+  }
+  current = null
+  stopUtterances()
+  begin(utterance)
+}
+
+/** Back to the message the Read button cut in on, paused where it was, or to nothing. */
+function unpark(): void {
+  current = parked?.utterance ?? null
+  piece = parked?.piece ?? 0
+  resumeFrom = parked?.from ?? 0
+  hold = parked?.hold ?? (current && { reason: 'paused', since: Date.now() })
+  parked = null
+}
+
+/** The Read button's message is over: the queue goes on as if it had never been there. */
+function endOutsideQueue(): void {
+  const wasPlaying = parked?.hold === null
+  unpark()
+  if (wasPlaying && autoPlay) {
+    resumeReading('the Read button finished')
+  } else if (current === null && autoPlay) {
+    playNext()
+  } else {
+    emit()
+  }
+}
+
 function start(utterance: Utterance, mode: 'interrupt' | 'queue'): void {
   logSpeechEvent(
     `${mode === 'interrupt' ? 'read' : 'auto-read'} ${utterance.id} (${utterance.pieces.length} pieces)`
@@ -135,11 +170,8 @@ function start(utterance: Utterance, mode: 'interrupt' | 'queue'): void {
   queue = queue.filter(
     (queued) => queued.id !== utterance.id && (mode === 'queue' || queued.body !== utterance.body)
   )
-  // The Read button cuts off what is being read; what waits keeps waiting.
   if (mode === 'interrupt') {
-    current = null
-    stopUtterances()
-    begin(utterance)
+    readOutsideQueue(utterance)
     return
   }
   queue.push(utterance)
@@ -152,8 +184,8 @@ function start(utterance: Utterance, mode: 'interrupt' | 'queue'): void {
 
 /**
  * Reads an agent reply with the device's TTS voice.
- * `interrupt` (the play button) cuts off whatever is playing; `queue` (auto-read) waits its turn.
- * `intro` (chime, project name) goes first, so a pause follows the name.
+ * `interrupt` (the Read button) plays at once, outside the queue; `queue` (auto-read) waits its
+ * turn. `intro` (chime, project name) goes first, so a pause follows the name.
  */
 export function speakReply(
   id: string,
@@ -167,33 +199,14 @@ export function speakReply(
   }
 }
 
-// A sample pauses the reading, which goes on from the word only when Play is pressed.
-function playSample(pieces: Piece[]): void {
-  if (current) {
-    pauseReading('settings sample')
-  }
-  stopUtterances()
-  playAside(pieces)
-}
-
-/** A sample from the settings: read at once, and left out of Previous and Play. */
-export function speakSample(markdown: string): void {
-  playSample(replyPieces(markdown))
-}
-
-/** The chime alone, played when it is chosen in settings. */
-export function playChimeSample(): void {
-  playSample([{ kind: 'chime' }])
-}
-
 // --- Controls: the notification, the headset and steering-wheel buttons, the Stop pill. ---
 // `reason` only labels the app log line, so a stop nobody pressed shows where it came from.
 
 /**
- * Holds the reading where it is. The user's pause is kept until they resume; a call's or
+ * Holds the reading where it is. The user's pause or stop is kept until they end it; a call's or
  * unplugged headphones' hold never replaces it.
  */
-function holdReading(reason: Hold['reason'], label: string): void {
+export function holdReading(reason: Hold['reason'], label: string): void {
   if (current === null) {
     // Nothing to come back to: the focus kept for a call's end can go now.
     if (reason === 'interrupted') {
@@ -201,7 +214,7 @@ function holdReading(reason: Hold['reason'], label: string): void {
     }
     return
   }
-  if (hold?.reason === 'paused') {
+  if (heldByUser(hold)) {
     return
   }
   if (hold === null) {
@@ -242,13 +255,16 @@ export function playReading(reason: string): void {
   } else if (current === null && queue.length > 0) {
     logSpeechEvent(`play: ${reason}`)
     playNext(true)
-  } else if (current === null) {
-    repeatLast(reason)
+  } else if (current === null && history.length > 0) {
+    logSpeechEvent(`repeat: ${reason}`)
+    stopUtterances()
+    begin(history[history.length - 1])
   }
 }
 
 export function nextMessage(reason: string): void {
-  if (readerState() === 'idle') {
+  // Nothing comes after what the Read button reads: it is outside the queue.
+  if (readerState() === 'idle' || current?.auto === false) {
     return
   }
   logSpeechEvent(`next: ${reason}`)
@@ -264,7 +280,9 @@ export function nextMessage(reason: string): void {
  */
 export function previousMessage(reason: string): void {
   const playing = current
-  const target = previousTarget(history, playing, Date.now() - startedAt)
+  // A stopped message is back at its start, however long ago it began.
+  const playedFor = hold?.reason === 'stopped' ? 0 : Date.now() - startedAt
+  const target = previousTarget(history, playing, playedFor)
   if (!target) {
     return
   }
@@ -276,56 +294,82 @@ export function previousMessage(reason: string): void {
   begin(target)
 }
 
-/** The message being read from its start, else the last one read (Play with nothing to read). */
-export function repeatLast(reason: string): void {
-  const target = current ?? history[history.length - 1]
-  if (!target) {
+/**
+ * The Stop button, which like a player's keeps the queue: the message goes back to its start, and
+ * it and what waits wait for Play. With nothing waiting the reader is simply idle, so new messages
+ * are read as they come. Stopping the Read button's message leaves the queue's where it was.
+ */
+export function stopReading(reason: string): void {
+  if (current === null || hold?.reason === 'stopped') {
     return
   }
-  logSpeechEvent(`repeat: ${reason}`)
+  logSpeechEvent(`stopped: ${reason}`)
   stopUtterances()
-  begin(target)
+  if (!current.auto) {
+    unpark()
+  } else if (queue.length > 0) {
+    piece = 0
+    resumeFrom = 0
+    hold = { reason: 'stopped', since: Date.now() }
+  } else {
+    current = null
+    hold = null
+  }
+  emit()
 }
 
-export function stopSpeaking(reason = 'stop'): void {
-  if (current || queue.length > 0) {
-    logSpeechEvent(`stopped: ${reason}`)
-  }
-  queue = []
+// --- What happens to the audio meanwhile. ---
+
+/** The reading ends without the user asking; what waits goes on with Play or the next message. */
+export function endReading(reason: string): void {
+  logSpeechEvent(`ended: ${reason}`)
+  parked = null
   current = null
   hold = null
   stopUtterances()
   emit()
 }
 
-// --- What happens to the audio meanwhile. ---
-
-/** From the Read aloud settings: auto-read only through headphones or a car. */
-/** Ends only auto-read's part: what it queued, and the message being read if it started it. */
+/** Ends only auto-read's part: the queue, and the message being read if it started it. */
 export function stopAutoReading(reason: string): void {
-  const kept = queue.filter((queued) => !queued.auto)
+  queue = []
+  parked = null
   if (current?.auto) {
-    stopSpeaking(`auto-read: ${reason}`)
+    endReading(`auto-read: ${reason}`)
+  } else {
+    emit()
   }
-  queue = kept
-  emit()
 }
 
+/** From the Read aloud settings: auto-read only through headphones or a car. */
 export function setAutoReadNeedsHeadphones(on: boolean): void {
   headphonesOnly = on
 }
 
+export function autoReadNeedsHeadphones(): boolean {
+  return headphonesOnly
+}
+
+export function readerHold(): Hold | null {
+  return hold
+}
+
 /**
  * Auto-read paused (off): the message being read pauses where it is and new ones wait. Resumed:
- * the reading goes on from there and through everything that waited.
+ * the reading goes on from there and through everything that waited. What the Read button reads
+ * is outside this; the message it cut in on follows once it ends.
  */
 export function setAutoPlay(on: boolean): void {
   if (on === autoPlay) {
     return
   }
   autoPlay = on
-  // Takes over a call or unplug hold, so the reading does not go on when that ends.
-  if (!on && current && hold?.reason !== 'paused') {
+  if (current?.auto === false) {
+    if (on && parked?.hold?.reason === 'paused') {
+      parked.hold = null
+    }
+    // Takes over a call or unplug hold, so the reading does not go on when that ends.
+  } else if (!on && current && !heldByUser(hold)) {
     holdReading('paused', 'auto-read paused')
   } else if (on && hold?.reason === 'paused') {
     resumeReading('auto-read resumed')
@@ -334,49 +378,6 @@ export function setAutoPlay(on: boolean): void {
   }
   emit()
 }
-
-function endHold(reason: Hold['reason'], label: string): void {
-  if (hold?.reason !== reason) {
-    return
-  }
-  if (Date.now() - hold.since > RESUME_WITHIN_MS) {
-    stopSpeaking(`${label}, too late to go on`)
-    return
-  }
-  resumeReading(label)
-}
-
-/**
- * Ends a call's or unplugged headphones' hold that never came back, so later messages are not
- * held forever; auto-read calls it on each poll. The user's own pause stays.
- */
-export function expireHolds(now = Date.now()): void {
-  if (hold && hold.reason !== 'paused' && now - hold.since > RESUME_WITHIN_MS) {
-    stopSpeaking(`${hold.reason}, did not end in time`)
-  }
-}
-
-onAudioEvent((event, message) => {
-  switch (event) {
-    case 'interrupted':
-      // Another app took the audio for good (music started): like a player, the reading ends.
-      stopSpeaking(message ?? 'another app took the audio')
-      return
-    case 'held':
-      holdReading('interrupted', message ?? 'a call or dictation took the audio')
-      return
-    case 'regained':
-      endHold('interrupted', 'the call or dictation ended')
-      return
-    case 'noisy':
-      if (headphonesOnly) {
-        holdReading('unplugged', 'headphones or car disconnected')
-      }
-      return
-    case 'private-output':
-      endHold('unplugged', 'headphones or car are back')
-  }
-})
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener)

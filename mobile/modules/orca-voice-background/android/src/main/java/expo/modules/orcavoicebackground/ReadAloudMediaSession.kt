@@ -37,14 +37,16 @@ internal object ReadAloudMediaSession {
     override fun onStop() = ReadAloudControls.send(ReadAloudControls.STOP_READING)
   }
 
-  /** `state`: "idle", "reading" or "paused"; `title` is what a car's display shows. */
+  /** `state`: "idle", "reading", "paused" or "stopped"; `title` is what a car's display shows. */
   fun update(context: Context, state: String, title: String?, previous: Boolean, next: Boolean) {
     val app = context.applicationContext
     // Skips offered only when there is somewhere to skip to, so a car greys them out otherwise.
     val actions = ACTIONS or
       (if (previous) PlaybackState.ACTION_SKIP_TO_PREVIOUS else 0L) or
       (if (next) PlaybackState.ACTION_SKIP_TO_NEXT else 0L)
-    handler.post { apply(app, state, title, actions) }
+    // Stopped, messages wait for Play: the headset keeps it for as long as it keeps a pause.
+    val session = if (state == "stopped") "paused" else state
+    handler.post { apply(app, session, title, actions) }
   }
 
   /** Gives the buttons back, e.g. when the app's JS goes away. */

@@ -27,8 +27,8 @@ import {
 } from './read-aloud-voice-settings'
 import { useChimeMode, useProjectNameMode } from './project-name-announcement'
 import { useReadScopePreference } from './read-scope-preference'
+import { playChimeSample } from './reader-samples'
 import { useHeadphonesOnly, useLinkReading, useTableReading } from './reading-preferences'
-import { playChimeSample } from './reply-speaker'
 import { speakLinkSample, speakTableSample, useSpeechOptions } from './speech-options'
 import { voiceNativeModule } from './voice-native-module'
 

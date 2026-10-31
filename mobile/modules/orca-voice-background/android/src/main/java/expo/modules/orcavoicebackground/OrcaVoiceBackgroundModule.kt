@@ -131,10 +131,10 @@ class OrcaVoiceBackgroundModule : Module() {
       ReadAloudService.showAutoReadPaused(paused)
     }
 
-    /** The reader's state ("idle", "reading", "paused") for the notification and the headset. */
+    /** The reader's state ("idle", "reading", "paused", "stopped") for the notification and the headset. */
     Function("setReaderState") { state: String, title: String?, status: String?, canRepeat: Boolean,
-      canPrevious: Boolean, canNext: Boolean ->
-      ReadAloudService.showReader(state, status, canRepeat, canPrevious, canNext)
+      canPrevious: Boolean, canNext: Boolean, outsideQueue: Boolean ->
+      ReadAloudService.showReader(state, status, canRepeat, canPrevious, canNext, outsideQueue)
       appContext.reactContext?.let {
         // Also here, in case there was no context yet when the module was created.
         ReadAloudOutput.watch(it)

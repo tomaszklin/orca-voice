@@ -11,10 +11,10 @@ const HISTORY_LENGTH = 10
 export type Piece = { kind: 'chime' } | { kind: 'text'; text: string; language?: string | null }
 
 /**
- * `auto`: queued by auto-read, which the headphones-only option holds back. `body`: the speech
- * text without the intro, since the same reply reaches the reader under different ids (the Read
- * button, auto-read's feed, its final reply). `title` names it in the notification and on a
- * car's display.
+ * `auto`: queued by auto-read, which the headphones-only option holds back; otherwise the Read
+ * button's, which stays outside the queue. `body`: the speech text without the intro, since the
+ * same reply reaches the reader under different ids (the Read button, auto-read's feed, its final
+ * reply). `title` names it in the notification and on a car's display.
  */
 export type Utterance = {
   id: string
@@ -26,20 +26,48 @@ export type Utterance = {
 
 /**
  * Why nothing plays while something is waiting to be read: `paused` by the user until they
- * resume; `interrupted` by a call or dictation and `unplugged` (headphones-only option, the
- * headphones or car went away), both resumed when that ends.
+ * resume; `stopped` by the user until Play, from the message's start; `interrupted` by a call or
+ * dictation and `unplugged` (headphones-only option, the headphones or car went away), both
+ * resumed when that ends.
  */
-export type Hold = { reason: 'paused' | 'interrupted' | 'unplugged'; since: number }
+export type Hold = { reason: 'paused' | 'stopped' | 'interrupted' | 'unplugged'; since: number }
+
+/** The queue's message the Read button cut in on. `hold` is null when it was playing. */
+export type Parked = { utterance: Utterance; piece: number; from: number; hold: Hold | null }
 
 const HOLD_STATUS: Record<Hold['reason'], string> = {
   paused: 'Paused',
+  stopped: 'Stopped',
   interrupted: 'Paused for a call or dictation',
   unplugged: 'Paused until headphones are back'
 }
 
+/** A hold only the user ends; calls and unplugged headphones leave it as it is. */
+export function heldByUser(hold: Hold | null): boolean {
+  return hold?.reason === 'paused' || hold?.reason === 'stopped'
+}
+
+/**
+ * `stopped`: Play is needed, either after the Stop button or for messages waiting with none being
+ * read (auto-read paused, or the reading ended by itself). Only `reading` and `paused` can stop.
+ */
+export function readingState(
+  current: Utterance | null,
+  hold: Hold | null,
+  waiting: number
+): ReaderState {
+  if (current === null) {
+    return waiting > 0 ? 'stopped' : 'idle'
+  }
+  if (hold === null) {
+    return 'reading'
+  }
+  return hold.reason === 'stopped' ? 'stopped' : 'paused'
+}
+
 /**
  * The notification's second line under "Auto-read active" or "paused", e.g. "Reading · OrcaVoice ·
- * 2 more waiting", or "2 waiting" while auto-read is paused; null while idle.
+ * 2 more waiting", or "2 waiting" with no message of the queue being read; null while idle.
  */
 export function readerStatus(
   state: ReaderState,
@@ -55,9 +83,33 @@ export function readerStatus(
     parts.push(current.title)
   }
   if (waiting > 0) {
-    parts.push(current ? `${waiting} more waiting` : `${waiting} waiting`)
+    parts.push(current?.auto ? `${waiting} more waiting` : `${waiting} waiting`)
   }
   return parts.join(' · ') || null
+}
+
+/**
+ * The arguments of `setReaderState`. What the Read button reads stays outside the queue, so it
+ * offers neither Previous nor Next; the message it cut in on still counts as waiting.
+ */
+export function readerReport(
+  current: Utterance | null,
+  hold: Hold | null,
+  queued: number,
+  hasParked: boolean,
+  history: readonly Utterance[]
+) {
+  const state = readingState(current, hold, queued)
+  const outsideQueue = current?.auto === false
+  return [
+    state,
+    current?.title ?? null,
+    readerStatus(state, hold, current, queued + (hasParked ? 1 : 0)),
+    history.length > 0,
+    !outsideQueue && canGoPrevious(history, current, queued),
+    !outsideQueue && queued > 0,
+    outsideQueue
+  ] as const
 }
 
 /** The history once `utterance` starts; a message read again keeps its place in it. */

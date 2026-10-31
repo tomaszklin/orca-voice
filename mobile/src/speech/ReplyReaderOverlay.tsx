@@ -5,13 +5,16 @@ import { colors, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useReaderControls } from './reader-controls'
-import { pauseReading, playReading, stopSpeaking, useReaderState } from './reply-speaker'
+import { pauseReading, playReading, stopReading, useReaderState } from './reply-speaker'
 import { useAutoReadReplies } from './use-auto-read-replies'
+
+const MAIN_PILL = { reading: 'Pause', paused: 'Resume', stopped: 'Play' }
 
 /**
  * Mounted once above the navigator: drives auto-read and the reading buttons, and while a reply is
  * being read shows Pause and Stop pills over whatever screen is open — including the pages the
- * desktop serves, which the shell cannot add controls to.
+ * desktop serves, which the shell cannot add controls to. Stopped with messages waiting, a Play
+ * pill stays, as the notification exists only with screen-off reading.
  */
 export function ReplyReaderOverlay(): React.JSX.Element | null {
   useMobileColorScheme()
@@ -22,33 +25,35 @@ export function ReplyReaderOverlay(): React.JSX.Element | null {
   if (state === 'idle') {
     return null
   }
-  const paused = state === 'paused'
+  const reading = state === 'reading'
   return (
     <View pointerEvents="box-none" style={[styles.layer, { top: insets.top + spacing.xs }]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={paused ? 'Resume reading' : 'Pause reading'}
+        accessibilityLabel={`${MAIN_PILL[state]} reading`}
         hitSlop={8}
         style={styles.pill}
-        onPress={() => (paused ? playReading('Resume pill') : pauseReading('Pause pill'))}
+        onPress={() => (reading ? pauseReading('Pause pill') : playReading('Play pill'))}
       >
-        {paused ? (
-          <Play size={12} color={colors.textPrimary} />
-        ) : (
+        {reading ? (
           <Pause size={12} color={colors.textPrimary} />
+        ) : (
+          <Play size={12} color={colors.textPrimary} />
         )}
-        <Text style={styles.label}>{paused ? 'Resume' : 'Pause'}</Text>
+        <Text style={styles.label}>{MAIN_PILL[state]}</Text>
       </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Stop reading reply"
-        hitSlop={8}
-        style={styles.pill}
-        onPress={() => stopSpeaking('Stop button')}
-      >
-        <Square size={12} color={colors.textPrimary} />
-        <Text style={styles.label}>Stop</Text>
-      </Pressable>
+      {state === 'stopped' ? null : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Stop reading reply"
+          hitSlop={8}
+          style={styles.pill}
+          onPress={() => stopReading('Stop button')}
+        >
+          <Square size={12} color={colors.textPrimary} />
+          <Text style={styles.label}>Stop</Text>
+        </Pressable>
+      )}
     </View>
   )
 }

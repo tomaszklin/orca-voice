@@ -23,7 +23,8 @@ import {
 } from './project-name-announcement'
 import { createNestedSessionGuard } from './nested-session-guard'
 import { useReadScopePreference } from './read-scope-preference'
-import { expireHolds, speakReply, stopAutoReading } from './reply-speaker'
+import { expireHolds } from './reader-interruptions'
+import { speakReply, stopAutoReading } from './reply-speaker'
 import { logSpeechEvent } from './speech-diagnostics'
 
 // On screen, as often as the workspace list's own worktree.ps polling; with the screen off, five

@@ -11,7 +11,7 @@ import {
   playReading,
   previousMessage,
   setAutoReadNeedsHeadphones,
-  stopSpeaking
+  stopReading
 } from './reply-speaker'
 import { setLanguageVoices } from './language-segments'
 import { setLinkReading, setTableReading } from './speech-text'
@@ -32,7 +32,7 @@ function handleControl(action: ReaderControl): void {
       previousMessage('previous button')
       return
     case 'stop':
-      stopSpeaking('stop button')
+      stopReading('stop button')
   }
 }
 

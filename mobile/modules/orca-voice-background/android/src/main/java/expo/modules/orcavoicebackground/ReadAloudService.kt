@@ -28,8 +28,9 @@ import androidx.core.content.ContextCompat
  * Its notification carries five icon buttons that never move (owner's requests, 2026-10-21 to
  * 2026-10-29): Previous, Play or Pause and Next, which show without expanding it, then Stop and
  * one that pauses and resumes auto-read — a pause the app's JS owns and forgets on restart. While
- * auto-read is paused, the collapsed notification shows only that one. [ReadAloudMediaSession]
- * offers the reading buttons to headsets.
+ * auto-read is paused, the collapsed notification shows only that one, unless the Read button's
+ * message is playing, which keeps its Pause. [ReadAloudMediaSession] offers the reading buttons to
+ * headsets.
  */
 class ReadAloudService : Service() {
   private var wakeLock: PowerManager.WakeLock? = null
@@ -159,7 +160,8 @@ class ReadAloudService : Service() {
       } else {
         action(R.drawable.orca_voice_next_off, "No message waiting", null)
       },
-      if (active) {
+      // Stopped already, messages wait for Play: there is nothing to stop.
+      if (readerState == "reading" || readerState == "paused") {
         action(R.drawable.orca_voice_stop, "Stop reading", controlIntent(2, ACTION_STOP_READING))
       } else {
         action(R.drawable.orca_voice_stop_off, "Nothing to stop", null)
@@ -178,7 +180,7 @@ class ReadAloudService : Service() {
     // Media style for its icon buttons, shown even while the notification is collapsed. Without a
     // media session Android draws it as an ordinary notification, not as a player in Quick
     // Settings, and the music app keeps the headset and steering-wheel buttons.
-    val compact = if (autoReadPaused) intArrayOf(4) else intArrayOf(0, 1, 2)
+    val compact = if (autoReadPaused && !outsideQueue) intArrayOf(4) else intArrayOf(0, 1, 2)
     // One line while nothing is read: the reader's status joins it only when there is one.
     return builder
       .setStyle(Notification.MediaStyle().setShowActionsInCompactView(*compact))
@@ -225,6 +227,7 @@ class ReadAloudService : Service() {
     @Volatile private var canRepeat = false
     @Volatile private var canPrevious = false
     @Volatile private var canNext = false
+    @Volatile private var outsideQueue = false
     private var current: ReadAloudService? = null
     // Stopping before onStartCommand's startForeground crashes the app, so such a stop waits for it.
     private val startLock = Any()
@@ -270,17 +273,25 @@ class ReadAloudService : Service() {
       Handler(Looper.getMainLooper()).post { current?.refreshNotification() }
     }
 
-    /** The reader's state ("idle", "reading", "paused"), which picks the buttons and the text. */
-    fun showReader(state: String, status: String?, repeatable: Boolean, previous: Boolean, next: Boolean) {
+    /** The reader's state ("idle", "reading", "paused", "stopped"), which picks the buttons and the text. */
+    fun showReader(
+      state: String,
+      status: String?,
+      repeatable: Boolean,
+      previous: Boolean,
+      next: Boolean,
+      outside: Boolean
+    ) {
       if (
         readerState == state && readerStatus == status && canRepeat == repeatable &&
-        canPrevious == previous && canNext == next
+        canPrevious == previous && canNext == next && outsideQueue == outside
       ) return
       readerState = state
       readerStatus = status
       canRepeat = repeatable
       canPrevious = previous
       canNext = next
+      outsideQueue = outside
       Handler(Looper.getMainLooper()).post { current?.refreshNotification() }
     }
   }

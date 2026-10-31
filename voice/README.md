@@ -708,6 +708,45 @@ czytnik nie czyta, a wiadomości ze środka tury przy tej opcji nie przechodzą:
   (nie podagencie) też: serwer deweloperski działa bez końca, więc nie można na niego czekać.
 - Tylko w forku, nie w zgłoszeniu do Orki.
 
+## Kolejka jak w odtwarzaczu, przycisk Read poza kolejką (build 43, 2026-10-31)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel: Stop kasował kolejkę, a ręczny Read mieszał się z nią, choć powinien tylko pojawiać się w
+powiadomieniu z pauzą. Całość ma działać jak odtwarzacz audio.
+
+- **Stop nie kasuje kolejki** (`stopReading`). Gdy coś czeka, wiadomość wraca na swój początek, stan to
+  `stopped` („Stopped · projekt · 2 more waiting”), a nic nie czyta się samo, także nowe wiadomości.
+  Rusza Play (ta wiadomość od początku, potem reszta) albo Następna / Poprzednia. Gdy nic nie czeka,
+  czytnik jest bezczynny jak dawniej i nowe wiadomości czytają się od razu: inaczej zatrzymanie jednej
+  niechcianej wiadomości wyłączałoby czytanie, aż się jej wysłucha. Stop jest wyszarzony, gdy nie ma
+  czego zatrzymać. W aplikacji zostaje pastylka Play, bo powiadomienia może nie być.
+- **Read poza kolejką** (`readOutsideQueue`). Czyta od razu, ale nie wchodzi do historii, więc
+  Poprzednia do niego nie wraca, a Play po nim nie powtarza go. W powiadomieniu Pauza i Stop działają,
+  Poprzednia i Następna są wyszarzone; przy pauzie czytania automatycznego zwinięte powiadomienie
+  pokazuje wtedy też Pauzę (`outsideQueue` w `setReaderState`). Wiadomość z kolejki, którą przerwał,
+  czeka na swoim miejscu (`Parked`) i po nim czyta się dalej od słowa; wstrzymana albo zatrzymana taka
+  zostaje. Nowe wiadomości czekają do jego końca. Pauza czytania automatycznego go nie zatrzymuje.
+  Stop na nim daje ciszę, a przerwana wiadomość zostaje wstrzymana na swoim słowie. Read na wiadomości
+  czekającej w kolejce albo właśnie czytanej dalej nie czyta jej dwa razy.
+- **Kolejki nie kasują też zdarzenia systemowe** (`endReading`): inna aplikacja zabierająca dźwięk na
+  stałe i rozmowa dłuższa niż 10 minut kończą czytaną wiadomość, ale to, co czeka, zostaje na Play albo
+  następną wiadomość. Nie blokują czytania jak Stop, bo włączenie muzyki po cichu wyłączałoby czytanie
+  automatyczne. Kolejkę kasuje już tylko wyłączenie czytania automatycznego i zejście z ekranu bez
+  „Keep reading with the screen off” (`stopAutoReading`; ręczny Read czyta wtedy dalej).
+- **Poprzednia:** wyszarzona, gdy przed obecną wiadomością nic nie czytano. Świeciła się też przy
+  jednej wiadomości, bo ręczne Read trafiały do historii. Gdy czytano już inne wiadomości (historia: 10
+  ostatnich), dalej cofa do nich, jak w odtwarzaczu; właściciel skłaniał się ku wyszarzeniu, ale
+  rozstrzygnięcie zostawił zasadzie „jak w odtwarzaczu”.
+- Moduł natywny: stan `stopped` (dla sesji multimediów jak pauza) i parametr `outsideQueue`. Stop w
+  powiadomieniu zależy od stanu (`reading` albo `paused`).
+- Wydzielone z `speech/reply-speaker.ts` (limit 300 linii): `speech/reader-interruptions.ts` (rozmowy,
+  inne aplikacje, słuchawki) i `speech/reader-samples.ts` (próbki z ustawień). `repeatLast` wszedł do
+  `playReading`, `stopSpeaking` zniknął (`stopReading`, `stopAutoReading`, `endReading`).
+- **Znany brak:** powiadomienie dalej istnieje tylko przy włączonym czytaniu automatycznym i „Keep
+  reading with the screen off”; bez nich ręczny Read ma tylko pastylki w aplikacji.
+- Tylko w forku, nie w zgłoszeniu do Orki.
+
 ## Budowanie
 
 ```powershell

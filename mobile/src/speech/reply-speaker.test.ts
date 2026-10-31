@@ -25,23 +25,20 @@ const native = {
 }
 vi.mock('./voice-native-module', () => ({ voiceNativeModule: () => native }))
 
-const { RESTART_AFTER_MS } = await import('./reader-model')
+const { RESTART_AFTER_MS, canGoPrevious } = await import('./reader-model')
+const { RESUME_WITHIN_MS, expireHolds } = await import('./reader-interruptions')
+const { playChimeSample, speakSample } = await import('./reader-samples')
 const {
-  RESUME_WITHIN_MS,
-  expireHolds,
   nextMessage,
   pauseReading,
-  playChimeSample,
   playReading,
   previousMessage,
-  repeatLast,
   resumeReading,
   setAutoPlay,
   setAutoReadNeedsHeadphones,
   speakReply,
-  speakSample,
   stopAutoReading,
-  stopSpeaking
+  stopReading
 } = await import('./reply-speaker')
 
 const sentence = (n: number) => `Sentence number ${n} is long enough to fill some of a piece.`
@@ -59,11 +56,20 @@ function lastState() {
   return native.setReaderState.mock.calls.at(-1)?.[0]
 }
 
+function lastStatus() {
+  return native.setReaderState.mock.calls.at(-1)?.[2]
+}
+
+function resetReader() {
+  stopReading('test')
+  stopAutoReading('test')
+}
+
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(1_000_000)
   setAutoPlay(true)
-  stopSpeaking()
+  resetReader()
   spoken.length = 0
   stopUtterances.mockClear()
   spokenOffset.mockReturnValue(0)
@@ -100,13 +106,17 @@ describe('speakReply', () => {
     expect(spoken).toHaveLength(3)
   })
 
-  it('stops reading, queue included, when another app takes the audio for good', () => {
+  it('ends the reading but keeps what waits when another app takes the audio for good', () => {
     speakReply('a', reply, 'queue')
-    speakReply('b', reply, 'queue')
+    speakReply('b', 'Second.', 'queue')
     audio.current('interrupted', 'another app took the audio')
     finishPiece()
     expect(spoken).toHaveLength(1)
-    expect(lastState()).toBe('idle')
+    expect(lastState()).toBe('stopped')
+    speakReply('c', 'Third.', 'queue')
+    expect(last().text).toBe('Second.')
+    finishPiece()
+    expect(last().text).toBe('Third.')
   })
 
   it('says the project name first, as its own piece, and never alone', () => {
@@ -114,7 +124,7 @@ describe('speakReply', () => {
     expect(last().text).toBe('Orca Voice.')
     finishPiece()
     expect(last().text).toBe('Done.')
-    stopSpeaking()
+    resetReader()
     spoken.length = 0
     speakReply('b', '   ', 'queue', { chime: true, name: 'Orca Voice' })
     expect(spoken).toEqual([])
@@ -125,7 +135,7 @@ describe('speakReply', () => {
     expect(last().text).toBe('(chime)')
     finishPiece()
     expect(last().text).toBe('Orca Voice.')
-    stopSpeaking()
+    resetReader()
     spoken.length = 0
     speakReply('b', 'Done.', 'queue', { chime: true })
     last().handlers.onError?.({ message: 'the chime could not play' })
@@ -136,7 +146,7 @@ describe('speakReply', () => {
   it('ignores callbacks of a reply that was stopped', () => {
     speakReply('a', reply, 'queue')
     const stale = last().handlers
-    stopSpeaking('test')
+    stopReading('test')
     stale.onError?.({ message: 'text-to-speech was stopped by the system' })
     stale.onDone?.()
     expect(spoken).toHaveLength(1)
@@ -152,7 +162,8 @@ describe('speakReply', () => {
       'Reading · OrcaVoice · 1 more waiting',
       true,
       expect.any(Boolean),
-      true
+      true,
+      false
     )
     finishPiece()
     expect(native.setReaderState).toHaveBeenLastCalledWith(
@@ -161,6 +172,7 @@ describe('speakReply', () => {
       'Reading',
       true,
       true,
+      false,
       false
     )
     finishPiece()
@@ -170,6 +182,7 @@ describe('speakReply', () => {
       null,
       true,
       expect.any(Boolean),
+      false,
       false
     )
   })
@@ -234,20 +247,197 @@ describe('reading controls', () => {
     speakReply('done', 'Read once.', 'queue')
     finishPiece()
     expect(lastState()).toBe('idle')
-    repeatLast('test')
+    playReading('test')
     expect(last().text).toBe('Read once.')
     finishPiece()
     playReading('test')
     expect(spoken.map(({ text }) => text)).toEqual(['Read once.', 'Read once.', 'Read once.'])
   })
 
-  it('keeps what waits when the Read button cuts in', () => {
+  it('dims Previous on the only message read, and offers it once one came before', () => {
+    const first = { id: 'first', pieces: [], title: null, auto: true, body: 'First.' }
+    const second = { ...first, id: 'second', body: 'Second.' }
+    expect(canGoPrevious([first], first, 0)).toBe(false)
+    expect(canGoPrevious([first, second], second, 0)).toBe(true)
+  })
+})
+
+describe('the Stop button', () => {
+  it('keeps the queue: Play starts the message again and reads on', () => {
+    speakReply('first', reply, 'queue', { title: 'Orca' })
+    speakReply('second', 'Second.', 'queue')
+    const start = last().text
+    finishPiece()
+    stopReading('test')
+    expect(stopUtterances).toHaveBeenCalled()
+    expect(lastState()).toBe('stopped')
+    expect(lastStatus()).toBe('Stopped · Orca · 1 more waiting')
+    playReading('test')
+    expect(last().text).toBe(start)
+    expect(lastState()).toBe('reading')
+  })
+
+  it('keeps everything silent until Play, new messages included', () => {
+    speakReply('first', 'First.', 'queue')
+    speakReply('second', 'Second.', 'queue')
+    stopReading('test')
+    speakReply('third', 'Third.', 'queue')
+    expect(spoken.map(({ text }) => text)).toEqual(['First.'])
+    expect(lastStatus()).toBe('Stopped · 2 more waiting')
+    playReading('test')
+    finishPiece()
+    finishPiece()
+    expect(spoken.map(({ text }) => text)).toEqual(['First.', 'First.', 'Second.', 'Third.'])
+  })
+
+  it('goes idle with nothing waiting, so new messages are read as they come', () => {
+    speakReply('only', 'Only.', 'queue')
+    stopReading('test')
+    expect(lastState()).toBe('idle')
+    speakReply('next', 'Next.', 'queue')
+    expect(last().text).toBe('Next.')
+  })
+
+  it('moves on with Next and goes back with Previous, however long it stood', () => {
+    speakReply('first', 'First.', 'queue')
+    finishPiece()
+    speakReply('second', 'Second.', 'queue')
+    speakReply('third', 'Third.', 'queue')
+    stopReading('test')
+    vi.setSystemTime(Date.now() + RESTART_AFTER_MS * 10)
+    previousMessage('test')
+    expect(last().text).toBe('First.')
+    stopReading('test')
+    nextMessage('test')
+    expect(last().text).toBe('Second.')
+    expect(lastState()).toBe('reading')
+  })
+
+  it('does nothing with no message to stop, and survives calls and pausing auto-read', () => {
+    speakReply('first', 'First.', 'queue')
+    speakReply('second', 'Second.', 'queue')
+    stopReading('test')
+    audio.current('held', null)
+    expireHolds(Date.now() + RESUME_WITHIN_MS + 1)
+    setAutoPlay(false)
+    setAutoPlay(true)
+    stopReading('test')
+    expect(lastState()).toBe('stopped')
+    expect(spoken).toHaveLength(1)
+  })
+})
+
+describe('the Read button stays outside the queue', () => {
+  it('shows in the notification with neither Previous nor Next, and leaves no trace', () => {
     speakReply('auto', 'Auto.', 'queue')
+    finishPiece()
+    setAutoPlay(false)
     speakReply('waiting', 'Waiting.', 'queue')
+    native.setReaderState.mockClear()
     speakReply('button', 'Button.', 'interrupt')
+    expect(native.setReaderState).toHaveBeenLastCalledWith(
+      'reading',
+      null,
+      'Reading · 1 waiting',
+      true,
+      false,
+      false,
+      true
+    )
+    previousMessage('test')
+    nextMessage('test')
     expect(last().text).toBe('Button.')
     finishPiece()
+    expect(lastState()).toBe('stopped')
+    expect(native.setReaderState.mock.calls.at(-1)?.[5]).toBe(true)
+    setAutoPlay(true)
+    finishPiece()
+    playReading('test')
     expect(last().text).toBe('Waiting.')
+  })
+
+  it('pauses and goes on from the word', () => {
+    speakReply('button', reply, 'interrupt')
+    const first = last().text
+    spokenOffset.mockReturnValue(16)
+    pauseReading('test')
+    spokenOffset.mockReturnValue(0)
+    expect(lastState()).toBe('paused')
+    playReading('test')
+    expect(last().text).toBe(first.slice(16))
+  })
+
+  it('leaves the message it cut in on where it was, and that goes on from the word', () => {
+    speakReply('auto', reply, 'queue')
+    speakReply('waiting', 'Waiting.', 'queue')
+    const first = last().text
+    spokenOffset.mockReturnValue(16)
+    speakReply('button', 'Button.', 'interrupt')
+    spokenOffset.mockReturnValue(0)
+    expect(last().text).toBe('Button.')
+    expect(lastStatus()).toBe('Reading · 2 waiting')
+    finishPiece()
+    expect(last().text).toBe(first.slice(16))
+    expect(lastStatus()).toBe('Reading · 1 more waiting')
+  })
+
+  it('waits for the end of its message before new ones start', () => {
+    speakReply('button', 'Button.', 'interrupt')
+    speakReply('auto', 'Auto.', 'queue')
+    expect(last().text).toBe('Button.')
+    finishPiece()
+    expect(last().text).toBe('Auto.')
+  })
+
+  it('stays out of a pause: the paused message stays where it was', () => {
+    speakReply('auto', reply, 'queue')
+    const first = last().text
+    spokenOffset.mockReturnValue(16)
+    pauseReading('test')
+    spokenOffset.mockReturnValue(0)
+    speakReply('button', 'Button.', 'interrupt')
+    finishPiece()
+    expect(last().text).toBe('Button.')
+    expect(lastState()).toBe('paused')
+    playReading('test')
+    expect(last().text).toBe(first.slice(16))
+  })
+
+  it('stays out of a Stop: the queue stays stopped afterwards', () => {
+    speakReply('auto', 'Auto.', 'queue')
+    speakReply('waiting', 'Waiting.', 'queue')
+    stopReading('test')
+    speakReply('button', 'Button.', 'interrupt')
+    finishPiece()
+    expect(last().text).toBe('Button.')
+    expect(lastState()).toBe('stopped')
+  })
+
+  it('stops alone: silence, with the queue paused at its word for Play', () => {
+    speakReply('auto', reply, 'queue')
+    const first = last().text
+    spokenOffset.mockReturnValue(16)
+    speakReply('button', 'Button.', 'interrupt')
+    spokenOffset.mockReturnValue(0)
+    stopReading('test')
+    expect(last().text).toBe('Button.')
+    expect(lastState()).toBe('paused')
+    playReading('test')
+    expect(last().text).toBe(first.slice(16))
+  })
+
+  it('goes idle when stopped with nothing behind it', () => {
+    speakReply('button', 'Button.', 'interrupt')
+    stopReading('test')
+    expect(lastState()).toBe('idle')
+  })
+
+  it('replaces its own message, and the queue still goes on after the second', () => {
+    speakReply('auto', 'Auto.', 'queue')
+    speakReply('one', 'One.', 'interrupt')
+    speakReply('two', 'Two.', 'interrupt')
+    finishPiece()
+    expect(spoken.map(({ text }) => text)).toEqual(['Auto.', 'One.', 'Two.', 'Auto.'])
   })
 
   it('reads a waiting message once when the Read button gets to it first', () => {
@@ -256,8 +446,40 @@ describe('reading controls', () => {
     speakReply('2', 'Waiting.', 'interrupt')
     expect(last().text).toBe('Waiting.')
     finishPiece()
+    expect(last().text).toBe('Auto.')
+    finishPiece()
     expect(lastState()).toBe('idle')
-    expect(spoken.map(({ text }) => text)).toEqual(['Auto.', 'Waiting.'])
+    expect(spoken.map(({ text }) => text)).toEqual(['Auto.', 'Waiting.', 'Auto.'])
+  })
+
+  it('reads the message being read once when the Read button asks for it', () => {
+    speakReply('pane#1', 'Auto.', 'queue')
+    speakReply('1', 'Auto.', 'interrupt')
+    finishPiece()
+    expect(lastState()).toBe('idle')
+    expect(spoken.map(({ text }) => text)).toEqual(['Auto.', 'Auto.'])
+  })
+
+  it('goes on while auto-read is paused, and its queue message then waits paused', () => {
+    speakReply('auto', reply, 'queue')
+    speakReply('button', 'Button.', 'interrupt')
+    setAutoPlay(false)
+    expect(lastState()).toBe('reading')
+    finishPiece()
+    expect(lastState()).toBe('paused')
+    setAutoPlay(true)
+    expect(lastState()).toBe('reading')
+  })
+
+  it('brings back a paused queue message when auto-read resumes during it', () => {
+    speakReply('auto', reply, 'queue')
+    const first = last().text
+    setAutoPlay(false)
+    speakReply('button', 'Button.', 'interrupt')
+    setAutoPlay(true)
+    expect(last().text).toBe('Button.')
+    finishPiece()
+    expect(last().text).toBe(first)
   })
 })
 
@@ -274,7 +496,7 @@ describe('settings samples', () => {
     const before = spoken.length
     finishPiece()
     expect(spoken).toHaveLength(before)
-    expect(native.setReaderState.mock.calls.at(-1)?.[2]).toBe('Paused · 1 more waiting')
+    expect(lastStatus()).toBe('Paused · 1 more waiting')
     playReading('test')
     expect(last().text).toBe(second.slice(16))
   })
@@ -296,7 +518,7 @@ describe('auto-read paused', () => {
     speakReply('second', 'Second.', 'queue')
     speakReply('third', 'Third.', 'queue')
     expect(spoken.map(({ text }) => text)).toEqual(['First.'])
-    expect(native.setReaderState.mock.calls.at(-1)?.[2]).toBe('Paused · 2 more waiting')
+    expect(lastStatus()).toBe('Paused · 2 more waiting')
   })
 
   it('reads one message for each Play, and goes through the rest when resumed', () => {
@@ -307,8 +529,8 @@ describe('auto-read paused', () => {
     playReading('test')
     expect(last().text).toBe('First.')
     finishPiece()
-    expect(lastState()).toBe('paused')
-    expect(native.setReaderState.mock.calls.at(-1)?.[2]).toBe('2 waiting')
+    expect(lastState()).toBe('stopped')
+    expect(lastStatus()).toBe('2 waiting')
     playReading('test')
     expect(last().text).toBe('Second.')
     setAutoPlay(true)
@@ -332,7 +554,7 @@ describe('auto-read paused', () => {
     expect(native.setReaderState.mock.calls.at(-1)?.[4]).toBe(true)
     previousMessage('test')
     expect(last().text).toBe('First.')
-    stopSpeaking()
+    resetReader()
     expect(native.setReaderState.mock.calls.at(-1)?.[4]).toBe(false)
   })
 
@@ -423,9 +645,11 @@ describe('interruptions', () => {
 
   it('does not hold the reading forever when a call never gives the audio back', () => {
     speakReply('lost', reply, 'queue')
+    speakReply('waiting', 'Waiting.', 'queue')
     audio.current('held', null)
     expireHolds(Date.now() + RESUME_WITHIN_MS + 1)
-    expect(lastState()).toBe('idle')
+    expect(lastState()).toBe('stopped')
+    expect(lastStatus()).toBe('1 waiting')
   })
 })
 

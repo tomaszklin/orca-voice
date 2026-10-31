@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LinkReading, TableReading } from '../storage/speech-preferences'
+import { speakSample } from './reader-samples'
 import { readerWords } from './reader-words'
-import { speakSample } from './reply-speaker'
 import { setLinkReading, setTableReading } from './speech-text'
 import { voiceNativeModule, type NativeVoiceList, type SpeechOptions } from './voice-native-module'
 

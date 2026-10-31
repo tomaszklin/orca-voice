@@ -21,7 +21,7 @@ export type NativeVoiceList = {
 /** `rate` 1 = normal; null rate or voice = the phone's text-to-speech setting. */
 export type SpeechOptions = { rate: number | null; voice: string | null }
 
-export type ReaderState = 'idle' | 'reading' | 'paused'
+export type ReaderState = 'idle' | 'reading' | 'paused' | 'stopped'
 
 /** `ReadAloudControls` in the module. */
 export type ReaderControl = 'stop' | 'previous' | 'pause' | 'play' | 'next'
@@ -61,6 +61,7 @@ export type VoiceNativeModule = {
   /**
    * The reader's state: picks the notification's buttons and text (`status`), and holds the
    * headset and steering-wheel buttons while not idle; `title` is what a car's display shows.
+   * `outsideQueue`: the Read button's message, whose Pause shows even while auto-read is paused.
    */
   setReaderState(
     state: ReaderState,
@@ -68,7 +69,8 @@ export type VoiceNativeModule = {
     status: string | null,
     canRepeat: boolean,
     canPrevious: boolean,
-    canNext: boolean
+    canNext: boolean,
+    outsideQueue: boolean
   ): void
   /** Whether sound goes to headphones, a car or the like rather than the phone's own speaker. */
   isPrivateOutput(): boolean
