@@ -876,6 +876,20 @@ YouTube; „chciałbym, żebyś pauzował, nie wyciszał”.
   film rusza na chwilę i znów staje, gdy przyjdzie następna wiadomość. Aplikacja, która na utratę
   fokusu nie reaguje, gra teraz pod czytaniem pełną głośnością (wcześniej system ściszał ją sam).
 
+## Ściszanie i pauza razem (build 52, 2026-11-01)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.** Właściciel o aplikacjach, które nie pauzują:
+„wyciszaj zawsze i próbuj pauzować”.
+
+- `ReadAloudSpeech.kt` prosi o fokus w dwóch krokach: najpierw `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`
+  (system sam ścisza aplikacje, które nie reagują na fokus), zaraz potem `AUDIOFOCUS_GAIN_TRANSIENT`
+  (reszta dostaje `LOSS_TRANSIENT` i pauzuje). Android nie zamienia utraty fokusu na lżejszą
+  (`FocusRequester.focusLossForGainRequest`), a ściszenie cofa dopiero, gdy aplikacja odzyska fokus,
+  więc ściszona zostaje ściszona do końca czytania. Działanie oparte na kodzie AOSP, nie sprawdzone
+  na telefonie właściciela (producent może to zmieniać).
+- Gdy drugi krok zostanie odrzucony, czytanie idzie ze ściszeniem, a następny kawałek prosi o pauzę
+  jeszcze raz. Prośba o ściszenie opóźniona przez rozmowę dostaje drugi krok po jej końcu.
+
 ## Budowanie
 
 ```powershell

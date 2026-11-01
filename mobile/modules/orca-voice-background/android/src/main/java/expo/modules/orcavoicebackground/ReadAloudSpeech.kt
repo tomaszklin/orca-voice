@@ -22,11 +22,11 @@ import java.util.Locale
  * expo-speech plays with default attributes and asks for no audio focus, so music keeps playing at
  * full volume and some car head units never play the speech at all. Navigation guidance is the
  * usage cars are built around (it is what Google Maps announces with): it rides the same Bluetooth
- * media link. Other audio pauses while it plays and goes on after it; ducked, a video kept talking
- * under the reading (owner's request, 2026-11-01). Focus is held from the first utterance until
- * the queue runs dry, plus a short grace so music does not start again between the pieces of one
- * reply. Like a music player it gives way to dictation and calls: losing focus
- * stops the reading, and nothing starts while someone is talking into the mic (2026-10-21). A
+ * media link. Other audio pauses while it plays and goes on after it, and an app that does not
+ * pause is ducked; ducked alone, a video kept talking under the reading (owner, 2026-11-01).
+ * Focus is held from the first utterance until the queue runs dry, plus a short grace so music
+ * does not start again between the pieces of one reply. Like a music player it gives way to
+ * dictation and calls: losing focus stops the reading, and nothing starts while someone is talking into the mic (2026-10-21). A
  * call or dictation only holds it; the reader continues when they give the focus back (2026-10-28).
  * A focus request refused or delayed by a call holds the reading too, rather than speaking into
  * the call. The chime before an auto-read message (2026-10-28) is played the same way, as one
@@ -98,6 +98,8 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   private var audioManager: AudioManager? = null
   private var focusRequest: AudioFocusRequest? = null
   private var legacyFocusHeld = false
+  // Whether the focus held is the transient one that pauses the others, not only the ducking one.
+  private var othersPaused = false
   // Utterances handed to the engine and not finished yet. Ids, not a count: a stopped
   // utterance's late onStop must not end the one that replaced it.
   private val active = mutableSetOf<String>()
@@ -598,27 +600,26 @@ object ReadAloudSpeech : UtteranceProgressListener() {
   }
 
   // Whether the audio is ours; a request delayed by a call stays registered and is granted later.
+  // In two steps (2026-11-01): a ducking request first, so the system lowers an app that ignores
+  // focus changes, then a transient one, so the others pause. Android never makes a loss lighter
+  // again, so that app stays lowered until the focus goes back. Pausing is best effort: with only
+  // the first step granted the others are ducked, and the next piece asks again.
   private fun requestFocus(): Boolean {
-    if (focusRegistered()) return !heldByInterruption
+    if (focusRegistered() && (heldByInterruption || othersPaused)) return !heldByInterruption
     val manager = audioManager ?: return true
-    val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-        .setAudioAttributes(attributes)
-        .setAcceptsDelayedFocusGain(true)
-        .setOnAudioFocusChangeListener(focusListener, handler)
-        .build()
-      val result = manager.requestAudioFocus(request)
-      if (result != AudioManager.AUDIOFOCUS_REQUEST_FAILED) focusRequest = request
-      result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-    } else {
-      @Suppress("DEPRECATION")
-      val result = manager.requestAudioFocus(
-        focusListener,
-        AudioManager.STREAM_MUSIC,
-        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
-      )
-      legacyFocusHeld = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-      legacyFocusHeld
+    // A ducking request granted after a call needs only the second step.
+    val ducked = focusRegistered() ||
+      askFocus(manager, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK) ==
+      AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+    val granted = ducked && when (askFocus(manager, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)) {
+      AudioManager.AUDIOFOCUS_REQUEST_GRANTED -> {
+        othersPaused = true
+        true
+      }
+      // A call started in between: the ducking request was replaced by this delayed one.
+      AudioManager.AUDIOFOCUS_REQUEST_DELAYED -> false
+      // Refused requests change nothing, so the ducking one still holds.
+      else -> true
     }
     if (granted) {
       heldByInterruption = false
@@ -627,10 +628,29 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     return granted
   }
 
+  // Requests share the listener, so each one takes the place of the one before it.
+  private fun askFocus(manager: AudioManager, gain: Int): Int {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+      @Suppress("DEPRECATION")
+      val result = manager.requestAudioFocus(focusListener, AudioManager.STREAM_MUSIC, gain)
+      if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) legacyFocusHeld = true
+      return result
+    }
+    val request = AudioFocusRequest.Builder(gain)
+      .setAudioAttributes(attributes)
+      .setAcceptsDelayedFocusGain(true)
+      .setOnAudioFocusChangeListener(focusListener, handler)
+      .build()
+    val result = manager.requestAudioFocus(request)
+    if (result != AudioManager.AUDIOFOCUS_REQUEST_FAILED) focusRequest = request
+    return result
+  }
+
   private fun focusRegistered(): Boolean =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) focusRequest != null else legacyFocusHeld
 
   private fun abandonFocus() {
+    othersPaused = false
     val manager = audioManager ?: return
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       focusRequest?.let { manager.abandonAudioFocusRequest(it) }
