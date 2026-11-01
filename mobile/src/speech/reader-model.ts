@@ -106,7 +106,7 @@ export function readerReport(
     current?.title ?? null,
     readerStatus(state, hold, current, queued + (hasParked ? 1 : 0)),
     history.length > 0,
-    !outsideQueue && canGoPrevious(history, current, queued),
+    !outsideQueue && canGoPrevious(history, current),
     !outsideQueue && queued > 0,
     outsideQueue
   ] as const
@@ -136,15 +136,12 @@ export function previousTarget(
   return playedForMs >= RESTART_AFTER_MS || at <= 0 ? playing : history[at - 1]
 }
 
-/** Whether Previous has a message to go back to; while idle the notification's Play repeats. */
-export function canGoPrevious(
-  history: readonly Utterance[],
-  current: Utterance | null,
-  waiting: number
-): boolean {
+/** Whether Previous has a message to go back to. */
+export function canGoPrevious(history: readonly Utterance[], current: Utterance | null): boolean {
   if (current === null) {
-    // Messages wait while auto-read is paused; Previous reads the last one again.
-    return waiting > 0 && history.length > 0
+    // Nothing being read, all read or messages waiting: Previous reads the last one again, like a
+    // music player once the album ended (owner's request, 2026-11-01: it was dimmed when idle).
+    return history.length > 0
   }
   return history.findIndex((kept) => kept.id === current.id) > 0
 }

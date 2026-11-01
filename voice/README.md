@@ -341,8 +341,9 @@ Punkty 1, 2, 3 i 5 z listy pomysłów właściciela (2026-10-28) plus jego proś
   wiadomość) i głośnik. Tekst: „Reading · projekt · 2 more waiting”, „Paused…”. Powiadomienie jest
   tylko przy „Keep reading with the screen off”. W aplikacji obok Stop jest Pause / Resume.
 - **Poprzednia** jak w odtwarzaczu (`speech/reader-model.ts`): po 3 s czytania wiadomość od początku,
-  wcześniej (albo bez czytania) poprzednia wiadomość; przerwana wraca po niej. Historia: 10 ostatnich
-  wiadomości, bez próbek z ustawień. **Pauza** trzyma kolejkę — nowe wiadomości czekają.
+  wcześniej poprzednia wiadomość, bez czytania ostatnia przeczytana; przerwana wraca po niej.
+  Historia: 10 ostatnich wiadomości, bez próbek z ustawień. **Pauza** trzyma kolejkę — nowe
+  wiadomości czekają.
 - **Wznawianie po rozmowie i dyktowaniu**: chwilowa utrata fokusu audio (`LOSS_TRANSIENT`) już nie
   kasuje czytania. `ReadAloudSpeech.kt` zatrzymuje mowę, ale zostawia prośbę o fokus („held”), więc
   Android oddaje go po rozmowie („regained”), a czytnik powtarza przerwany kawałek (≤ 300 znaków).
@@ -794,6 +795,19 @@ otwierało przeglądarkę. Do tego ekran blokady („Get Orca build N”) zawsze
 
 Bez zmian w kodzie. Właściciel chciał wypróbować nową aktualizację na telefonie, a z buildu 45 nie
 było na co aktualizować.
+
+## Poprzednia aktywna, gdy wszystko przeczytane (2026-11-01)
+
+**Stan: niezbudowane.**
+
+Właściciel: w powiadomieniu Poprzednia była wyszarzona, gdy wszystkie wiadomości były przeczytane
+(błąd). Od buildu 34 była aktywna bez czytania tylko wtedy, gdy coś czekało.
+
+- `canGoPrevious` (`speech/reader-model.ts`): bez czytania Poprzednia jest aktywna, gdy w historii
+  jest jakakolwiek wiadomość, i czyta ostatnią jeszcze raz, jak odtwarzacz po końcu albumu. Play
+  robi wtedy to samo, jak dawniej.
+- Sesja multimediów (słuchawki, auto) bez czytania i tak nie istnieje, więc tam nic się nie zmienia.
+- Tylko w forku. Zgłoszenie do Orki (gałąź `read-aloud`) ma dawne zachowanie.
 
 ## Budowanie
 

@@ -257,8 +257,8 @@ describe('reading controls', () => {
   it('dims Previous on the only message read, and offers it once one came before', () => {
     const first = { id: 'first', pieces: [], title: null, auto: true, body: 'First.' }
     const second = { ...first, id: 'second', body: 'Second.' }
-    expect(canGoPrevious([first], first, 0)).toBe(false)
-    expect(canGoPrevious([first, second], second, 0)).toBe(true)
+    expect(canGoPrevious([first], first)).toBe(false)
+    expect(canGoPrevious([first, second], second)).toBe(true)
   })
 })
 
@@ -546,7 +546,7 @@ describe('auto-read paused', () => {
     expect(last().text).toBe('Later.')
   })
 
-  it('lets Previous read the last message again while messages wait, not once idle', () => {
+  it('lets Previous read the last message again while messages wait', () => {
     speakReply('read', 'First.', 'queue')
     finishPiece()
     setAutoPlay(false)
@@ -554,8 +554,15 @@ describe('auto-read paused', () => {
     expect(native.setReaderState.mock.calls.at(-1)?.[4]).toBe(true)
     previousMessage('test')
     expect(last().text).toBe('First.')
-    resetReader()
-    expect(native.setReaderState.mock.calls.at(-1)?.[4]).toBe(false)
+  })
+
+  it('lets Previous read the last message again once everything was read', () => {
+    speakReply('read', 'Only.', 'queue')
+    finishPiece()
+    expect(lastState()).toBe('idle')
+    expect(native.setReaderState.mock.calls.at(-1)?.[4]).toBe(true)
+    previousMessage('test')
+    expect(last().text).toBe('Only.')
   })
 
   it('plays a waiting message through the speaker when asked, with headphones only on', () => {
