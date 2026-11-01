@@ -819,6 +819,10 @@ Dotknięcie sprawdza, a gdy jest nowszy build, aktualizuje. Wynik zostaje do nas
 pokazuje numer („Orca build 48 is available”) i aktualizuje tą samą drogą.
 `settings/app-update-settings-rows.tsx`, `installedVersionLabel` w `app-update/app-update-runtime.ts`.
 
+## Wydanie do testu aktualizacji (build 48, 2026-11-01)
+
+Bez zmian w kodzie, jak build 46: test nowego wiersza wersji i paska z buildu 47.
+
 ## Budowanie
 
 ```powershell
