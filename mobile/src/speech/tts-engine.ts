@@ -12,7 +12,7 @@ export type UtteranceCallbacks = {
  * Orca Voice fork: one utterance at a time, in expo-speech's shape.
  *
  * On Android it speaks through the fork's own module, voiced as navigation guidance with audio
- * focus held, so music ducks and car head units play it (expo-speech's default attributes were
+ * focus held, so music pauses and car head units play it (expo-speech's default attributes were
  * silent in the owner's car while music kept playing, 2026-10-19). Elsewhere, and in a build
  * without the module, it falls back to expo-speech.
  */

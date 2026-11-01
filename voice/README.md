@@ -863,6 +863,19 @@ tle, dwie na wiadomości od innej sesji Claude'a. Każda kończyła turę, więc
 - Koszt: odpowiedź na koniec budowania („build gotowy”) też milczy. Przy „wszystkie wiadomości”
   strumień czatu dalej czyta wiadomości z takich tur, opcja dotyczy odpowiedzi końcowych.
 
+## Inne nagrania pauzują zamiast ściszać się (build 51, 2026-11-01)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.** Właściciel: czytanie wycisza inne media, np.
+YouTube; „chciałbym, żebyś pauzował, nie wyciszał”.
+
+- `ReadAloudSpeech.kt` prosi o fokus `AUDIOFOCUS_GAIN_TRANSIENT` zamiast
+  `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`. Inne aplikacje dostają `LOSS_TRANSIENT`: YouTube czy Spotify
+  pauzują i same grają dalej, gdy czytanie odda fokus (1,5 s po ostatnim kawałku). Ściszony film
+  wcześniej mówił dalej pod czytaniem.
+- Koszt: Pauza czytania, Stop i dłuższa przerwa między dwiema wiadomościami oddają fokus, więc
+  film rusza na chwilę i znów staje, gdy przyjdzie następna wiadomość. Aplikacja, która na utratę
+  fokusu nie reaguje, gra teraz pod czytaniem pełną głośnością (wcześniej system ściszał ją sam).
+
 ## Budowanie
 
 ```powershell

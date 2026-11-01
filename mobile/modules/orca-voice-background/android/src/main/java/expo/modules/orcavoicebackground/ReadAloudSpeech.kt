@@ -22,9 +22,10 @@ import java.util.Locale
  * expo-speech plays with default attributes and asks for no audio focus, so music keeps playing at
  * full volume and some car head units never play the speech at all. Navigation guidance is the
  * usage cars are built around (it is what Google Maps announces with): it rides the same Bluetooth
- * media link and the system ducks other audio while it plays. Focus is held from the first
- * utterance until the queue runs dry, plus a short grace so music does not swell back between
- * the pieces of one reply. Like a music player it gives way to dictation and calls: losing focus
+ * media link. Other audio pauses while it plays and goes on after it; ducked, a video kept talking
+ * under the reading (owner's request, 2026-11-01). Focus is held from the first utterance until
+ * the queue runs dry, plus a short grace so music does not start again between the pieces of one
+ * reply. Like a music player it gives way to dictation and calls: losing focus
  * stops the reading, and nothing starts while someone is talking into the mic (2026-10-21). A
  * call or dictation only holds it; the reader continues when they give the focus back (2026-10-28).
  * A focus request refused or delayed by a call holds the reading too, rather than speaking into
@@ -422,7 +423,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     if (regained) reportRegained()
   }
 
-  // The reader resumes on "regained"; should it not, the focus goes back instead of ducking music.
+  // The reader resumes on "regained"; should it not, the focus goes back so music plays again.
   private fun reportRegained() {
     handler.removeCallbacks(releaseFocus)
     handler.postDelayed(releaseFocus, FOCUS_GRACE_MS)
@@ -601,7 +602,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     if (focusRegistered()) return !heldByInterruption
     val manager = audioManager ?: return true
     val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+      val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
         .setAudioAttributes(attributes)
         .setAcceptsDelayedFocusGain(true)
         .setOnAudioFocusChangeListener(focusListener, handler)
@@ -614,7 +615,7 @@ object ReadAloudSpeech : UtteranceProgressListener() {
       val result = manager.requestAudioFocus(
         focusListener,
         AudioManager.STREAM_MUSIC,
-        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
       )
       legacyFocusHeld = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
       legacyFocusHeld
