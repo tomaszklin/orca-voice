@@ -823,6 +823,20 @@ pokazuje numer („Orca build 48 is available”) i aktualizuje tą samą drogą
 
 Bez zmian w kodzie, jak build 46: test nowego wiersza wersji i paska z buildu 47.
 
+## Dwie zaległe uwagi CodeRabbita (2026-11-01)
+
+**Stan: niezbudowane.**
+
+Uwagi z 2026-10-30 do commita `5fe8b517e0` zgłoszenia, wtedy bez odpowiedzi. Właściciel: „Popraw”.
+
+- **Bez czytania przy zgaszonym ekranie nic nie czyta się poza ekranem** (`use-auto-read-replies.ts`).
+  Kanały czatu zostają otwarte, gdy Orka schodzi z ekranu, a wiadomość mogła przyjść, zanim Android
+  wstrzymał JS. Przy zakresie „wszystkie wiadomości” zaczynała się wtedy czytać. Teraz kanał jej nie
+  czyta; odpowiedź końcową czytnik bierze po powrocie, jak dawniej.
+- **Zamknięcie Orki z listy aplikacji kończy też czytanie w JS** (`ReadAloudService.onTaskRemoved`).
+  Usługa wyciszała mowę, ale JS mógł przeżyć zamknięcie i dalej pokazywać „Reading”. Teraz dostaje
+  zdarzenie `interrupted`, jak przy muzyce, która zabrała dźwięk.
+
 ## Budowanie
 
 ```powershell

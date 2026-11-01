@@ -161,7 +161,9 @@ export function useAutoReadReplies(): void {
       (readScopeRef.current === 'all-on-screen' && AppState.currentState === 'active')
     const nestedSessions = createNestedSessionGuard()
     const feeds = createChatMessageFeeds((paneKey, messageId, text) => {
-      if (!readsEveryMessage()) {
+      // Why: feeds stay open off screen, and a message can land before JS is suspended there.
+      const offScreen = AppState.currentState !== 'active' && !backgroundReadingActive()
+      if (offScreen || !readsEveryMessage()) {
         return false
       }
       speakAutoRead(`${paneKey}#${messageId}`, paneKey, text)

@@ -93,8 +93,10 @@ class ReadAloudService : Service() {
   }
 
   override fun onTaskRemoved(rootIntent: Intent?) {
-    // Swiping Orca away is the user ending it; the reading goes with it.
+    // Swiping Orca away is the user ending it; the reading goes with it. JS can outlive the task,
+    // so its reader is told too, or it would still show the message as being read.
     ReadAloudSpeech.stop()
+    ReadAloudSpeech.listener?.invoke("interrupted", "", "Orca was swiped away")
     stopSelf()
     super.onTaskRemoved(rootIntent)
   }
