@@ -46,7 +46,7 @@ Settings → Chat UI pokaże, czy problem jest w odpytywaniu `worktree.ps`, czy 
 Właściciel chce: auto-czytanie jako opcja + **niezależnie** przycisk „Read” pod każdą odpowiedzią.
 Czat to strona z desktopu, więc APK niesie **własną kopię strony** i serwuje ją zamiast desktopowej.
 
-- **Baza forka = wydanie Orki** (od 2026-10-28 `v1.4.243`; wcześniej `v1.4.229`). Zob. „Aktualizacja
+- **Baza forka = wydanie Orki** (od 2026-11-01 `v1.4.245`; wcześniej `v1.4.243`, `v1.4.229`). Zob. „Aktualizacja
   z upstream”.
 - **Mostek:** jeden czasownik `native.speech.control` (`{action:'speak', id, markdown}` |
   `{action:'stop'}`) — `bridge/bridge-speech-verbs.ts`, wpis w `bridge-native-verbs.ts`, obsługa
@@ -823,9 +823,17 @@ pokazuje numer („Orca build 48 is available”) i aktualizuje tą samą drogą
 
 Bez zmian w kodzie, jak build 46: test nowego wiersza wersji i paska z buildu 47.
 
-## Dwie zaległe uwagi CodeRabbita (2026-11-01)
+## Orca v1.4.245 (build 49, 2026-11-01)
 
-**Stan: niezbudowane.**
+Fork przeniesiony z `v1.4.243` na `v1.4.245` (szczegóły w „Aktualizacja z upstream”). Z Orki
+przychodzą m.in.: słowa z dyktowania widoczne na bieżąco, miernik głosu z licznikiem, koniec
+dyktowania po minucie ciszy, tłumaczenia interfejsu, czytelniejszy kod i tabele w czacie, obrazy
+z komputera w czacie. Do sprawdzenia na telefonie: czytanie na głos razem z nowym dyktowaniem
+(oba biorą dźwięk), przycisk „Read”, załączanie plików, wiersz wersji w Settings.
+
+## Dwie zaległe uwagi CodeRabbita (build 49, 2026-11-01)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
 
 Uwagi z 2026-10-30 do commita `5fe8b517e0` zgłoszenia, wtedy bez odpowiedzi. Właściciel: „Popraw”.
 
@@ -933,7 +941,13 @@ desktop toleruje różnice wersji, a nowe funkcje Orki (np. załączniki) wymaga
    src/mobile-web-shell src/platform src/app-update src/transport` w `mobile/`.
 5. `pwsh -File voice\build-apk.ps1`, potem `voice\publish-github.ps1` (telefon dostanie aktualizację w aplikacji).
 
-Historia: 2026-10-28 z `v1.4.229` na `v1.4.243` (kopia: `voice-before-1.4.243`, lokalna).
+Tagi wydań Orki nie leżą na jednej linii (`v1.4.243` nie jest przodkiem `v1.4.245`), więc zwykły
+`git merge` daje konflikty w plikach, których fork nie ruszał. Wtedy: pliki spoza
+`git diff --name-only <stary tag> voice` wziąć z nowego tagu bez zmian, a pliki forka scalić
+`git merge-file` z bazą = stary tag.
+
+Historia: 2026-10-28 z `v1.4.229` na `v1.4.243` (kopia: `voice-before-1.4.243`, lokalna);
+2026-11-01 z `v1.4.243` na `v1.4.245` (kopia: `voice-before-1.4.245`, lokalna).
 
 Uwaga: oficjalne APK Orki zainstalowane na tę wersję usuwa czytanie (wraca oryginał).
 
