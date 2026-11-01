@@ -33,7 +33,6 @@ describe('AppUpdateSettingsRows', () => {
           installedVersion: '0.0.48',
           available: opts.available ?? null,
           lastCheckedAt: opts.lastCheckedAt ?? null,
-          now: NOW,
           checkStatus: opts.checkStatus ?? 'idle',
           onUpdate,
           onCheck
@@ -53,38 +52,35 @@ describe('AppUpdateSettingsRows', () => {
     }
   }
 
-  it('offers the known update as a tappable row with an Update action', () => {
-    const { texts, pressables, onUpdate } = render({
-      available: { version: '0.0.51', url: 'https://example.test' },
+  it('offers the known update in the version row, with the new version number', () => {
+    const { texts, pressables, onUpdate, onCheck } = render({
+      available: { version: 'build 46', url: 'https://example.test' },
       lastCheckedAt: NOW - 2 * HOUR
     })
-    expect(texts).toEqual([
-      'Update to Orca 0.0.51',
-      'Update',
-      'Check for updates',
-      'Last checked 2h ago'
-    ])
+    expect(texts).toEqual(['Version 0.0.48', 'Update to build 46'])
+    expect(pressables).toHaveLength(1)
     act(() => pressables[0].props.onPress())
     expect(onUpdate).toHaveBeenCalledExactlyOnceWith('https://example.test')
+    expect(onCheck).not.toHaveBeenCalled()
   })
 
-  it('shows a plain, untappable version row when current, and Never before a first success', () => {
-    const { texts, pressables } = render({})
-    expect(texts).toEqual(['Version 0.0.48', 'Check for updates', 'Never'])
-    expect(pressables).toHaveLength(1)
-    expect(pressables[0].props.accessibilityLabel).toBe('Check for updates, Never')
+  it('shows Check before a first success and Up to date after one', () => {
+    expect(render({}).texts).toEqual(['Version 0.0.48', 'Check'])
+    act(() => renderer?.unmount())
+    expect(render({ lastCheckedAt: NOW - HOUR }).texts).toEqual(['Version 0.0.48', 'Up to date'])
   })
 
-  it('runs the check from its row and shows the transient outcome in place', () => {
+  it('runs the check from the version row and shows its state in place', () => {
     const idle = render({ lastCheckedAt: NOW - 30_000 })
-    expect(idle.texts.at(-1)).toBe('Last checked just now')
     act(() => idle.pressables[0].props.onPress())
     expect(idle.onCheck).toHaveBeenCalledTimes(1)
     act(() => renderer?.unmount())
-    expect(render({ checkStatus: 'checking' }).pressables[0].props.disabled).toBe(true)
+    const checking = render({ checkStatus: 'checking' })
+    expect(checking.pressables[0].props.disabled).toBe(true)
+    expect(checking.texts.at(-1)).toBe('Checking…')
     act(() => renderer?.unmount())
-    expect(render({ checkStatus: 'up-to-date' }).texts.at(-1)).toBe('Up to date')
-    act(() => renderer?.unmount())
-    expect(render({ checkStatus: 'failed' }).texts.at(-1)).toBe("Couldn't check")
+    expect(render({ checkStatus: 'failed', lastCheckedAt: NOW }).texts.at(-1)).toBe(
+      "Couldn't check"
+    )
   })
 })

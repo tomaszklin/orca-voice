@@ -809,6 +809,16 @@ Właściciel: w powiadomieniu Poprzednia była wyszarzona, gdy wszystkie wiadomo
 - Sesja multimediów (słuchawki, auto) bez czytania i tak nie istnieje, więc tam nic się nie zmienia.
 - Tylko w forku. Zgłoszenie do Orki (gałąź `read-aloud`) ma dawne zachowanie.
 
+## Jeden wiersz wersji w Settings (build 47, 2026-11-01)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.** Właściciel chciał zamiast dwóch wierszy („Version”
+i „Check for updates”) jeden: po lewej „Version 0.0.59 (build 47)”, po prawej stan: „Checking…”,
+„Up to date”, „Update to build 48”, „Couldn't check” albo „Check” przed pierwszym udanym sprawdzeniem.
+Dotknięcie sprawdza, a gdy jest nowszy build, aktualizuje. Wynik zostaje do następnego sprawdzenia
+(wcześniej znikał po 3 s, a potem było „Last checked …”). Karta na ekranie głównym bez zmian: już
+pokazuje numer („Orca build 48 is available”) i aktualizuje tą samą drogą.
+`settings/app-update-settings-rows.tsx`, `installedVersionLabel` w `app-update/app-update-runtime.ts`.
+
 ## Budowanie
 
 ```powershell

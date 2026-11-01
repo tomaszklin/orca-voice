@@ -1,70 +1,59 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, Text, View } from 'react-native'
 import type { KnownAppUpdate } from '../storage/app-update-preferences'
 import { colors, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
-import { formatTimeAgo } from '../worktree/agent-row-display'
 
 export type AppUpdateCheckRowStatus = 'idle' | 'checking' | 'up-to-date' | 'failed'
 
-function checkRowValue(status: AppUpdateCheckRowStatus, lastCheckedAt: number | null, now: number) {
+// Orca Voice fork: one row, the installed version on the left and the update state on the right.
+function versionRowValue(
+  status: AppUpdateCheckRowStatus,
+  available: KnownAppUpdate | null,
+  lastCheckedAt: number | null
+) {
   if (status === 'checking') {
     return 'Checking…'
   }
-  if (status === 'up-to-date') {
-    return 'Up to date'
+  if (available) {
+    return `Update to ${available.version}`
   }
   if (status === 'failed') {
     return "Couldn't check"
   }
-  if (lastCheckedAt === null) {
-    return 'Never'
+  if (status === 'up-to-date' || lastCheckedAt !== null) {
+    return 'Up to date'
   }
-  const ago = formatTimeAgo(lastCheckedAt, now)
-  return `Last checked ${ago === 'just now' ? ago : `${ago} ago`}`
+  return 'Check'
 }
 
 export function AppUpdateSettingsRows(props: {
   installedVersion: string | null
   available: KnownAppUpdate | null
   lastCheckedAt: number | null
-  now: number
   checkStatus: AppUpdateCheckRowStatus
   onUpdate: (url: string) => void
   onCheck: () => void
 }) {
   useMobileColorScheme()
-  const checkValue = checkRowValue(props.checkStatus, props.lastCheckedAt, props.now)
-  const { available, installedVersion, onUpdate } = props
-  const versionRow = available ? (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Update to Orca ${available.version}`}
-      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-      onPress={() => onUpdate(available.url)}
-    >
-      <Text style={styles.rowLabel}>Update to Orca {available.version}</Text>
-      <Text style={styles.actionValue}>Update</Text>
-    </Pressable>
-  ) : installedVersion ? (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>Version {installedVersion}</Text>
-    </View>
-  ) : null
+  const { available, onUpdate, onCheck } = props
+  const checking = props.checkStatus === 'checking'
+  const label = props.installedVersion ? `Version ${props.installedVersion}` : 'Version'
+  const value = versionRowValue(props.checkStatus, available, props.lastCheckedAt)
   return (
     <View style={styles.section}>
-      {versionRow}
-      {versionRow && <View style={styles.separator} />}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Check for updates, ${checkValue}`}
-        accessibilityState={{ busy: props.checkStatus === 'checking' }}
-        disabled={props.checkStatus === 'checking'}
+        accessibilityLabel={`${label}, ${value}`}
+        accessibilityState={{ busy: checking }}
+        disabled={checking}
         style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-        onPress={props.onCheck}
+        onPress={() => (available ? onUpdate(available.url) : onCheck())}
       >
-        <Text style={styles.rowLabel}>Check for updates</Text>
-        <Text style={styles.rowValue}>{checkValue}</Text>
+        <Text style={styles.rowLabel} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={available && !checking ? styles.actionValue : styles.rowValue}>{value}</Text>
       </Pressable>
     </View>
   )
@@ -92,10 +81,5 @@ const styles = themedStyleSheet(() => ({
     color: colors.textPrimary
   },
   rowValue: { fontSize: typography.metaSize, color: colors.textSecondary },
-  actionValue: { fontSize: typography.bodySize, fontWeight: '600', color: colors.textPrimary },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.borderSubtle,
-    marginHorizontal: spacing.md
-  }
+  actionValue: { fontSize: typography.bodySize, fontWeight: '600', color: colors.textPrimary }
 }))

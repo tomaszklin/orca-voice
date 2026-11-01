@@ -27,6 +27,12 @@ export const installedAppVersion: string | null = Constants.expoConfig?.version 
 const extraVoiceBuild: unknown = Constants.expoConfig?.extra?.voiceBuild
 const voiceBuild = typeof extraVoiceBuild === 'string' && extraVoiceBuild ? extraVoiceBuild : null
 
+/** What Settings shows as the installed version: "0.0.59 (build 45)" on our builds. */
+export const installedVersionLabel: string | null =
+  voiceBuild && installedAppVersion
+    ? `${installedAppVersion} (${voiceBuildLabel(voiceBuild)})`
+    : installedAppVersion
+
 /** The channel that installed this binary. */
 function resolveAppUpdateSource(): AppUpdateSource | null {
   if (Platform.OS === 'android') {
