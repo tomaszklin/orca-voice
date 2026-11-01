@@ -7,6 +7,7 @@ import { voiceSettingsStyles as styles } from '../settings/voice-settings-styles
 import { colors, spacing } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useAnnounceWaits } from './agent-wait-announcement'
+import { useOtherTurnReplies } from './user-turn-guard'
 import { setAutoReadPaused, useAutoReadPaused } from './auto-read-pause'
 import { useAutoReadRepliesPreference } from './auto-read-preference'
 import { useBuiltInPagePreference } from './built-in-page-preference'
@@ -40,6 +41,7 @@ function AutoReadOptions({ enabled }: { enabled: boolean }) {
   const { value: projectNameMode, setValue: setProjectNameMode } = useProjectNameMode()
   const { value: chimeMode, setValue: setChimeMode } = useChimeMode()
   const { value: announceWaits, setValue: setAnnounceWaits } = useAnnounceWaits()
+  const { value: otherTurnReplies, setValue: setOtherTurnReplies } = useOtherTurnReplies()
   const { value: headphonesOnly, setValue: setHeadphonesOnly } = useHeadphonesOnly()
   const autoReadPaused = useAutoReadPaused()
   const disabled = !enabled
@@ -84,6 +86,18 @@ function AutoReadOptions({ enabled }: { enabled: boolean }) {
           }
           value={announceWaits === 'on'}
           onValueChange={(on) => setAnnounceWaits(on ? 'on' : 'off')}
+          disabled={disabled}
+        />
+        <View style={styles.separator} />
+        <SwitchRow
+          label="Replies you did not ask for"
+          sublabel={
+            otherTurnReplies === 'on'
+              ? 'On — also replies to a finished background task or a message from another session'
+              : 'Off — a final reply is read only when it answers your own message'
+          }
+          value={otherTurnReplies === 'on'}
+          onValueChange={(on) => setOtherTurnReplies(on ? 'on' : 'off')}
           disabled={disabled}
         />
         {nativeReader ? <View style={styles.separator} /> : null}

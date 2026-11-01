@@ -26,6 +26,7 @@ import { useReadScopePreference } from './read-scope-preference'
 import { expireHolds } from './reader-interruptions'
 import { speakReply, stopAutoReading } from './reply-speaker'
 import { logSpeechEvent } from './speech-diagnostics'
+import { createUserTurnGuard, useOtherTurnReplies } from './user-turn-guard'
 
 // On screen, as often as the workspace list's own worktree.ps polling; with the screen off, five
 // times slower to spare the battery while the background service keeps reading (owner's choices,
@@ -119,6 +120,7 @@ export function useAutoReadReplies(): void {
   const projectNameModeRef = useLatest(useProjectNameMode().value)
   const chimeModeRef = useLatest(useChimeMode().value)
   const announceWaitsRef = useLatest(useAnnounceWaits().value)
+  const otherTurnRepliesRef = useLatest(useOtherTurnReplies().value)
   const baselineRef = useRef<ReplyBaseline>(new Map())
   // The background service's ticks reach the current poll through this, since JS timers stop
   // firing once Orca is off screen.
@@ -160,6 +162,7 @@ export function useAutoReadReplies(): void {
       readScopeRef.current === 'all' ||
       (readScopeRef.current === 'all-on-screen' && AppState.currentState === 'active')
     const nestedSessions = createNestedSessionGuard()
+    const userTurns = createUserTurnGuard()
     const feeds = createChatMessageFeeds((paneKey, messageId, text) => {
       // Why: feeds stay open off screen, and a message can land before JS is suspended there.
       const offScreen = AppState.currentState !== 'active' && !backgroundReadingActive()
@@ -218,7 +221,12 @@ export function useAutoReadReplies(): void {
           const found = findNewReplies(baselineRef.current, hostRows, hostsSeen.has(hostId))
           baselineRef.current = found.baseline
           hostsSeen.add(hostId)
-          newReplies.push(...(await nestedSessions.ownReplies(client, hostRows, found.newReplies)))
+          const own = await nestedSessions.ownReplies(client, hostRows, found.newReplies)
+          newReplies.push(
+            ...(otherTurnRepliesRef.current === 'on'
+              ? own
+              : await userTurns.userReplies(client, hostRows, own))
+          )
         }
         if (cancelled || run !== generation) {
           return

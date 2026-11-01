@@ -35,7 +35,7 @@ const tailSchema = z.looseObject({
     })
   )
 })
-type TailMessage = z.infer<typeof tailSchema>['messages'][number]
+export type TailMessage = z.infer<typeof tailSchema>['messages'][number]
 
 /** Whether a transcript ends on a tool call or its result: the agent has not finished its turn. */
 export function endsMidTurn(messages: readonly TailMessage[]): boolean {
@@ -52,14 +52,18 @@ export function hasSeveralTurns(messages: readonly TailMessage[]): boolean {
   return messages.filter(({ role }) => role === 'user').length > 1
 }
 
-async function readTail(client: RpcClient, target: ChatTarget): Promise<TailMessage[] | null> {
+export async function readTail(
+  client: RpcClient,
+  target: ChatTarget,
+  limit = TAIL_MESSAGES
+): Promise<TailMessage[] | null> {
   try {
     const response = await nativeChatSessionPageRead.request(
       client,
       {
         agent: target.agent,
         sessionId: target.sessionId,
-        limit: TAIL_MESSAGES,
+        limit,
         capabilities: { transcriptSourceOrder: 1 },
         ...(target.transcriptPath ? { transcriptPath: target.transcriptPath } : {})
       },

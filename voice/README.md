@@ -845,6 +845,24 @@ Uwagi z 2026-10-30 do commita `5fe8b517e0` zgłoszenia, wtedy bez odpowiedzi. W�
   Usługa wyciszała mowę, ale JS mógł przeżyć zamknięcie i dalej pokazywać „Reading”. Teraz dostaje
   zdarzenie `interrupted`, jak przy muzyce, która zabrała dźwięk.
 
+## Bez odpowiedzi, o które właściciel nie prosił (build 50, 2026-11-01)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.** Przy „What to read” = tylko końcowe właściciel
+usłyszał cztery odpowiedzi z rzędu na jedną swoją wiadomość. Dwie były reakcją na koniec budowania w
+tle, dwie na wiadomości od innej sesji Claude'a. Każda kończyła turę, więc każda była „końcowa”.
+
+- Settings → Read aloud → **„Replies you did not ask for”**, domyślnie wyłączone (klucz
+  `orca:voiceOtherTurnReplies`). Wyłączone: końcowa odpowiedź jest czytana tylko wtedy, gdy
+  odpowiada na wiadomość właściciela.
+- `speech/user-turn-guard.ts`: przed czytaniem czyta koniec transkryptu (40 wiadomości) i bierze
+  ostatnią wiadomość użytkownika. Powiadomienie o zadaniu w tle widać w transkrypcie jako
+  `<task-notification>` (rozpoznaje je `isKnownHarnessInjectedUserTurnText` z kodu Orki).
+  Wiadomości od innej sesji w transkrypcie nie widać (Claude zapisuje ją jako `isMeta`, dekoder
+  Orki ją pomija), więc wychodzi jako druga końcowa odpowiedź po tej samej wiadomości właściciela,
+  a ta jest pomijana. Bez czytelnego transkryptu odpowiedź jest czytana.
+- Koszt: odpowiedź na koniec budowania („build gotowy”) też milczy. Przy „wszystkie wiadomości”
+  strumień czatu dalej czyta wiadomości z takich tur, opcja dotyczy odpowiedzi końcowych.
+
 ## Budowanie
 
 ```powershell

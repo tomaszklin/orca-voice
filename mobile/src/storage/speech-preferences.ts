@@ -65,6 +65,13 @@ export type AnnounceWaits = 'on' | 'off'
 
 export const DEFAULT_ANNOUNCE_WAITS: AnnounceWaits = 'on'
 
+export const OTHER_TURN_REPLIES_KEY = 'orca:voiceOtherTurnReplies'
+
+/** Whether auto-read reads replies to turns the user did not start: a background task, another session. */
+export type OtherTurnReplies = 'on' | 'off'
+
+export const DEFAULT_OTHER_TURN_REPLIES: OtherTurnReplies = 'off'
+
 export const LINK_READING_KEY = 'orca:voiceLinks'
 
 /**
