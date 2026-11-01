@@ -796,9 +796,9 @@ otwierało przeglądarkę. Do tego ekran blokady („Get Orca build N”) zawsze
 Bez zmian w kodzie. Właściciel chciał wypróbować nową aktualizację na telefonie, a z buildu 45 nie
 było na co aktualizować.
 
-## Poprzednia aktywna, gdy wszystko przeczytane (2026-11-01)
+## Poprzednia aktywna, gdy wszystko przeczytane (build 47, 2026-11-01)
 
-**Stan: niezbudowane.**
+**Stan: zbudowane, niepotwierdzone na telefonie.**
 
 Właściciel: w powiadomieniu Poprzednia była wyszarzona, gdy wszystkie wiadomości były przeczytane
 (błąd). Od buildu 34 była aktywna bez czytania tylko wtedy, gdy coś czekało.
@@ -807,7 +807,7 @@ Właściciel: w powiadomieniu Poprzednia była wyszarzona, gdy wszystkie wiadomo
   jest jakakolwiek wiadomość, i czyta ostatnią jeszcze raz, jak odtwarzacz po końcu albumu. Play
   robi wtedy to samo, jak dawniej.
 - Sesja multimediów (słuchawki, auto) bez czytania i tak nie istnieje, więc tam nic się nie zmienia.
-- Tylko w forku. Zgłoszenie do Orki (gałąź `read-aloud`) ma dawne zachowanie.
+- W zgłoszeniu do Orki też: `4f89136a97` na gałęzi `read-aloud`, wypchnięte na prośbę właściciela.
 
 ## Jeden wiersz wersji w Settings (build 47, 2026-11-01)
 
