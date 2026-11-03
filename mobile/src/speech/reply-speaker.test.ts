@@ -25,7 +25,7 @@ const native = {
 }
 vi.mock('./voice-native-module', () => ({ voiceNativeModule: () => native }))
 
-const { RESTART_AFTER_MS, canGoPrevious } = await import('./reader-model')
+const { canGoPrevious, previousTarget } = await import('./reader-model')
 const { RESUME_WITHIN_MS, expireHolds } = await import('./reader-interruptions')
 const { playChimeSample, speakSample } = await import('./reader-samples')
 const {
@@ -228,19 +228,23 @@ describe('reading controls', () => {
     expect(lastState()).toBe('idle')
   })
 
-  it('goes back a message when pressed early, and starts it again when pressed later', () => {
+  it('goes back a message however long the current one played, then comes back to it', () => {
     speakReply('earlier', 'Earlier.', 'queue')
     finishPiece()
     speakReply('now', 'Now.', 'queue')
+    vi.setSystemTime(Date.now() + 60_000)
     previousMessage('test')
     expect(last().text).toBe('Earlier.')
     finishPiece()
     expect(last().text).toBe('Now.')
-    vi.setSystemTime(Date.now() + RESTART_AFTER_MS)
-    const before = spoken.length
-    previousMessage('test')
-    expect(spoken).toHaveLength(before + 1)
-    expect(last().text).toBe('Now.')
+  })
+
+  it('goes back from a message however long it played, and starts the first one again', () => {
+    const first = { id: 'first', pieces: [], title: null, auto: true, body: 'First.' }
+    const second = { ...first, id: 'second', body: 'Second.' }
+    expect(previousTarget([first, second], second)).toBe(first)
+    expect(previousTarget([first, second], first)).toBe(first)
+    expect(previousTarget([first, second], null)).toBe(second)
   })
 
   it('repeats the last message read once the reader is idle', () => {
@@ -304,7 +308,7 @@ describe('the Stop button', () => {
     speakReply('second', 'Second.', 'queue')
     speakReply('third', 'Third.', 'queue')
     stopReading('test')
-    vi.setSystemTime(Date.now() + RESTART_AFTER_MS * 10)
+    vi.setSystemTime(Date.now() + 60_000)
     previousMessage('test')
     expect(last().text).toBe('First.')
     stopReading('test')

@@ -2,9 +2,6 @@ import type { ReaderState } from './voice-native-module'
 
 /** Orca Voice fork: the reader's shapes and rules, without its state (`reply-speaker.ts`). */
 
-// Like a music player: Previous this soon after a message started goes to the one before it,
-// later it starts the message again.
-export const RESTART_AFTER_MS = 3_000
 const HISTORY_LENGTH = 10
 
 /** `language`: a sentence run in another language than the reading voice's, read in its own voice. */
@@ -121,19 +118,19 @@ export function remembered(history: readonly Utterance[], utterance: Utterance):
 }
 
 /**
- * What Previous plays: `playing` again once it has played a while (or with nothing before it),
- * else the message before it — or, with nothing playing, the last one read.
+ * What Previous plays: the message before `playing`, however long it played (owner, 2026-11-03: a
+ * music player's restart after the first seconds only started the message again), or `playing`
+ * with nothing before it; with nothing playing, the last one read.
  */
 export function previousTarget(
   history: readonly Utterance[],
-  playing: Utterance | null,
-  playedForMs: number
+  playing: Utterance | null
 ): Utterance | undefined {
   if (playing === null) {
     return history.at(-1)
   }
   const at = history.findIndex((kept) => kept.id === playing.id)
-  return playedForMs >= RESTART_AFTER_MS || at <= 0 ? playing : history[at - 1]
+  return at <= 0 ? playing : history[at - 1]
 }
 
 /** Whether Previous has a message to go back to. */

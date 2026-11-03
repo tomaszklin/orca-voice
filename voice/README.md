@@ -342,6 +342,7 @@ Punkty 1, 2, 3 i 5 z listy pomysłów właściciela (2026-10-28) plus jego proś
   tylko przy „Keep reading with the screen off”. W aplikacji obok Stop jest Pause / Resume.
 - **Poprzednia** jak w odtwarzaczu (`speech/reader-model.ts`): po 3 s czytania wiadomość od początku,
   wcześniej poprzednia wiadomość, bez czytania ostatnia przeczytana; przerwana wraca po niej.
+  (Od buildu 53 zawsze poprzednia wiadomość.)
   Historia: 10 ostatnich wiadomości, bez próbek z ustawień. **Pauza** trzyma kolejkę — nowe
   wiadomości czekają.
 - **Wznawianie po rozmowie i dyktowaniu**: chwilowa utrata fokusu audio (`LOSS_TRANSIENT`) już nie
@@ -889,6 +890,24 @@ YouTube; „chciałbym, żebyś pauzował, nie wyciszał”.
   na telefonie właściciela (producent może to zmieniać).
 - Gdy drugi krok zostanie odrzucony, czytanie idzie ze ściszeniem, a następny kawałek prosi o pauzę
   jeszcze raz. Prośba o ściszenie opóźniona przez rozmowę dostaje drugi krok po jej końcu.
+
+## Cała odpowiedź z czatów Orki, Poprzednia zawsze wstecz (build 53, 2026-11-03)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+- **Czytanie automatyczne urywało się po 200 znakach** i od razu szła następna wiadomość, zawsze w
+  tym samym miejscu; przycisk Read czytał tę samą wiadomość do końca. Dotyczy czatów Orki
+  (`agent-session`, klucz panelu `structured-agent-session-<id>:…`), nie terminali: ich wiersz w
+  `worktree.ps` niesie tylko jednolinijkowy podgląd (`AGENT_STATUS_MAX_FIELD_LENGTH` = 200,
+  sprawdzone `orca worktree ps --json` na wiadomości o biletach do Parlamentu). Strumień czatu
+  takich paneli nie obejmuje, więc czytnik brał podgląd. Teraz `speech/structured-reply-text.ts`
+  czyta koniec historii czatu (`agentSession.history`, `tail`, 40 pozycji; skrócona kopia →
+  `agentSession.item`) i bierze najnowszą odpowiedź głównego agenta tą samą funkcją, którą host
+  robi podgląd. Używa jej tylko wtedy, gdy podgląd do niej pasuje; inaczej, i gdy czatu nie da się
+  przeczytać, czyta podgląd jak dawniej.
+- **Poprzednia** przechodzi do poprzedniej wiadomości, ile by bieżąca nie grała (właściciel:
+  zamiast poprzedniej czytała bieżącą od początku). Zasada odtwarzacza „po 3 s od początku”
+  usunięta; od początku tylko pierwsza wiadomość historii, przed którą nic nie ma.
 
 ## Budowanie
 

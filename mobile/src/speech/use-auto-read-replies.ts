@@ -26,6 +26,7 @@ import { useReadScopePreference } from './read-scope-preference'
 import { expireHolds } from './reader-interruptions'
 import { speakReply, stopAutoReading } from './reply-speaker'
 import { logSpeechEvent } from './speech-diagnostics'
+import { withWholeStructuredReplies } from './structured-reply-text'
 import { createUserTurnGuard, useOtherTurnReplies } from './user-turn-guard'
 
 // On screen, as often as the workspace list's own worktree.ps polling; with the screen off, five
@@ -222,11 +223,11 @@ export function useAutoReadReplies(): void {
           baselineRef.current = found.baseline
           hostsSeen.add(hostId)
           const own = await nestedSessions.ownReplies(client, hostRows, found.newReplies)
-          newReplies.push(
-            ...(otherTurnRepliesRef.current === 'on'
+          const answers =
+            otherTurnRepliesRef.current === 'on'
               ? own
-              : await userTurns.userReplies(client, hostRows, own))
-          )
+              : await userTurns.userReplies(client, hostRows, own)
+          newReplies.push(...(await withWholeStructuredReplies(client, hostRows, answers)))
         }
         if (cancelled || run !== generation) {
           return

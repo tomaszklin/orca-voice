@@ -28,7 +28,6 @@ let piece = 0
 // Where in its piece the current utterance starts, and where a resume goes on from.
 let pieceFrom = 0
 let resumeFrom = 0
-let startedAt = 0
 let hold: Hold | null = null
 /** The queue's message the Read button cut in on; it goes on once that one ends. */
 let parked: Parked | null = null
@@ -68,7 +67,6 @@ function begin(utterance: Utterance): void {
   current = utterance
   // Why: Previous can pick a message that also waits in the queue, which would read it twice.
   queue = queue.filter((queued) => queued.id !== utterance.id)
-  startedAt = Date.now()
   // What the Read button reads stays outside the queue, so Previous never goes back to it.
   if (utterance.auto) {
     history = remembered(history, utterance)
@@ -275,14 +273,12 @@ export function nextMessage(reason: string): void {
 }
 
 /**
- * Starts the message again, or — pressed within its first seconds, or with nothing being read —
- * goes to the one before it; the one that was cut off comes back after it.
+ * Goes to the message before the one being read, which comes back after it; with nothing before
+ * it, starts it again, and with nothing being read, reads the last one again.
  */
 export function previousMessage(reason: string): void {
   const playing = current
-  // A stopped message is back at its start, however long ago it began.
-  const playedFor = hold?.reason === 'stopped' ? 0 : Date.now() - startedAt
-  const target = previousTarget(history, playing, playedFor)
+  const target = previousTarget(history, playing)
   if (!target) {
     return
   }
