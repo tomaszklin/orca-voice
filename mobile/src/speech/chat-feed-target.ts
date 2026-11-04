@@ -2,7 +2,7 @@ import { z } from 'zod'
 import {
   isNativeChatSupportedAgent,
   nativeChatRequiresLocalTranscript
-} from '../../../src/shared/native-chat-agent-support'
+} from '../../../src/shared/native-chat/native-chat-agent-support'
 import { parsePaneKey } from '../../../src/shared/stable-pane-id'
 import { sessionTabsListRead } from '../session/mobile-session-read-operations'
 import type { RpcClient } from '../transport/rpc-client'

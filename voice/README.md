@@ -46,17 +46,16 @@ Settings → Chat UI pokaże, czy problem jest w odpytywaniu `worktree.ps`, czy 
 Właściciel chce: auto-czytanie jako opcja + **niezależnie** przycisk „Read” pod każdą odpowiedzią.
 Czat to strona z desktopu, więc APK niesie **własną kopię strony** i serwuje ją zamiast desktopowej.
 
-- **Baza forka = wydanie Orki** (od 2026-11-01 `v1.4.245`; wcześniej `v1.4.243`, `v1.4.229`). Zob. „Aktualizacja
+- **Baza forka = wydanie Orki** (od 2026-11-04 `v1.4.247`; wcześniej `v1.4.245`, `v1.4.243`, `v1.4.229`). Zob. „Aktualizacja
   z upstream”.
 - **Mostek:** jeden czasownik `native.speech.control` (`{action:'speak', id, markdown}` |
   `{action:'stop'}`) — `bridge/bridge-speech-verbs.ts`, wpis w `bridge-native-verbs.ts`, obsługa
   `platform/native-speech.ts` ← `use-native-device-verbs.ts`. Jeden, nie dwa, bo trasa sesji ma
   limit grantów. W `config/scripts/mobile-web-page-routes.mjs` jako `optionalGrants` trasy
   sesji — oficjalna powłoka dalej serwuje czat, tylko bez przycisku.
-- **Limit grantów podniesiony z 16 na 18** (`src/shared/mobile-web-bundle/manifest-contract.ts`,
-  od 2026-10-28): w `v1.4.243` trasa sesji ma już 16 (13 + 3 opcjonalne), nasz jest 17. Wbudowaną
-  stronę i powłokę APK budujemy z tego samego kodu, a strona z desktopu dalej mieści się w 16.
-  18, nie 17, bo test Orki dzieli limit na pół.
+- **Limit grantów:** od `v1.4.247` Orka liczy 16 osobno dla listy wymaganej i opcjonalnej, więc
+  nasze podniesienie do 18 (2026-10-28 – 2026-11-04) usunięte. Trasa sesji: 13 wymaganych + 5
+  opcjonalnych (w tym nasz).
 - **Przycisk:** `components/MobileReplyReadButton.tsx` w
   `session/native-chat/transcript/MobileNativeChatMessage.tsx` (od `v1.4.243`; wcześniej `session/`)
   (obok kopiowania, tylko odpowiedzi asystenta, nie podczas pisania). Mówienie przez
@@ -1012,6 +1011,10 @@ Tagi wydań Orki nie leżą na jednej linii (`v1.4.243` nie jest przodkiem `v1.4
 
 Historia: 2026-10-28 z `v1.4.229` na `v1.4.243` (kopia: `voice-before-1.4.243`, lokalna);
 2026-11-01 z `v1.4.243` na `v1.4.245` (kopia: `voice-before-1.4.245`, lokalna).
+2026-11-04 z `v1.4.245` na `v1.4.247` (kopia: `voice-before-1.4.247`, lokalna). Orka przebudowała
+wygląd ustawień: style, których używał ekran „Read aloud”, zniknęły, więc ich kopia z `v1.4.245`
+jest w `speech/read-aloud-screen-styles.ts`. Do zrobienia kiedyś: przenieść ten ekran na nowe
+`ListRow` / `SettingsSection`. Pnpm z `.voice-tools` (12.14), nie z corepack.
 
 Uwaga: oficjalne APK Orki zainstalowane na tę wersję usuwa czytanie (wraca oryginał).
 
@@ -1024,3 +1027,11 @@ mowy przechodzą. Na tym Windowsie **niezależnie od zmian** (sprawdzone na czys
 przechodzi 70 testów w `rpc-recording/*` i `native-document-bundle` oraz kilka plików, którym
 brakuje zależności głównego workspace'u (`zod`, `oxc-parser`…). `tsc --noEmit`: 7 błędów, wszystkie
 w plikach spoza zmian (brak tych samych zależności).
+## Wersja Orki 1.4.247 (build 54, 2026-11-04)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Desktop właściciela jest na `v1.4.247`; fork przeniesiony z `v1.4.245` na `v1.4.247` (szczegóły w
+„Aktualizacja z upstream”). Ekran „Read aloud” zachowuje stary wygląd (kopia stylów), wiersz wersji
+w Settings zbudowany na nowym `ListRow`. Do sprawdzenia na telefonie: czat i przycisk „Read”,
+załączanie plików, ekran „Read aloud”, aktualizacja w aplikacji.

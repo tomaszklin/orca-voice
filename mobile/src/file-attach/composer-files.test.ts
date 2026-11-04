@@ -5,9 +5,11 @@ import { MobileNativeChatComposer } from '../session/native-chat/composer/Mobile
 import { ActionSheetModal } from '../components/ActionSheetModal'
 import { ChatFileAttachContext, type ChatFileAttach } from './chat-file-attach-context'
 
+vi.mock('../components/MobileSwitch', () => ({ MobileSwitch: 'Switch' }))
 vi.mock('react-native', async () => {
   const React = await import('react')
   return {
+    ...(await import('../test-support/react-native-motion-stub')).reactNativeMotionStub(),
     ActivityIndicator: 'ActivityIndicator',
     Image: 'Image',
     Keyboard: { dismiss: vi.fn() },
@@ -31,6 +33,9 @@ vi.mock('lucide-react-native', () => ({
   ChevronLeft: 'ChevronLeft',
   ChevronRight: 'ChevronRight',
   FileText: 'FileText',
+  ImagePlus: 'ImagePlus',
+  ListEnd: 'ListEnd',
+  CornerDownRight: 'CornerDownRight',
   Mic: 'Mic',
   Package: 'Package',
   Plus: 'Plus',
@@ -40,9 +45,17 @@ vi.mock('lucide-react-native', () => ({
   X: 'X'
 }))
 
-vi.mock('../components/mounted-bottom-drawer', () => ({ MountedBottomDrawer: 'BottomDrawer' }))
-vi.mock('../components/bottom-drawer-modal-host-scope', () => ({
-  useBottomDrawerModalHost: () => null
+vi.mock('../components/bottom-drawer/BottomDrawer', async () => {
+  const React = await import('react')
+  return {
+    BottomDrawer: ({ visible, children }: { visible: boolean; children?: React.ReactNode }) =>
+      visible ? React.createElement('BottomDrawer', { visible }, children) : null
+  }
+})
+vi.mock('../components/bottom-drawer/mounted-bottom-drawer', () => ({ MountedBottomDrawer: 'BottomDrawer' }))
+vi.mock('../components/bottom-drawer/bottom-drawer-modal-host-scope', () => ({
+  useBottomDrawerModalHost: () => null,
+  useBottomDrawerModalHostBackClaim: () => undefined
 }))
 
 type ComposerProps = ComponentProps<typeof MobileNativeChatComposer>
@@ -73,10 +86,15 @@ describe('Orca Voice Files row in the chat composer', () => {
     renderer!.root.findAll(
       (node) => node.props.accessibilityLabel === label && node.props.onPress !== undefined
     )
-  const sheetRows = () =>
+  // The + sheet, not Send's Steer/Queue sheet: the one that offers Files.
+  const attachSheet = () =>
     renderer!.root
       .findAllByType(ActionSheetModal)
-      .flatMap((sheet) => (sheet.props.actions as { label: string }[]).map((row) => row.label))
+      .find((sheet) =>
+        (sheet.props.actions as { label: string }[]).some((row) => row.label === 'Files')
+      )!
+  const sheetRows = () =>
+    (attachSheet().props.actions as { label: string }[]).map((row) => row.label)
   const attach = (overrides: Partial<ChatFileAttach> = {}): ChatFileAttach => ({
     available: true,
     isAttaching: false,
@@ -93,7 +111,7 @@ describe('Orca Voice Files row in the chat composer', () => {
     await act(async () => labelled('Add to message')[0]!.props.onPress())
     expect(onAttachImage).not.toHaveBeenCalled()
     expect(sheetRows()).toEqual(['Photos', 'Files'])
-    const sheet = renderer!.root.findByType(ActionSheetModal)
+    const sheet = attachSheet()
     await act(async () =>
       (sheet.props.actions as { label: string; onPress: () => void }[])[1]!.onPress()
     )
@@ -122,7 +140,7 @@ describe('Orca Voice Files row in the chat composer', () => {
     })
     const filesRow = () =>
       (
-        renderer!.root.findByType(ActionSheetModal).props.actions as {
+        attachSheet().props.actions as {
           label: string
           onPress: () => void
         }[]

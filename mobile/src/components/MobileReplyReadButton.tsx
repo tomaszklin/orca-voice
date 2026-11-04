@@ -56,7 +56,7 @@ const styles = themedStyleSheet(() => ({
     gap: 4,
     paddingVertical: 2,
     paddingHorizontal: spacing.xs,
-    borderRadius: radii.card
+    borderRadius: radii.surface
   },
   disabled: {
     opacity: 0.4

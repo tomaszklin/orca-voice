@@ -2,7 +2,7 @@ import { Fragment } from 'react'
 import { View, Text, Pressable } from 'react-native'
 import { Check } from 'lucide-react-native'
 import { MobileSwitch } from '../components/MobileSwitch'
-import { voiceSettingsStyles as styles } from '../settings/voice-settings-styles'
+import { readAloudScreenStyles as styles } from './read-aloud-screen-styles'
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 

@@ -2,11 +2,11 @@ import { File } from 'expo-file-system'
 import type {
   MobileWebBundleFetchProgress,
   MobileWebBundleFetchResult
-} from '../transport/mobile-web-bundle-fetch'
+} from '../transport/web-bundle/mobile-web-bundle-fetch'
 import {
   MobileWebBundleManifestReadSchema,
   type MobileWebBundleManifestRead
-} from '../transport/mobile-web-bundle-reply-schemas'
+} from '../transport/web-bundle/mobile-web-bundle-reply-schemas'
 
 /**
  * Orca Voice fork: the page bundle built into this APK, served in place of the desktop's.

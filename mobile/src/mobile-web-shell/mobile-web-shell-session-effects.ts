@@ -1,10 +1,10 @@
 import {
   fetchMobileWebBundle,
   type MobileWebBundleFetchProgress
-} from '../transport/mobile-web-bundle-fetch'
+} from '../transport/web-bundle/mobile-web-bundle-fetch'
 import { readBuiltInPageEnabled } from '../speech/built-in-page-preference'
 import { fetchEmbeddedBundle, readEmbeddedManifest } from './embedded-bundle-source'
-import { mobileWebBundleManifestRead } from '../transport/mobile-web-bundle-operations'
+import { mobileWebBundleManifestRead } from '../transport/web-bundle/mobile-web-bundle-operations'
 import { runRpcOperation } from '../transport/rpc-operation'
 import type { RpcClient } from '../transport/rpc-client'
 import type { GenerationStore } from './generation-store'

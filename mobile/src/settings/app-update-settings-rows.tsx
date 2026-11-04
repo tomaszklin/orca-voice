@@ -1,8 +1,10 @@
-import { Pressable, Text, View } from 'react-native'
+import { Text } from 'react-native'
+import { ListRow } from '../components/list/ListGroup'
 import type { KnownAppUpdate } from '../storage/app-update-preferences'
-import { colors, spacing, typography } from '../theme/mobile-theme'
+import { colors } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { SettingsSection } from './settings-screen-frame'
 
 export type AppUpdateCheckRowStatus = 'idle' | 'checking' | 'up-to-date' | 'failed'
 
@@ -41,45 +43,21 @@ export function AppUpdateSettingsRows(props: {
   const label = props.installedVersion ? `Version ${props.installedVersion}` : 'Version'
   const value = versionRowValue(props.checkStatus, available, props.lastCheckedAt)
   return (
-    <View style={styles.section}>
-      <Pressable
-        accessibilityRole="button"
+    <SettingsSection>
+      <ListRow
+        key="version"
+        title={label}
+        {...(available && !checking
+          ? { accessory: <Text style={styles.actionValue}>{value}</Text> }
+          : { value })}
         accessibilityLabel={`${label}, ${value}`}
-        accessibilityState={{ busy: checking }}
-        disabled={checking}
-        style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+        busy={checking}
         onPress={() => (available ? onUpdate(available.url) : onCheck())}
-      >
-        <Text style={styles.rowLabel} numberOfLines={1}>
-          {label}
-        </Text>
-        <Text style={available && !checking ? styles.actionValue : styles.rowValue}>{value}</Text>
-      </Pressable>
-    </View>
+      />
+    </SettingsSection>
   )
 }
 
 const styles = themedStyleSheet(() => ({
-  section: {
-    backgroundColor: colors.bgPanel,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginTop: spacing.md
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm + 2,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md + 2
-  },
-  rowPressed: { backgroundColor: colors.bgRaised },
-  rowLabel: {
-    flex: 1,
-    fontSize: typography.bodySize,
-    fontWeight: '500',
-    color: colors.textPrimary
-  },
-  rowValue: { fontSize: typography.metaSize, color: colors.textSecondary },
-  actionValue: { fontSize: typography.bodySize, fontWeight: '600', color: colors.textPrimary }
+  actionValue: { fontSize: 15, fontWeight: '600', color: colors.textPrimary }
 }))

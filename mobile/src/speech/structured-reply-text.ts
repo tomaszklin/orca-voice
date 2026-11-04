@@ -1,11 +1,11 @@
-import { isRootAgentJournalItem } from '../../../src/shared/agent-session-journal-producer'
-import type { AgentJournalRenderItem } from '../../../src/shared/agent-session-journal-types'
-import type { AgentSessionHistoryResult } from '../../../src/shared/agent-session-wire'
+import { isRootAgentJournalItem } from '../../../src/shared/agent-session/journal/agent-session-journal-producer'
+import type { AgentJournalRenderItem } from '../../../src/shared/agent-session/journal/agent-session-journal-types'
+import type { AgentSessionHistoryResult } from '../../../src/shared/agent-session/agent-session-wire'
 import {
   AGENT_STATUS_MAX_FIELD_LENGTH,
   normalizeOptionalField
 } from '../../../src/shared/agent-status-field-normalization'
-import { latestStructuredAgentSessionAssistantMessage } from '../../../src/shared/structured-agent-session-latest-request'
+import { latestStructuredAgentSessionAssistantMessage } from '../../../src/shared/agent-session/requests/structured-agent-session-latest-request'
 import { callAgentSession } from '../session/mobile-structured-agent-session-rpc'
 import type { RpcClient } from '../transport/rpc-client'
 import { logSpeechEvent } from './speech-diagnostics'

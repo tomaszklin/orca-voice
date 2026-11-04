@@ -28,7 +28,7 @@ export const readAloudStyles = themedStyleSheet(() => ({
     justifyContent: 'center',
     gap: spacing.sm,
     marginTop: spacing.sm,
-    borderRadius: radii.button,
+    borderRadius: radii.control,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.borderSubtle,
     backgroundColor: colors.bgRaised

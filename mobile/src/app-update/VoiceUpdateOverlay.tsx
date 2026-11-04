@@ -90,7 +90,7 @@ const styles = themedStyleSheet(() => ({
   card: {
     gap: spacing.sm,
     padding: spacing.md,
-    borderRadius: radii.card,
+    borderRadius: radii.surface,
     backgroundColor: colors.bgRaised,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.borderSubtle
@@ -117,7 +117,7 @@ const styles = themedStyleSheet(() => ({
   action: {
     paddingVertical: spacing.xs + 2,
     paddingHorizontal: spacing.md,
-    borderRadius: radii.button,
+    borderRadius: radii.control,
     backgroundColor: colors.textPrimary
   },
   actionLabel: {
