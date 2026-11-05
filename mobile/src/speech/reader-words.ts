@@ -11,6 +11,9 @@ export type ReaderWords = {
   code: string
   table: string
   link: string
+  /** How an e-mail address's "@" and "." are said: shop@x.hu → "shop at x dot hu". */
+  at: string
+  dot: string
   waitQuestion: string
   waitPermission: string
   waitOther: string
@@ -26,6 +29,8 @@ export const READER_WORDS = {
     code: 'Code block skipped.',
     table: 'Table skipped.',
     link: 'link',
+    at: 'at',
+    dot: 'dot',
     waitQuestion: 'The agent has a question.',
     waitPermission: 'The agent asks for permission.',
     waitOther: 'The agent is waiting for you.',
@@ -42,6 +47,8 @@ export const READER_WORDS = {
     code: 'Pomijam fragment kodu.',
     table: 'Pomijam tabelę.',
     link: 'link',
+    at: 'małpa',
+    dot: 'kropka',
     waitQuestion: 'Agent ma pytanie.',
     waitPermission: 'Agent prosi o zgodę.',
     waitOther: 'Agent czeka na ciebie.',
@@ -58,6 +65,8 @@ export const READER_WORDS = {
     code: 'Bloque de código omitido.',
     table: 'Tabla omitida.',
     link: 'enlace',
+    at: 'arroba',
+    dot: 'punto',
     waitQuestion: 'El agente tiene una pregunta.',
     waitPermission: 'El agente pide permiso.',
     waitOther: 'El agente te está esperando.',
@@ -74,6 +83,8 @@ export const READER_WORDS = {
     code: 'Bloc de code ignoré.',
     table: 'Tableau ignoré.',
     link: 'lien',
+    at: 'arobase',
+    dot: 'point',
     waitQuestion: "L'agent a une question.",
     waitPermission: "L'agent demande une autorisation.",
     waitOther: "L'agent vous attend.",
@@ -90,6 +101,8 @@ export const READER_WORDS = {
     code: 'Bloco de código omitido.',
     table: 'Tabela omitida.',
     link: 'link',
+    at: 'arroba',
+    dot: 'ponto',
     waitQuestion: 'O agente tem uma pergunta.',
     waitPermission: 'O agente pede permissão.',
     waitOther: 'O agente está esperando por você.',
@@ -106,6 +119,8 @@ export const READER_WORDS = {
     code: '已跳过代码块。',
     table: '已跳过表格。',
     link: '链接',
+    at: '艾特',
+    dot: '点',
     waitQuestion: '智能体有一个问题。',
     waitPermission: '智能体正在请求权限。',
     waitOther: '智能体正在等你。',
@@ -119,6 +134,8 @@ export const READER_WORDS = {
     code: 'コードブロックを省略しました。',
     table: '表を省略しました。',
     link: 'リンク',
+    at: 'アット',
+    dot: 'ドット',
     waitQuestion: 'エージェントから質問があります。',
     waitPermission: 'エージェントが許可を求めています。',
     waitOther: 'エージェントが待っています。',
@@ -135,6 +152,8 @@ export const READER_WORDS = {
     code: '코드 블록을 건너뜁니다.',
     table: '표를 건너뜁니다.',
     link: '링크',
+    at: '골뱅이',
+    dot: '점',
     waitQuestion: '에이전트에게 질문이 있습니다.',
     waitPermission: '에이전트가 권한을 요청합니다.',
     waitOther: '에이전트가 기다리고 있습니다.',

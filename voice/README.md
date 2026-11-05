@@ -1035,3 +1035,13 @@ Desktop właściciela jest na `v1.4.247`; fork przeniesiony z `v1.4.245` na `v1.
 „Aktualizacja z upstream”). Ekran „Read aloud” zachowuje stary wygląd (kopia stylów), wiersz wersji
 w Settings zbudowany na nowym `ListRow`. Do sprawdzenia na telefonie: czat i przycisk „Read”,
 załączanie plików, ekran „Read aloud”, aktualizacja w aplikacji.
+
+## Adresy e-mail czytane przez aplikację (build 55, 2026-11-05)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Agent napisał adres jako „shop małpa sziklakorhaz kropka hu”, żeby syntezator go przeczytał. Na
+ekranie taki adres nie nadaje się do skopiowania. Teraz zamianę robi czytnik (`speech/speech-text.ts`):
+na ekranie zostaje `shop@sziklakorhaz.hu`, a głos czyta „shop małpa sziklakorhaz kropka hu”. Słowa
+na „@” i „.” są w języku głosu (`at` / `dot` w `reader-words.ts`). Przedrostek `mailto:` jest
+pomijany. Hook trybu głosowego (tomaszklin/agents-skills) każe agentowi pisać adresy normalnie.

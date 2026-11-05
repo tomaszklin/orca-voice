@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { splitForSpeech, toSpeechText } from './speech-text'
 
-const placeholders = { code: 'Code skipped.', table: 'Table skipped.', link: 'link' }
+const placeholders = {
+  code: 'Code skipped.',
+  table: 'Table skipped.',
+  link: 'link',
+  at: 'at',
+  dot: 'dot'
+}
 
 describe('toSpeechText', () => {
   it('replaces code blocks, and tables when asked, with short cues', () => {
@@ -110,6 +116,16 @@ describe('toSpeechText', () => {
       expect(read('Read [Foo](https://en.wikipedia.org/wiki/Foo_(bar)) first.')).toBe(
         'Read link Foo first.'
       )
+    })
+
+    it('says an e-mail address with words for @ and the dots, a mail link as its text', () => {
+      const read = (markdown: string) => toSpeechText(markdown, placeholders, 'word-and-text')
+      expect(read('Write to shop@sziklakorhaz.hu.')).toBe('Write to shop at sziklakorhaz dot hu.')
+      expect(read('Ask `jan.kowalski@mail.example.pl`')).toBe(
+        'Ask jan dot kowalski at mail dot example dot pl.'
+      )
+      expect(read('[shop@x.hu](mailto:shop@x.hu)')).toBe('link shop at x dot hu.')
+      expect(read('mailto:shop@x.hu')).toBe('shop at x dot hu.')
     })
 
     it('reads an image as its alt text, and drops one without', () => {

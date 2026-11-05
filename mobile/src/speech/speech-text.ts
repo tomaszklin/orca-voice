@@ -5,7 +5,7 @@ import { speakableTables } from './speech-tables'
 // Android's TextToSpeech rejects longer inputs (TextToSpeech.getMaxSpeechInputLength() is 4000).
 export const MAX_SPEECH_CHUNK_LENGTH = 3900
 
-type Placeholders = Pick<ReaderWords, 'code' | 'table' | 'link'>
+type Placeholders = Pick<ReaderWords, 'code' | 'table' | 'link' | 'at' | 'dot'>
 
 const FILE_EXTENSION = /\.[a-z]\w{0,4}(?::\d+)?$/i
 const PATH_START = /^(?:\/|\.{1,2}[\\/]|~|[a-z]:[\\/])/i
@@ -50,6 +50,16 @@ const ADDRESS = /^<?https?:\/\//i
 const TARGET = String.raw`\(((?:[^()\s]|\([^()\s]*\))*)[^)]*\)`
 const IMAGE = new RegExp(String.raw`!\[([^\]]*)\]${TARGET}`, 'g')
 const LINK = new RegExp(String.raw`\[([^\]]+)\]${TARGET}`, 'g')
+
+// Why: agents spelled addresses out ("shop małpa x kropka hu") so the voice could read them, which
+// left them uncopyable on screen; the reader says them instead (owner's report, 2026-11-05).
+const EMAIL = /(?:mailto:)?([\w.+-]+)@([\w-]+(?:\.[\w-]+)+)/gi
+
+/** shop@x.hu → "shop at x dot hu", in the reading voice's words. */
+function spokenEmail(local: string, domain: string, at: string, dot: string): string {
+  const spell = (part: string) => part.split('.').filter(Boolean).join(` ${dot} `)
+  return `${spell(local)} ${at} ${spell(domain)}`
+}
 
 /** Punctuation after a bare address, and a ")" closing brackets around it, stay in the text. */
 function addressEnd(found: string): number {
@@ -110,6 +120,9 @@ export function toSpeechText(
     const end = addressEnd(found)
     return spokenLink(null, found.slice(0, end), links, placeholders.link) + found.slice(end)
   })
+  text = text.replace(EMAIL, (_, local: string, domain: string) =>
+    spokenEmail(local, domain, placeholders.at, placeholders.dot)
+  )
   text = text.replace(/`([^`\n]+)`/g, (_, code: string) => speakableInlineCode(code))
   text = text.replace(/^[ \t]{0,3}#{1,6}[ \t]*/gm, '')
   text = text.replace(/^[ \t]*(?:[-*+]|\d+[.)])[ \t]+/gm, '')
