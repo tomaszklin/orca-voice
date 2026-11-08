@@ -1045,3 +1045,26 @@ ekranie taki adres nie nadaje się do skopiowania. Teraz zamianę robi czytnik (
 na ekranie zostaje `shop@sziklakorhaz.hu`, a głos czyta „shop małpa sziklakorhaz kropka hu”. Słowa
 na „@” i „.” są w języku głosu (`at` / `dot` w `reader-words.ts`). Przedrostek `mailto:` jest
 pomijany. Hook trybu głosowego (tomaszklin/agents-skills) każe agentowi pisać adresy normalnie.
+
+## Każda tura czatu Orki czytana (build 56, 2026-11-08)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel w czacie Running wysłał pod rząd cztery wiadomości (strategia tętna, tabela, strategia
+tempa, negative split) i usłyszał tylko ostatnią odpowiedź, o tempie. Wiadomość z kolejki zaczyna
+następną turę około 2 s po końcu poprzedniej (sprawdzone w historii czatu: przerwy 2,2–2,4 s), a
+wiersz `worktree.ps` jest `done` tylko w tej przerwie. Telefon pyta co 3 s (ekran włączony) albo co
+15 s (wyłączony), więc trafiał tylko na ostatnią turę.
+
+- `speech/structured-reply-text.ts` czyta odpowiedzi czatów Orki z historii czatu, turę po turze:
+  ostatnia odpowiedź głównego agenta każdej tury zakończonej od ostatniego sprawdzenia, w całości
+  (skrócona kopia → `agentSession.item`). Historię pobiera, gdy stan głównego agenta zmienił się od
+  poprzedniego sprawdzenia (`agentSession.history`, `tail`, 60 pozycji). Koniec tury bierze z wiersza
+  tury (`completedAt`, ten sam czas co `stateStartedAt` wiersza `done`); tura bez wiersza na stronie
+  skończyła się, gdy po niej jest następna, a ostatnia — gdy agent jest `done`. Zasada podagentów
+  jak dotąd: „wrócę, gdy skończą” czeka na następną turę. Gdy czatu nie da się przeczytać, czyta się
+  podgląd z wiersza jak dotąd; odpowiedź wiersza, której tury nie pokazują, czyta się w całości z
+  najnowszej odpowiedzi czatu.
+- `speech/use-auto-read-replies.ts`: to, co przeczytane, jest zapisywane dopiero po kolejkowaniu
+  odpowiedzi. Sprawdzenie zawieszone dłużej niż 60 s i zastąpione nowym zostawiało odpowiedź
+  oznaczoną jako przeczytaną, choć nikt jej nie przeczytał.

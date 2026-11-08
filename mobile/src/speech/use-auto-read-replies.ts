@@ -26,7 +26,7 @@ import { useReadScopePreference } from './read-scope-preference'
 import { expireHolds } from './reader-interruptions'
 import { speakReply, stopAutoReading } from './reply-speaker'
 import { logSpeechEvent } from './speech-diagnostics'
-import { withWholeStructuredReplies } from './structured-reply-text'
+import { createStructuredTurnReader } from './structured-reply-text'
 import { createUserTurnGuard, useOtherTurnReplies } from './user-turn-guard'
 
 // On screen, as often as the workspace list's own worktree.ps polling; with the screen off, five
@@ -164,6 +164,7 @@ export function useAutoReadReplies(): void {
       (readScopeRef.current === 'all-on-screen' && AppState.currentState === 'active')
     const nestedSessions = createNestedSessionGuard()
     const userTurns = createUserTurnGuard()
+    const structuredTurns = createStructuredTurnReader()
     const feeds = createChatMessageFeeds((paneKey, messageId, text) => {
       // Why: feeds stay open off screen, and a message can land before JS is suspended there.
       const offScreen = AppState.currentState !== 'active' && !backgroundReadingActive()
@@ -214,23 +215,37 @@ export function useAutoReadReplies(): void {
           ...agents.map((row) => [row.paneKey, row.project] as const)
         ])
         const newReplies: NewReply[] = []
+        // Kept only once the replies are queued: a poll replaced while it waited on the host
+        // would otherwise leave them marked as read and never read.
+        let baseline = baselineRef.current
+        const seenHosts: string[] = []
+        const commits: (() => void)[] = []
         for (const [index, { hostId, client }] of connected.entries()) {
           const hostRows = rows[index]
           if (!hostRows) {
             continue
           }
-          const found = findNewReplies(baselineRef.current, hostRows, hostsSeen.has(hostId))
-          baselineRef.current = found.baseline
-          hostsSeen.add(hostId)
-          const own = await nestedSessions.ownReplies(client, hostRows, found.newReplies)
+          const found = findNewReplies(baseline, hostRows, hostsSeen.has(hostId))
+          baseline = found.baseline
+          seenHosts.push(hostId)
+          const turns = await structuredTurns.replies(client, hostRows, found.newReplies)
+          commits.push(turns.commit)
+          const own = await nestedSessions.ownReplies(client, hostRows, turns.replies)
           const answers =
             otherTurnRepliesRef.current === 'on'
               ? own
               : await userTurns.userReplies(client, hostRows, own)
-          newReplies.push(...(await withWholeStructuredReplies(client, hostRows, answers)))
+          newReplies.push(...answers)
         }
         if (cancelled || run !== generation) {
           return
+        }
+        baselineRef.current = baseline
+        for (const hostId of seenHosts) {
+          hostsSeen.add(hostId)
+        }
+        for (const commit of commits) {
+          commit()
         }
         const feedsReading = readsEveryMessage()
         for (const reply of feeds.overdue(feedsReading)) {
