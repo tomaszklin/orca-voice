@@ -1,5 +1,5 @@
-import { isAskUserQuestionTool } from '../../../src/shared/agent-question-answered-intent'
-import { mainAgentState } from '../../../src/shared/main-agent-status'
+import { isAskUserQuestionTool } from '../../../src/shared/agent-status/lifecycle/agent-question-answered-intent'
+import { mainAgentState } from '../../../src/shared/agent-status/lifecycle/main-agent-status'
 import {
   ANNOUNCE_WAITS_KEY,
   DEFAULT_ANNOUNCE_WAITS,

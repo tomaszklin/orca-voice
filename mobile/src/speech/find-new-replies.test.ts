@@ -6,7 +6,7 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
 }))
 
 vi.mock('react-native', () => ({ AppState: { currentState: 'active' } }))
-vi.mock('../transport/client-context', () => ({ useRpcClientContext: vi.fn() }))
+vi.mock('../transport/connection/client-context', () => ({ useRpcClientContext: vi.fn() }))
 
 const { findNewReplies } = await import('./use-auto-read-replies')
 const { agentRowsFromWorktreePs } = await import('./auto-read-agent-rows')

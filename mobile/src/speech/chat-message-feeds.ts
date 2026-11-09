@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { buildNativeChatSubscriptionId } from '../../../src/shared/native-chat/native-chat-stream-unsubscribe'
 import { withoutNativeChatVisualDirectiveLines } from '../../../src/shared/native-chat/native-chat-visual-directive'
 import { randomV4Uuid } from '../platform/random-v4-uuid'
-import type { RpcClient } from '../transport/rpc-client'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { chatTargetForPane, readWorktreeTabs, type ChatTarget, type Tab } from './chat-feed-target'
 import { logSpeechEvent } from './speech-diagnostics'
 

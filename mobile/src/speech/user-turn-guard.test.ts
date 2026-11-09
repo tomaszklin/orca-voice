@@ -3,7 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const leafId = '0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d'
 const transcript: { current: unknown[] | null } = { current: null }
 
-vi.mock('../session/mobile-session-read-operations', () => ({
+// Orca moved the tabs read to its own module; both mocks hand out the same object.
+vi.mock('../session/tabs/mobile-session-tab-read-operations', async () => ({
+  sessionTabsListRead: (
+    (await import(
+      '../session/native-chat/agent-session/mobile-native-chat-page-read-operations'
+    )) as unknown as { sessionTabsListRead: unknown }
+  ).sessionTabsListRead
+}))
+vi.mock('../session/native-chat/agent-session/mobile-native-chat-page-read-operations', () => ({
   sessionTabsListRead: {
     request: async () => ({ ok: true }),
     interpret: () => ({

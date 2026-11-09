@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { mainAgentState } from '../../../src/shared/main-agent-status'
-import { nativeChatSessionPageRead } from '../session/mobile-session-read-operations'
-import type { RpcClient } from '../transport/rpc-client'
+import { mainAgentState } from '../../../src/shared/agent-status/lifecycle/main-agent-status'
+import { nativeChatSessionPageRead } from '../session/native-chat/agent-session/mobile-native-chat-page-read-operations'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import type { AutoReadAgentRow } from './auto-read-agent-rows'
 import {
   chatTargetForPane,

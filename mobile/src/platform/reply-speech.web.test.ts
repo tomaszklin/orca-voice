@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SPEECH_MAX_MARKDOWN_CHARS } from '../mobile-web-shell/bridge/bridge-speech-verbs'
+import { SPEECH_MAX_MARKDOWN_CHARS } from '../mobile-web-shell/bridge/bridge-reply-speech-verbs'
 import { limitedMarkdown } from './reply-speech.web'
 
 describe('limitedMarkdown', () => {

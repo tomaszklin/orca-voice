@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import {
   audioReadParamsSchema,
   audioReadResultSchema,
@@ -17,9 +17,12 @@ import {
   mediaNameParamsSchema,
   mediaNameResultSchema
 } from './bridge-media-verbs'
+import { imageParamsSchema, imageResultSchema } from './bridge-image-verbs'
+import { BRIDGE_SPEECH_VERB, speechParamsSchema, speechResultSchema } from './bridge-speech-verbs'
+import { BRIDGE_STORE_VERB, storeParamsSchema, storeResultSchema } from './bridge-store-verb'
 import { PAGE_STORAGE_MAX_KEY_CHARS } from '../page-storage-keys'
 import { mobileFileMediaMime, PDF_MIME_TYPE } from '../../files/mobile-file-media'
-import { speechControlParamsSchema, speechControlResultSchema } from './bridge-speech-verbs'
+import { speechControlParamsSchema, speechControlResultSchema } from './bridge-reply-speech-verbs'
 
 // Fence native-prefixed requests on-device; desktop allowlist refusal alone would hide leaked forwarding and depend on desktop version.
 // Native replies use existing frames/in-flight caps without runtime _meta; adding a verb needs a table row and handler, never a new frame kind.
@@ -37,6 +40,9 @@ export const BRIDGE_NATIVE_VERB_NAMES = [
   'native.audio.stop',
   'native.storage.read',
   'native.pdf.view',
+  'native.image.act',
+  BRIDGE_SPEECH_VERB,
+  BRIDGE_STORE_VERB,
   'native.speech.control'
 ] as const
 
@@ -53,6 +59,8 @@ const mimeSchema = z.enum(BRIDGE_CLIPBOARD_MIMES)
 export type BridgeNativeVerbSpec = {
   params: z.ZodType
   result: z.ZodType
+  // Served through the desktop, so it waits for this connection's verdict like any request; the rest never leave the phone.
+  desktop?: true
 }
 
 // Let the frame cap bound clipboard writes and the normal reply cap bound reads; a separate text cap would reject values the transport already accepts.
@@ -130,9 +138,22 @@ export const BRIDGE_NATIVE_VERBS: Readonly<Record<BridgeNativeVerb, BridgeNative
   },
   'native.pdf.view': {
     params: pdfViewParamsSchema,
-    result: pdfViewResultSchema
+    result: pdfViewResultSchema,
+    desktop: true
   },
-  // Orca Voice fork: read a reply aloud. Its shapes live in `bridge-speech-verbs.ts`.
+  'native.image.act': {
+    params: imageParamsSchema,
+    result: imageResultSchema
+  },
+  [BRIDGE_SPEECH_VERB]: {
+    params: speechParamsSchema,
+    result: speechResultSchema
+  },
+  [BRIDGE_STORE_VERB]: {
+    params: storeParamsSchema,
+    result: storeResultSchema
+  },
+  // Orca Voice fork: read a reply aloud. Its shapes live in `bridge-reply-speech-verbs.ts`.
   'native.speech.control': {
     params: speechControlParamsSchema,
     result: speechControlResultSchema
@@ -145,6 +166,12 @@ export function isBridgeNativeMethod(method: string): boolean {
 
 export function readBridgeNativeVerb(method: string): BridgeNativeVerb | null {
   return BRIDGE_NATIVE_VERB_NAMES.find((verb) => verb === method) ?? null
+}
+
+// Unknown native methods count as desktop-bound so they wait like any request until refused.
+export function isPhoneOnlyNativeVerb(method: string): boolean {
+  const verb = readBridgeNativeVerb(method)
+  return verb !== null && BRIDGE_NATIVE_VERBS[verb].desktop !== true
 }
 
 export type BridgeNativeVerbRefusal = 'unknown-verb' | 'ungranted' | 'invalid-params'

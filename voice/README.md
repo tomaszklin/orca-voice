@@ -46,15 +46,15 @@ Settings → Chat UI pokaże, czy problem jest w odpytywaniu `worktree.ps`, czy 
 Właściciel chce: auto-czytanie jako opcja + **niezależnie** przycisk „Read” pod każdą odpowiedzią.
 Czat to strona z desktopu, więc APK niesie **własną kopię strony** i serwuje ją zamiast desktopowej.
 
-- **Baza forka = wydanie Orki** (od 2026-11-04 `v1.4.247`; wcześniej `v1.4.245`, `v1.4.243`, `v1.4.229`). Zob. „Aktualizacja
+- **Baza forka = wydanie Orki** (od 2026-11-10 `v1.4.255`; wcześniej `v1.4.247`, `v1.4.245`, `v1.4.243`, `v1.4.229`). Zob. „Aktualizacja
   z upstream”.
 - **Mostek:** jeden czasownik `native.speech.control` (`{action:'speak', id, markdown}` |
-  `{action:'stop'}`) — `bridge/bridge-speech-verbs.ts`, wpis w `bridge-native-verbs.ts`, obsługa
-  `platform/native-speech.ts` ← `use-native-device-verbs.ts`. Jeden, nie dwa, bo trasa sesji ma
-  limit grantów. W `config/scripts/mobile-web-page-routes.mjs` jako `optionalGrants` trasy
+  `{action:'stop'}`) — `bridge/bridge-reply-speech-verbs.ts`, wpis w `bridge-native-verbs.ts`, obsługa
+  `platform/native-reply-speech.ts` ← `use-native-device-verbs.ts`. Jeden, nie dwa, bo trasa sesji ma
+  limit grantów. W `config/scripts/build/mobile-web-app/mobile-web-page-routes.mjs` jako `optionalGrants` trasy
   sesji — oficjalna powłoka dalej serwuje czat, tylko bez przycisku.
 - **Limit grantów:** od `v1.4.247` Orka liczy 16 osobno dla listy wymaganej i opcjonalnej, więc
-  nasze podniesienie do 18 (2026-10-28 – 2026-11-04) usunięte. Trasa sesji: 13 wymaganych + 5
+  nasze podniesienie do 18 (2026-10-28 – 2026-11-04) usunięte. Trasa sesji (od `v1.4.255`): 13 wymaganych + 8
   opcjonalnych (w tym nasz).
 - **Przycisk:** `components/MobileReplyReadButton.tsx` w
   `session/native-chat/transcript/MobileNativeChatMessage.tsx` (od `v1.4.243`; wcześniej `session/`)
@@ -1015,6 +1015,7 @@ Historia: 2026-10-28 z `v1.4.229` na `v1.4.243` (kopia: `voice-before-1.4.243`, 
 wygląd ustawień: style, których używał ekran „Read aloud”, zniknęły, więc ich kopia z `v1.4.245`
 jest w `speech/read-aloud-screen-styles.ts`. Do zrobienia kiedyś: przenieść ten ekran na nowe
 `ListRow` / `SettingsSection`. Pnpm z `.voice-tools` (12.14), nie z corepack.
+2026-11-10 z `v1.4.247` na `v1.4.255` (kopia: `voice-before-1.4.255`, lokalna), skillem `update-orca-base`.
 
 Uwaga: oficjalne APK Orki zainstalowane na tę wersję usuwa czytanie (wraca oryginał).
 
@@ -1068,3 +1069,20 @@ wiersz `worktree.ps` jest `done` tylko w tej przerwie. Telefon pyta co 3 s (ekra
 - `speech/use-auto-read-replies.ts`: to, co przeczytane, jest zapisywane dopiero po kolejkowaniu
   odpowiedzi. Sprawdzenie zawieszone dłużej niż 60 s i zastąpione nowym zostawiało odpowiedź
   oznaczoną jako przeczytaną, choć nikt jej nie przeczytał.
+
+## Wersja Orki 1.4.255 (build 57, 2026-11-10)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Desktop właściciela jest na `v1.4.255`; fork przeniesiony z `v1.4.247` (skill `update-orca-base`).
+- Orka dodała własne dyktowanie na telefonie (`native.speech.act`) w plikach o tych samych nazwach co
+  nasz przycisk „Read”. Nasze pliki mają teraz własne nazwy: `bridge/bridge-reply-speech-verbs.ts`,
+  `platform/native-reply-speech.ts`; czasownik dalej `native.speech.control`.
+- Przycisk „Read” siedzi w nowym `MobileNativeChatMessageMeta.tsx` (wiersz z godziną i kopiowaniem).
+- Pliki forka w nowej strukturze katalogów Orki (np. `transport/connection/`, `session/tabs/`);
+  `voice/build-page.mjs` bierze skrypt strony z `config/scripts/build/mobile-web-app/`.
+- Załączanie plików w czatach terminalowych: przycisk + w `MobileNativeChatComposerAttachButton.tsx`.
+- Test przycisku „Read” w `use-native-verbs.test.tsx` zniknął razem z tamtymi testami Orki.
+
+Do sprawdzenia na telefonie: przycisk „Read”, auto-czytanie, załączanie plików w czacie
+terminalowym, dyktowanie Orki razem z czytaniem na głos.

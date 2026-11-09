@@ -3,9 +3,9 @@ import {
   isNativeChatSupportedAgent,
   nativeChatRequiresLocalTranscript
 } from '../../../src/shared/native-chat/native-chat-agent-support'
-import { parsePaneKey } from '../../../src/shared/stable-pane-id'
-import { sessionTabsListRead } from '../session/mobile-session-read-operations'
-import type { RpcClient } from '../transport/rpc-client'
+import { parsePaneKey } from '../../../src/shared/workspace-layout/stable-pane-id'
+import { sessionTabsListRead } from '../session/tabs/mobile-session-tab-read-operations'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 
 export type ChatTarget = { agent: string; sessionId: string; transcriptPath: string | null }
 

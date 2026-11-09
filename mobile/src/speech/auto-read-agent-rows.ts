@@ -1,9 +1,9 @@
 import { z } from 'zod'
-import { isRecord } from '../../../src/shared/agent-status-child-work-value-guards'
-import { AGENT_STATUS_STATES } from '../../../src/shared/agent-status-types'
-import { mainAgentState } from '../../../src/shared/main-agent-status'
+import { isRecord } from '../../../src/shared/agent-status/child-work/agent-status-child-work-value-guards'
+import { AGENT_STATUS_STATES } from '../../../src/shared/agent-status/contracts/agent-status-types'
+import { mainAgentState } from '../../../src/shared/agent-status/lifecycle/main-agent-status'
 import type { RuntimeWorktreeAgentRow } from '../../../src/shared/runtime-types'
-import type { RpcClient } from '../transport/rpc-client'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { worktreeCatalogRead } from '../worktree/worktree-catalog-operations'
 import type { AgentPane } from './chat-message-feeds'
 

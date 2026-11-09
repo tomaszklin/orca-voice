@@ -6,6 +6,12 @@ import { ActionSheetModal } from '../components/ActionSheetModal'
 import { ChatFileAttachContext, type ChatFileAttach } from './chat-file-attach-context'
 
 vi.mock('../components/MobileSwitch', () => ({ MobileSwitch: 'Switch' }))
+vi.mock('../session/native-chat/composer/MobileNativeChatContextUsageRing', () => ({
+  useMobileNativeChatContextRing: () => ({ barProps: {}, ring: null })
+}))
+vi.mock('react-native-reanimated', async () =>
+  (await import('../test-support/reanimated-pager-stub')).reanimatedPagerStub()
+)
 vi.mock('react-native', async () => {
   const React = await import('react')
   return {
@@ -13,6 +19,7 @@ vi.mock('react-native', async () => {
     ActivityIndicator: 'ActivityIndicator',
     Image: 'Image',
     Keyboard: { dismiss: vi.fn() },
+    Platform: { OS: 'ios' },
     Pressable: 'Pressable',
     ScrollView: ({ children, ...props }: { children?: React.ReactNode }) =>
       React.createElement('ScrollView', props, children),

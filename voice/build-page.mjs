@@ -1,7 +1,7 @@
 // Buduje stronę Orca Mobile (lista, czat, pliki…) z tego drzewa, do wbudowania w APK.
 // Użycie: node voice/build-page.mjs <katalog-wyjściowy>
 //
-// Skrypt Orki `config/scripts/build-mobile-web-app-bundle.mjs` importuje `esbuild` z głównego
+// Skrypt Orki `config/scripts/build/mobile-web-app/build-mobile-web-app-bundle.mjs` importuje `esbuild` z głównego
 // workspace'u, którego tu nie instalujemy (zależności desktopu). Hook przekierowuje ten jeden import
 // na esbuild z `mobile/node_modules`; resztę skrypt i tak bierze stamtąd.
 import { register } from 'node:module'
@@ -29,7 +29,7 @@ const hook = `export async function resolve(specifier, context, next) {
 register(`data:text/javascript,${encodeURIComponent(hook)}`)
 
 const { buildMobileWebAppBundle } = await import(
-  pathToFileURL(path.join(root, 'config', 'scripts', 'build-mobile-web-app-bundle.mjs')).href
+  pathToFileURL(path.join(root, 'config', 'scripts', 'build', 'mobile-web-app', 'build-mobile-web-app-bundle.mjs')).href
 )
 
 // Świeży katalog: stare zasoby z innym hashem zostałyby w APK jako martwy ładunek.

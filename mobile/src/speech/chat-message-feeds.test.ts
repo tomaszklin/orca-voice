@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const tabsReply: { current: { tabs: unknown[] } } = { current: { tabs: [] } }
 const tabsRequest = vi.fn(async () => ({ ok: true }))
 
-vi.mock('../session/mobile-session-read-operations', () => ({
+vi.mock('../session/tabs/mobile-session-tab-read-operations', () => ({
   sessionTabsListRead: {
     request: tabsRequest,
     interpret: () => tabsReply.current

@@ -4,7 +4,7 @@ import {
   OTHER_TURN_REPLIES_KEY,
   type OtherTurnReplies
 } from '../storage/speech-preferences'
-import type { RpcClient } from '../transport/rpc-client'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import type { AutoReadAgentRow } from './auto-read-agent-rows'
 import { chatTargetForPane, readWorktreeTabs, type Tab } from './chat-feed-target'
 import { readTail, type TailMessage } from './nested-session-guard'

@@ -5,11 +5,11 @@ import { readAgentJournalTurn } from '../../../src/shared/agent-session/lifecycl
 import {
   AGENT_STATUS_MAX_FIELD_LENGTH,
   normalizeOptionalField
-} from '../../../src/shared/agent-status-field-normalization'
+} from '../../../src/shared/agent-status/contracts/agent-status-field-normalization'
 import { latestStructuredAgentSessionAssistantMessage } from '../../../src/shared/agent-session/requests/structured-agent-session-latest-request'
-import { mainAgentState } from '../../../src/shared/main-agent-status'
+import { mainAgentState } from '../../../src/shared/agent-status/lifecycle/main-agent-status'
 import { callAgentSession } from '../session/mobile-structured-agent-session-rpc'
-import type { RpcClient } from '../transport/rpc-client'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import type { AutoReadAgentRow } from './auto-read-agent-rows'
 import { logSpeechEvent } from './speech-diagnostics'
 
