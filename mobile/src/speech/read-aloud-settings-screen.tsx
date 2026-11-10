@@ -53,11 +53,7 @@ function AutoReadOptions({ enabled }: { enabled: boolean }) {
       <View style={[styles.section, styles.sectionTopGap]}>
         <SwitchRow
           label="Pause auto-read"
-          sublabel={
-            autoReadPaused
-              ? 'Paused — new messages wait for Play. Resume here or in the notification'
-              : 'Off — new messages are read as they arrive. The notification can pause it too; restarting Orca resumes'
-          }
+          sublabel="You can also pause in the notification."
           value={autoReadPaused}
           onValueChange={setAutoReadPaused}
           disabled={disabled}
@@ -66,11 +62,7 @@ function AutoReadOptions({ enabled }: { enabled: boolean }) {
         {nativeReader ? (
           <SwitchRow
             label="Keep reading with the screen off"
-            sublabel={
-              backgroundReading
-                ? 'On — a notification keeps Orca awake (uses more battery)'
-                : 'Off — auto-read stops when Orca leaves the screen'
-            }
+            sublabel="Uses more battery."
             value={backgroundReading}
             onValueChange={setBackgroundReading}
             disabled={disabled}
@@ -79,11 +71,7 @@ function AutoReadOptions({ enabled }: { enabled: boolean }) {
         <View style={styles.separator} />
         <SwitchRow
           label="Say when an agent waits for you"
-          sublabel={
-            announceWaits === 'on'
-              ? 'On — a question or a permission request is said once, like a message'
-              : 'Off — a waiting agent stays quiet'
-          }
+          sublabel="Says when an agent asks a question or needs permission."
           value={announceWaits === 'on'}
           onValueChange={(on) => setAnnounceWaits(on ? 'on' : 'off')}
           disabled={disabled}
@@ -91,11 +79,7 @@ function AutoReadOptions({ enabled }: { enabled: boolean }) {
         <View style={styles.separator} />
         <SwitchRow
           label="Replies you did not ask for"
-          sublabel={
-            otherTurnReplies === 'on'
-              ? 'On — also replies to a finished background task or a message from another session'
-              : 'Off — a final reply is read only when it answers your own message'
-          }
+          sublabel="For example, when a background task ends."
           value={otherTurnReplies === 'on'}
           onValueChange={(on) => setOtherTurnReplies(on ? 'on' : 'off')}
           disabled={disabled}
@@ -105,11 +89,6 @@ function AutoReadOptions({ enabled }: { enabled: boolean }) {
           <SwitchRow
             label="Only with headphones or a car"
             accessibilityLabel="Auto-read only with headphones or a car"
-            sublabel={
-              headphonesOnly === 'on'
-                ? 'On — through the phone’s own speaker auto-read stays quiet; unplugging pauses it'
-                : 'Off — also through the phone’s speaker'
-            }
             value={headphonesOnly === 'on'}
             onValueChange={(on) => setHeadphonesOnly(on ? 'on' : 'off')}
             disabled={disabled}
@@ -126,9 +105,6 @@ function AutoReadOptions({ enabled }: { enabled: boolean }) {
       />
 
       <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>PROJECT NAME</Text>
-      <Text style={readAloudStyles.groupDescription}>
-        Auto-read says the project first, so you know which agent is talking.
-      </Text>
       <OptionRows
         options={PROJECT_NAME_MODES}
         selected={projectNameMode}
@@ -137,9 +113,6 @@ function AutoReadOptions({ enabled }: { enabled: boolean }) {
       />
 
       <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>SOUND BEFORE A MESSAGE</Text>
-      <Text style={readAloudStyles.groupDescription}>
-        A short chime before auto-read talks, with the project name or instead of it.
-      </Text>
       <OptionRows
         options={CHIME_MODES}
         selected={chimeMode}
@@ -199,8 +172,7 @@ export default function ReadAloudSettingsScreen() {
 
         <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>LINKS</Text>
         <Text style={readAloudStyles.groupDescription}>
-          Tap an option to hear it. The examples show how “Here is the source: WHO report” is read
-          when “WHO report” links to who.int. An address without its own text is read as “link”.
+          Examples for “Here is the source: WHO report”, with a link to who.int.
         </Text>
         <OptionRows
           options={LINK_READINGS}
@@ -213,7 +185,7 @@ export default function ReadAloudSettingsScreen() {
 
         <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>TABLES</Text>
         <Text style={readAloudStyles.groupDescription}>
-          Tap an option to hear it. The examples are for a table with the columns Day and Run.
+          Examples for a table with the columns Day and Run.
         </Text>
         <OptionRows
           options={TABLE_READINGS}
@@ -226,15 +198,10 @@ export default function ReadAloudSettingsScreen() {
 
         <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>AUTO-READ</Text>
         <Text style={readAloudStyles.groupDescription}>
-          New messages from every connected agent are read as they arrive, on any screen.
+          Reads new messages from all agents when they arrive.
         </Text>
         <View style={[styles.section, styles.sectionTopGap]}>
-          <SwitchRow
-            label="Auto-read new messages"
-            sublabel={autoRead ? 'On' : 'Off — the options below wait until it is on'}
-            value={autoRead}
-            onValueChange={setAutoRead}
-          />
+          <SwitchRow label="Auto-read new messages" value={autoRead} onValueChange={setAutoRead} />
         </View>
         <AutoReadOptions enabled={autoRead} />
       </ScrollView>

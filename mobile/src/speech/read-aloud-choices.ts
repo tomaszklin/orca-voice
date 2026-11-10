@@ -13,17 +13,16 @@ export const READ_SCOPES: Option<ReadScope>[] = [
   {
     value: 'all',
     label: 'Every message',
-    sublabel: 'Also what the agent writes while it is still working'
+    sublabel: 'Also messages the agent writes while it works.'
   },
   {
     value: 'all-on-screen',
-    label: 'Every message on screen, final replies off screen',
-    sublabel: 'Everything while Orca is open; only the turn-ending answer with the screen off'
+    label: 'Every message on screen',
+    sublabel: 'With the screen off, only final replies.'
   },
   {
     value: 'replies',
-    label: 'Final replies only',
-    sublabel: 'Only the answer that ends a turn, as in notifications'
+    label: 'Final replies only'
   }
 ]
 
@@ -31,28 +30,20 @@ export const PROJECT_NAME_MODES: Option<ProjectNameMode>[] = [
   {
     value: 'on-change',
     label: 'When the project changes',
-    sublabel: 'Before a message from another project, or after two quiet minutes'
+    sublabel: 'Also after two minutes without messages.'
   },
-  {
-    value: 'every',
-    label: 'Before every message',
-    sublabel: 'Even when several come from one agent'
-  },
-  { value: 'off', label: 'Off', sublabel: 'Only the message' }
+  { value: 'every', label: 'Before every message' },
+  { value: 'off', label: 'Off' }
 ]
 
 export const CHIME_MODES: Option<ChimeMode>[] = [
-  {
-    value: 'every',
-    label: 'Before every message',
-    sublabel: 'Also marks where one message ends and the next begins'
-  },
+  { value: 'every', label: 'Before every message' },
   {
     value: 'on-change',
     label: 'When the project changes',
-    sublabel: 'Same rule as the project name: another project, or after two quiet minutes'
+    sublabel: 'Also after two minutes without messages.'
   },
-  { value: 'off', label: 'Off', sublabel: 'No sound' }
+  { value: 'off', label: 'Off' }
 ]
 
 // The sublabels quote what "Here is the source: [WHO report](https://www.who.int/…)" becomes.
@@ -84,7 +75,7 @@ export const TABLE_READINGS: Option<TableReading>[] = [
   {
     value: 'values',
     label: 'Row by row, values only',
-    sublabel: 'The column names once, then the rows: “Day, Run. Tuesday, Intervals.”'
+    sublabel: '“Day, Run. Tuesday, Intervals.”'
   },
   { value: 'skip', label: 'Skip tables', sublabel: '“Table skipped.”' }
 ]
