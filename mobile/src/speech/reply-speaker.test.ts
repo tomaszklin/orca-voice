@@ -26,7 +26,7 @@ const native = {
 vi.mock('./voice-native-module', () => ({ voiceNativeModule: () => native }))
 
 const { canGoPrevious, previousTarget } = await import('./reader-model')
-const { RESUME_WITHIN_MS, expireHolds } = await import('./reader-interruptions')
+const { RESUME_WITHIN_MS, UNPLUG_RECHECK_MS, expireHolds } = await import('./reader-interruptions')
 const { playChimeSample, speakSample } = await import('./reader-samples')
 const {
   nextMessage,
@@ -681,6 +681,22 @@ describe('headphones only', () => {
     audio.current('noisy', null)
     expect(lastState()).toBe('paused')
     audio.current('private-output', null)
+    expect(last().text).toBe(first)
+  })
+
+  it('goes on by itself when the headphones are still there after a hiccup', () => {
+    setAutoReadNeedsHeadphones(true)
+    speakReply('ears', reply, 'queue')
+    const first = last().text
+    native.isPrivateOutput.mockReturnValue(false)
+    audio.current('noisy', null)
+    expireHolds(Date.now() + UNPLUG_RECHECK_MS)
+    expect(lastState()).toBe('paused')
+    native.isPrivateOutput.mockReturnValue(true)
+    expireHolds(Date.now() + 1_000)
+    expect(lastState()).toBe('paused')
+    expireHolds(Date.now() + UNPLUG_RECHECK_MS)
+    expect(lastState()).toBe('reading')
     expect(last().text).toBe(first)
   })
 

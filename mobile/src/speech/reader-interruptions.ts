@@ -7,12 +7,16 @@ import {
   resumeReading
 } from './reply-speaker'
 import { onAudioEvent } from './tts-engine'
+import { voiceNativeModule } from './voice-native-module'
 
 /** Orca Voice fork: what calls, other apps and unplugged headphones do to the reader. */
 
 // A call, dictation or unplugged headphones longer than this end the reading instead of resuming
 // it; the message stays for Previous and Play, and what waits keeps waiting.
 export const RESUME_WITHIN_MS = 10 * 60_000
+
+// Headphones still there this long after "unplugged" were only a Bluetooth hiccup.
+export const UNPLUG_RECHECK_MS = 5_000
 
 function endHold(reason: Hold['reason'], label: string): void {
   const hold = readerHold()
@@ -32,6 +36,17 @@ function endHold(reason: Hold['reason'], label: string): void {
  */
 export function expireHolds(now = Date.now()): void {
   const hold = readerHold()
+  // Why: a Bluetooth hiccup can report the headphones gone and back without "private-output",
+  // which left the reader standing with Resume and Stop (owner, 2026-11-10).
+  if (
+    hold?.reason === 'unplugged' &&
+    now - hold.since >= UNPLUG_RECHECK_MS &&
+    now - hold.since <= RESUME_WITHIN_MS &&
+    voiceNativeModule()?.isPrivateOutput()
+  ) {
+    resumeReading('headphones or car are still there')
+    return
+  }
   if (hold && !heldByUser(hold) && now - hold.since > RESUME_WITHIN_MS) {
     endReading(`${hold.reason}, did not end in time`)
   }
