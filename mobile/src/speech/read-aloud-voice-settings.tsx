@@ -86,38 +86,24 @@ function SpeedRows({ state }: { state: SpeechOptionsState }) {
   const step = (direction: 1 | -1) =>
     setOptions({ ...options, rate: stepRate(options.rate, phoneRate, direction) })
   return (
-    <>
-      <View style={styles.row}>
-        <View style={styles.rowContent}>
-          <Text style={styles.rowLabel}>Speed</Text>
-          <Text style={styles.rowSublabel}>{describeSpeed(options.rate, phoneRate)}</Text>
-        </View>
-        <StepButton
-          label="Slower"
-          Icon={Minus}
-          disabled={current <= MIN_RATE}
-          onPress={() => step(-1)}
-        />
-        <StepButton
-          label="Faster"
-          Icon={Plus}
-          disabled={current >= MAX_RATE}
-          onPress={() => step(1)}
-        />
+    <View style={styles.row}>
+      <View style={styles.rowContent}>
+        <Text style={styles.rowLabel}>Speed</Text>
+        <Text style={styles.rowSublabel}>{describeSpeed(options.rate, phoneRate)}</Text>
       </View>
-      {options.rate !== null ? (
-        <>
-          <View style={styles.separator} />
-          <Pressable
-            accessibilityRole="button"
-            style={styles.row}
-            onPress={() => setOptions({ ...options, rate: null })}
-          >
-            <Text style={styles.rowLabel}>Use the phone&apos;s speed</Text>
-          </Pressable>
-        </>
-      ) : null}
-    </>
+      <StepButton
+        label="Slower"
+        Icon={Minus}
+        disabled={current <= MIN_RATE}
+        onPress={() => step(-1)}
+      />
+      <StepButton
+        label="Faster"
+        Icon={Plus}
+        disabled={current >= MAX_RATE}
+        onPress={() => step(1)}
+      />
+    </View>
   )
 }
 
@@ -130,15 +116,13 @@ function ScreenRecordingRow() {
   return (
     <View style={styles.row}>
       <View style={styles.rowContent}>
-        <Text style={styles.rowLabel}>Let screen recordings capture speech</Text>
+        <Text style={styles.rowLabel}>Speech in screen recordings</Text>
         <Text style={styles.rowSublabel}>
-          {on
-            ? 'On — speech plays as media, so a screen recording includes it. Turn it off afterwards: in a car, navigation audio works better'
-            : 'Off — speech plays like navigation prompts, which screen recordings leave out'}
+          Screen recordings include the speech. Set this to off in a car.
         </Text>
       </View>
       <MobileSwitch
-        accessibilityLabel="Let screen recordings capture speech"
+        accessibilityLabel="Speech in screen recordings"
         value={on}
         onValueChange={(next) => {
           native?.setRecordable(next)
@@ -157,9 +141,7 @@ function LanguageVoicesRow() {
       <View style={styles.rowContent}>
         <Text style={styles.rowLabel}>Other languages in their own voice</Text>
         <Text style={styles.rowSublabel}>
-          {value === 'on'
-            ? "On — a whole sentence in another language uses that language's offline voice, when the phone has one and is sure of the language"
-            : 'Off — everything is read by the voice above'}
+          Reads a sentence in another language with a voice for that language.
         </Text>
       </View>
       <MobileSwitch
@@ -184,9 +166,6 @@ export function ReadAloudVoiceGroup({
   return (
     <>
       <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>VOICE</Text>
-      <Text style={readAloudStyles.groupDescription}>
-        Applies to the Read button and auto-read. Every change reads a short sample.
-      </Text>
       {state.available ? (
         <View style={[styles.section, styles.sectionTopGap]}>
           <SpeedRows state={state} />
@@ -200,12 +179,6 @@ export function ReadAloudVoiceGroup({
           <LanguageVoicesRow />
           <View style={styles.separator} />
           <ScreenRecordingRow />
-          <View style={styles.separator} />
-          <ValueRow
-            label="Phone text-to-speech settings"
-            value="More voices to download, another speech engine"
-            onPress={state.openPhoneSettings}
-          />
         </View>
       ) : null}
       {/* Last in the group, as a button: it was missed as one more row of settings. */}

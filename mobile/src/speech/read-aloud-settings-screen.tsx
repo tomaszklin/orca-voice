@@ -186,19 +186,10 @@ export default function ReadAloudSettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.groupHeading}>READ BUTTON</Text>
-        <Text style={readAloudStyles.groupDescription}>
-          Messages are read with the voice, links and tables set below; code blocks are skipped, and
-          a Stop button appears at the top while one is being read.
-        </Text>
         <View style={[styles.section, styles.sectionTopGap]}>
           <SwitchRow
-            label="Built-in chat page (Read buttons)"
-            accessibilityLabel="Built-in chat page"
-            sublabel={
-              builtInPage
-                ? 'On — applies to screens opened from now on'
-                : 'Off — the page your desktop sends, without Read buttons'
-            }
+            label="Read button"
+            sublabel="Shows a Read button below each message."
             value={builtInPage}
             onValueChange={setBuiltInPage}
           />

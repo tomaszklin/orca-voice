@@ -36,7 +36,6 @@ export function useSpeechOptions(): {
   /** Undefined while loading, null when the engine did not start. */
   voices: NativeVoiceList | null | undefined
   setOptions: (next: SpeechOptions) => void
-  openPhoneSettings: () => void
 } {
   const native = voiceNativeModule()
   const [stored] = useState(() => native?.getSpeechOptions() ?? null)
@@ -77,16 +76,11 @@ export function useSpeechOptions(): {
     [native]
   )
 
-  const openPhoneSettings = useCallback(() => {
-    native?.openTtsSettings()
-  }, [native])
-
   return {
     available: native !== null,
     options,
     phoneRate: stored?.phoneRate ?? 1,
     voices,
-    setOptions,
-    openPhoneSettings
+    setOptions
   }
 }
