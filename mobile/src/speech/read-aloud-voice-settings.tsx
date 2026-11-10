@@ -89,7 +89,7 @@ function SpeedRows({ state }: { state: SpeechOptionsState }) {
 
 // Orca Voice fork: screen recorders leave navigation audio out, and recording with the mic
 // silences the reader, so for a demo recording speech can play as media (owner's request).
-function ScreenRecordingRow() {
+export function ScreenRecordingRow() {
   useMobileColorScheme()
   const native = voiceNativeModule()
   const [on, setOn] = useState(() => native?.getSpeechOptions()?.recordable ?? false)
@@ -119,13 +119,13 @@ function LanguageVoicesRow() {
   return (
     <View style={styles.row}>
       <View style={styles.rowContent}>
-        <Text style={styles.rowLabel}>Other languages in their own voice</Text>
+        <Text style={styles.rowLabel}>Other languages</Text>
         <Text style={styles.rowSublabel}>
           Reads a sentence in another language with a voice for that language.
         </Text>
       </View>
       <MobileSwitch
-        accessibilityLabel="Other languages in their own voice"
+        accessibilityLabel="Other languages"
         value={value === 'on'}
         onValueChange={(on) => setValue(on ? 'on' : 'off')}
       />
@@ -157,8 +157,6 @@ export function ReadAloudVoiceGroup({
           />
           <View style={styles.separator} />
           <LanguageVoicesRow />
-          <View style={styles.separator} />
-          <ScreenRecordingRow />
         </View>
       ) : null}
       {/* Last in the group, as a button: it was missed as one more row of settings. */}
