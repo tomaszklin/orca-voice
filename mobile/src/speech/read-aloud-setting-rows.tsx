@@ -1,6 +1,5 @@
-import { Fragment } from 'react'
 import { View, Text, Pressable } from 'react-native'
-import { Check } from 'lucide-react-native'
+import { ChevronRight } from 'lucide-react-native'
 import { MobileSwitch } from '../components/MobileSwitch'
 import { readAloudScreenStyles as styles } from './read-aloud-screen-styles'
 import { colors } from '../theme/mobile-theme'
@@ -8,40 +7,33 @@ import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 
 export type Option<T extends string> = { value: T; label: string; sublabel?: string }
 
-/** Orca Voice fork: a Read aloud setting picked from a list, one choice at a time. */
-export function OptionRows<T extends string>({
-  options,
-  selected,
-  onSelect,
+/** Orca Voice fork: a Read aloud setting picked in a drawer; the row shows the current choice. */
+export function ChoiceRow({
+  label,
+  value,
+  onPress,
   disabled = false
 }: {
-  options: readonly Option<T>[]
-  selected: T
-  onSelect: (value: T) => void
+  label: string
+  value: string
+  onPress: () => void
   disabled?: boolean
 }) {
   useMobileColorScheme()
   return (
-    <View style={[styles.section, styles.sectionTopGap]} accessibilityRole="radiogroup">
-      {options.map((option, index) => (
-        <Fragment key={option.value}>
-          {index > 0 ? <View style={styles.separator} /> : null}
-          <Pressable
-            accessibilityRole="radio"
-            accessibilityState={{ checked: option.value === selected, disabled }}
-            disabled={disabled}
-            style={styles.row}
-            onPress={() => onSelect(option.value)}
-          >
-            <View style={styles.rowContent}>
-              <Text style={styles.rowLabel}>{option.label}</Text>
-              {option.sublabel ? <Text style={styles.rowSublabel}>{option.sublabel}</Text> : null}
-            </View>
-            {option.value === selected ? <Check size={18} color={colors.textPrimary} /> : null}
-          </Pressable>
-        </Fragment>
-      ))}
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      style={styles.row}
+      onPress={onPress}
+    >
+      <View style={styles.rowContent}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={styles.rowSublabel}>{value}</Text>
+      </View>
+      <ChevronRight size={18} color={colors.textMuted} />
+    </Pressable>
   )
 }
 

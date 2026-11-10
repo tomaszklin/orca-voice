@@ -3,6 +3,7 @@ import { View, Text, Pressable, ScrollView } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { ChevronLeft } from 'lucide-react-native'
+import { PickerModal } from '../components/PickerModal'
 import { readAloudScreenStyles as styles } from './read-aloud-screen-styles'
 import { colors, spacing } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
@@ -19,7 +20,7 @@ import {
   READ_SCOPES,
   TABLE_READINGS
 } from './read-aloud-choices'
-import { OptionRows, SwitchRow } from './read-aloud-setting-rows'
+import { ChoiceRow, SwitchRow, type Option } from './read-aloud-setting-rows'
 import { readAloudStyles } from './read-aloud-settings-styles'
 import {
   ReadAloudVoiceGroup,
@@ -33,13 +34,118 @@ import { useHeadphonesOnly, useLinkReading, useTableReading } from './reading-pr
 import { speakLinkSample, speakTableSample, useSpeechOptions } from './speech-options'
 import { voiceNativeModule } from './voice-native-module'
 
-/** Orca Voice fork: every option of auto-read but the switch itself, greyed out while it is off. */
-function AutoReadOptions({ enabled }: { enabled: boolean }) {
-  useMobileColorScheme()
-  const { backgroundReading, setBackgroundReading } = useBackgroundReadingPreference()
+type ChoiceKey = 'links' | 'tables' | 'scope' | 'projectName' | 'chime'
+
+type Choice = {
+  label: string
+  /** Shown at the top of the drawer, above the options. */
+  note?: string
+  options: readonly Option<string>[]
+  selected: string
+  // Method syntax: each choice takes its own narrower value type.
+  onSelect(value: string): void
+}
+
+function selectedLabel(choice: Choice): string {
+  return choice.options.find((option) => option.value === choice.selected)?.label ?? ''
+}
+
+/** Orca Voice fork: the list choices of the screen, each picked in a drawer like Terminal → Text size. */
+function useChoices(): Record<ChoiceKey, Choice> {
+  const { value: linkReading, setValue: setLinkReading } = useLinkReading()
+  const { value: tableReading, setValue: setTableReading } = useTableReading()
   const { readScope, setReadScope } = useReadScopePreference()
   const { value: projectNameMode, setValue: setProjectNameMode } = useProjectNameMode()
   const { value: chimeMode, setValue: setChimeMode } = useChimeMode()
+  return {
+    links: {
+      label: 'Links',
+      note: 'Examples for “Here is the source: WHO report”, with a link to who.int.',
+      options: LINK_READINGS,
+      selected: linkReading,
+      onSelect: (mode: (typeof LINK_READINGS)[number]['value']) => {
+        setLinkReading(mode)
+        speakLinkSample(mode)
+      }
+    },
+    tables: {
+      label: 'Tables',
+      note: 'Examples for a table with the columns Day and Run.',
+      options: TABLE_READINGS,
+      selected: tableReading,
+      onSelect: (mode: (typeof TABLE_READINGS)[number]['value']) => {
+        setTableReading(mode)
+        speakTableSample(mode)
+      }
+    },
+    scope: {
+      label: 'What to read',
+      options: READ_SCOPES,
+      selected: readScope,
+      onSelect: setReadScope
+    },
+    projectName: {
+      label: 'Project name',
+      note: 'Said before a message.',
+      options: PROJECT_NAME_MODES,
+      selected: projectNameMode,
+      onSelect: setProjectNameMode
+    },
+    chime: {
+      label: 'Sound before a message',
+      options: CHIME_MODES,
+      selected: chimeMode,
+      onSelect: (mode: (typeof CHIME_MODES)[number]['value']) => {
+        setChimeMode(mode)
+        if (mode !== 'off') {
+          playChimeSample()
+        }
+      }
+    }
+  }
+}
+
+function ChoiceRows({
+  choices,
+  keys,
+  onOpen,
+  disabled = false
+}: {
+  choices: Record<ChoiceKey, Choice>
+  keys: ChoiceKey[]
+  onOpen: (key: ChoiceKey) => void
+  disabled?: boolean
+}) {
+  useMobileColorScheme()
+  return (
+    <View style={[styles.section, styles.sectionTopGap]}>
+      {keys.map((key, index) => (
+        <View key={key}>
+          {index > 0 ? <View style={styles.separator} /> : null}
+          <ChoiceRow
+            label={choices[key].label}
+            value={selectedLabel(choices[key])}
+            disabled={disabled}
+            onPress={() => onOpen(key)}
+          />
+        </View>
+      ))}
+    </View>
+  )
+}
+
+/** Orca Voice fork: every option of auto-read but the switch itself, greyed out while it is off. */
+function AutoReadOptions({
+  enabled,
+  choices,
+  onOpenChoice
+}: {
+  enabled: boolean
+  choices: Record<ChoiceKey, Choice>
+  onOpenChoice: (key: ChoiceKey) => void
+}) {
+  useMobileColorScheme()
+  const { backgroundReading, setBackgroundReading } = useBackgroundReadingPreference()
   const { value: announceWaits, setValue: setAnnounceWaits } = useAnnounceWaits()
   const { value: otherTurnReplies, setValue: setOtherTurnReplies } = useOtherTurnReplies()
   const { value: headphonesOnly, setValue: setHeadphonesOnly } = useHeadphonesOnly()
@@ -96,33 +202,11 @@ function AutoReadOptions({ enabled }: { enabled: boolean }) {
         ) : null}
       </View>
 
-      <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>WHAT TO READ</Text>
-      <OptionRows
-        options={READ_SCOPES}
-        selected={readScope}
-        onSelect={setReadScope}
+      <ChoiceRows
+        choices={choices}
+        keys={['scope', 'projectName', 'chime']}
+        onOpen={onOpenChoice}
         disabled={disabled}
-      />
-
-      <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>PROJECT NAME</Text>
-      <OptionRows
-        options={PROJECT_NAME_MODES}
-        selected={projectNameMode}
-        onSelect={setProjectNameMode}
-        disabled={disabled}
-      />
-
-      <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>SOUND BEFORE A MESSAGE</Text>
-      <OptionRows
-        options={CHIME_MODES}
-        selected={chimeMode}
-        disabled={disabled}
-        onSelect={(mode) => {
-          setChimeMode(mode)
-          if (mode !== 'off') {
-            playChimeSample()
-          }
-        }}
       />
     </View>
   )
@@ -135,10 +219,17 @@ export default function ReadAloudSettingsScreen() {
   const insets = useSafeAreaInsets()
   const { autoRead, setAutoRead } = useAutoReadRepliesPreference()
   const { builtInPage, setBuiltInPage } = useBuiltInPagePreference()
-  const { value: linkReading, setValue: setLinkReading } = useLinkReading()
-  const { value: tableReading, setValue: setTableReading } = useTableReading()
   const speechOptions = useSpeechOptions()
   const [picker, setPicker] = useState<VoicePicker | null>(null)
+  const choices = useChoices()
+  const [openChoice, setOpenChoice] = useState<ChoiceKey | null>(null)
+  // Why: the drawer keeps its last choice while it slides away, so its content does not jump.
+  const [lastChoice, setLastChoice] = useState<ChoiceKey>('links')
+  const openChoiceDrawer = (key: ChoiceKey) => {
+    setLastChoice(key)
+    setOpenChoice(key)
+  }
+  const drawerChoice = choices[lastChoice]
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.sm }]}>
@@ -170,31 +261,8 @@ export default function ReadAloudSettingsScreen() {
 
         <ReadAloudVoiceGroup state={speechOptions} onOpenPicker={setPicker} />
 
-        <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>LINKS</Text>
-        <Text style={readAloudStyles.groupDescription}>
-          Examples for “Here is the source: WHO report”, with a link to who.int.
-        </Text>
-        <OptionRows
-          options={LINK_READINGS}
-          selected={linkReading}
-          onSelect={(mode) => {
-            setLinkReading(mode)
-            speakLinkSample(mode)
-          }}
-        />
-
-        <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>TABLES</Text>
-        <Text style={readAloudStyles.groupDescription}>
-          Examples for a table with the columns Day and Run.
-        </Text>
-        <OptionRows
-          options={TABLE_READINGS}
-          selected={tableReading}
-          onSelect={(mode) => {
-            setTableReading(mode)
-            speakTableSample(mode)
-          }}
-        />
+        <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>LINKS AND TABLES</Text>
+        <ChoiceRows choices={choices} keys={['links', 'tables']} onOpen={openChoiceDrawer} />
 
         <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>AUTO-READ</Text>
         <Text style={readAloudStyles.groupDescription}>
@@ -203,13 +271,27 @@ export default function ReadAloudSettingsScreen() {
         <View style={[styles.section, styles.sectionTopGap]}>
           <SwitchRow label="Auto-read new messages" value={autoRead} onValueChange={setAutoRead} />
         </View>
-        <AutoReadOptions enabled={autoRead} />
+        <AutoReadOptions enabled={autoRead} choices={choices} onOpenChoice={openChoiceDrawer} />
       </ScrollView>
 
       <ReadAloudVoicePickers
         state={speechOptions}
         picker={picker}
         onClose={() => setPicker(null)}
+      />
+      {/* At the screen's root, outside the scroll view, so the drawer is not clipped. */}
+      <PickerModal
+        visible={openChoice !== null}
+        title={drawerChoice.label}
+        subtitle={drawerChoice.note}
+        options={drawerChoice.options.map((option) => ({
+          value: option.value,
+          label: option.label,
+          subtitle: option.sublabel
+        }))}
+        selected={drawerChoice.selected}
+        onSelect={(value) => drawerChoice.onSelect(value)}
+        onClose={() => setOpenChoice(null)}
       />
     </View>
   )

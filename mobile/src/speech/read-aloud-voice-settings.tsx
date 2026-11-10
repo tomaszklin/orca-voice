@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { View, Text, Pressable } from 'react-native'
-import { ChevronRight, Minus, Plus, Volume2, type LucideIcon } from 'lucide-react-native'
+import { Minus, Plus, Volume2, type LucideIcon } from 'lucide-react-native'
 import { MobileSwitch } from '../components/MobileSwitch'
 import { PickerModal } from '../components/PickerModal'
 import { readAloudScreenStyles as styles } from './read-aloud-screen-styles'
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { ChoiceRow } from './read-aloud-setting-rows'
 import { readAloudStyles } from './read-aloud-settings-styles'
 import { useLanguageVoices } from './reading-preferences'
 import { speakVoiceSample, useSpeechOptions } from './speech-options'
@@ -28,27 +29,6 @@ type SpeechOptionsState = ReturnType<typeof useSpeechOptions>
 function useVoiceChoices(state: SpeechOptionsState) {
   const { voices, options } = state
   return useMemo(() => (voices ? voiceChoices(voices, options.voice) : []), [voices, options.voice])
-}
-
-function ValueRow({
-  label,
-  value,
-  onPress
-}: {
-  label: string
-  value: string
-  onPress: () => void
-}) {
-  useMobileColorScheme()
-  return (
-    <Pressable accessibilityRole="button" style={styles.row} onPress={onPress}>
-      <View style={styles.rowContent}>
-        <Text style={styles.rowLabel}>{label}</Text>
-        <Text style={styles.rowSublabel}>{value}</Text>
-      </View>
-      <ChevronRight size={18} color={colors.textMuted} />
-    </Pressable>
-  )
 }
 
 function StepButton({
@@ -170,7 +150,7 @@ export function ReadAloudVoiceGroup({
         <View style={[styles.section, styles.sectionTopGap]}>
           <SpeedRows state={state} />
           <View style={styles.separator} />
-          <ValueRow
+          <ChoiceRow
             label="Voice"
             value={describeVoice(state.options.voice, choices)}
             onPress={() => onOpenPicker('voice')}
