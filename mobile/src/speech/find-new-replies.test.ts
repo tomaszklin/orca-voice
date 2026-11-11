@@ -115,6 +115,7 @@ describe('findNewReplies', () => {
       agent({ stateStartedAt: 1, lastAssistantMessage: 'Back soon', subagents: [...subagents] })
     ])
     expect(held.newReplies).toEqual([])
+    expect(held.heldBack).toEqual(['pane-1'])
     const settled = findNewReplies(held.baseline, [
       agent({ stateStartedAt: 1, lastAssistantMessage: 'Back soon' })
     ])

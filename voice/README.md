@@ -1086,3 +1086,25 @@ Desktop właściciela jest na `v1.4.255`; fork przeniesiony z `v1.4.247` (skill 
 
 Do sprawdzenia na telefonie: przycisk „Read”, auto-czytanie, załączanie plików w czacie
 terminalowym, dyktowanie Orki razem z czytaniem na głos.
+
+## Poprawki z przeglądu czytania (build 63, 2026-11-11)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Przegląd kodu czytania (prośba właściciela: „co chwila dziury, kiedy czyta, kiedy nie”).
+- Pauza albo Stop starsze niż 10 minut ustępują następnej nowej wiadomości
+  (`USER_HOLD_EXPIRES_MS`). Słuchawki z czujnikiem ucha i auta same naciskają Pauzę, a po
+  10 minutach przyciski słuchawek wracają do muzyki, więc taka pauza blokowała czytanie po cichu.
+  Pauza auto-czytania (przycisk w powiadomieniu) dalej trzyma bez limitu; jej wznowienie nie kończy
+  już pauzy zrobionej przez użytkownika (`Hold.byAutoRead`).
+- „Tylko przez słuchawki”: wiadomość bez słuchawek czeka na nie (`unplugged`) zamiast przepadać.
+- Utrata dźwięku (inna aplikacja, za długi telefon) odkłada przerwaną wiadomość na początek kolejki,
+  także tę, w którą wszedł przycisk „Read”; Play ją czyta od początku.
+- Agent, który kończy turę „zaraz wrócę” i czeka na subagenta: tura po jego powrocie zaczyna się od
+  `<task-notification>`, ale jest czytana (wcześniej filtr tur ją odrzucał i nie było słychać nic).
+- Filtr „tylko odpowiedzi na moje wiadomości” działa też dla kanałów czatu (`turn-origin.ts`), więc
+  nie zależy już od zakresu czytania ani od tego, czy ekran jest włączony.
+- `user-turn-guard.ts` zapisuje odpowiedziane prompty dopiero po przyjęciu wyników (`commit`).
+- Dzwonek i nazwa projektu decydowane przy starcie wiadomości, nie przy wstawieniu do kolejki.
+- Każde odrzucenie wiadomości jest w logu (`[read-aloud]` w `adb logcat`) z powodem.
+- Natywnie: odmowa fokusu przy starcie silnika zgłasza „held” raz, nie dla każdego kawałka.

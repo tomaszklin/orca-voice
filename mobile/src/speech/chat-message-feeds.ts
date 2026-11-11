@@ -5,6 +5,7 @@ import { randomV4Uuid } from '../platform/random-v4-uuid'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { chatTargetForPane, readWorktreeTabs, type ChatTarget, type Tab } from './chat-feed-target'
 import { logSpeechEvent } from './speech-diagnostics'
+import { turnOrigins } from './turn-origin'
 
 /**
  * Orca Voice fork: every assistant message of every agent chat, as it lands in the transcript.
@@ -77,6 +78,8 @@ type Feed = {
   baselined: boolean
   pendingBase: boolean
   turnStartedAt: number | null
+  /** Whether the turn being written began with the user's own message; unknown counts as yes. */
+  turnFromUser: boolean
 }
 
 export type AwaitedReply = { id: string; paneKey: string; text: string }
@@ -99,11 +102,12 @@ export type ChatMessageFeeds = {
 type IsNested = (client: RpcClient, paneKey: string, target: ChatTarget) => Promise<boolean>
 
 /**
- * `speak` answers whether it read the message, which is what `heard` remembers. `isNested` says
+ * `speak` answers whether it handled the message (read it, or chose not to), which is what `heard`
+ * remembers; `fromUser` says whether its turn began with the owner's own message. `isNested` says
  * whether a pane's reported session is only a run its agent started, which a feed does not follow.
  */
 export function createChatMessageFeeds(
-  speak: (paneKey: string, messageId: string, text: string) => boolean,
+  speak: (paneKey: string, messageId: string, text: string, fromUser: boolean) => boolean,
   isNested: IsNested = async () => false
 ): ChatMessageFeeds {
   const feeds = new Map<string, Feed>()
@@ -118,11 +122,16 @@ export function createChatMessageFeeds(
   const heard = (paneKey: string, text: string) =>
     (spoken.get(paneKey) ?? []).includes(sameMessageKey(text))
 
-  const announce = (paneKey: string, messages: readonly FrameMessage[]) => {
+  const announce = (
+    paneKey: string,
+    messages: readonly FrameMessage[],
+    fromUser: ReadonlyMap<string, boolean>
+  ) => {
     for (const message of messages) {
       const text = assistantText(message)
+      const byUser = fromUser.get(message.id) ?? true
       // Why: a reopened feed replays what an earlier feed or the final-reply check already read.
-      if (text && !heard(paneKey, text) && speak(paneKey, message.id, text)) {
+      if (text && !heard(paneKey, text) && speak(paneKey, message.id, text, byUser)) {
         remember(paneKey, text)
       }
     }
@@ -158,19 +167,28 @@ export function createChatMessageFeeds(
       feed.pendingBase = true
       return
     }
-    const unseen = (frame.messages ?? []).filter((message) => !feed.seen.has(message.id))
+    const messages = frame.messages ?? []
+    // A window's first turn may have its prompt off the page, so it counts as the user's.
+    const window = frame.type === 'snapshot' || frame.type === 'replacement'
+    const { origins: fromUser, last } = turnOrigins(messages, window || feed.turnFromUser)
+    feed.turnFromUser = last
+    const unseen = messages.filter((message) => !feed.seen.has(message.id))
     for (const message of unseen) {
       feed.seen.add(message.id)
     }
     if (frame.type === 'appended' && feed.baselined) {
-      announce(paneKey, unseen)
+      announce(paneKey, unseen, fromUser)
       return
     }
     if (frame.type !== 'snapshot' && frame.type !== 'replacement') {
       return
     }
     if (feed.baselined) {
-      announce(paneKey, unseen.filter((message) => assistantText(message)).slice(-MAX_REPLAYED))
+      announce(
+        paneKey,
+        unseen.filter((message) => assistantText(message)).slice(-MAX_REPLAYED),
+        fromUser
+      )
       return
     }
     feed.baselined = true
@@ -180,7 +198,7 @@ export function createChatMessageFeeds(
       const thisTurn = unseen.filter(
         (message) => assistantText(message) && (message.timestamp ?? 0) >= since
       )
-      announce(paneKey, thisTurn.slice(-MAX_REPLAYED))
+      announce(paneKey, thisTurn.slice(-MAX_REPLAYED), fromUser)
     }
   }
 
@@ -200,7 +218,8 @@ export function createChatMessageFeeds(
       seen: new Set(),
       baselined: false,
       pendingBase: false,
-      turnStartedAt: pane.turnStartedAt
+      turnStartedAt: pane.turnStartedAt,
+      turnFromUser: true
     }
     feeds.set(pane.paneKey, feed)
     feed.close = client.subscribe(

@@ -10,6 +10,7 @@ import {
   type ChatTarget,
   type Tab
 } from './chat-feed-target'
+import { logSpeechEvent } from './speech-diagnostics'
 
 /**
  * Orca Voice fork: tells a pane's own agent from a `claude -p` that agent started.
@@ -159,6 +160,7 @@ export function createNestedSessionGuard(): NestedSessionGuard {
           const status = tabForPane(tabs, row.rawPaneKey)?.agentStatus
           const working = (status?.mainAgent?.state ?? status?.state) === 'working'
           if (!(await isOwnReply(client, row.paneKey, target, working))) {
+            logSpeechEvent(`skipped reply in ${row.paneKey}: a run its agent started wrote it`)
             nested.add(row.paneKey)
           }
         }

@@ -6,9 +6,9 @@ const transcript: { current: unknown[] | null } = { current: null }
 // Orca moved the tabs read to its own module; both mocks hand out the same object.
 vi.mock('../session/tabs/mobile-session-tab-read-operations', async () => ({
   sessionTabsListRead: (
-    (await import(
-      '../session/native-chat/agent-session/mobile-native-chat-page-read-operations'
-    )) as unknown as { sessionTabsListRead: unknown }
+    (await import('../session/native-chat/agent-session/mobile-native-chat-page-read-operations')) as unknown as {
+      sessionTabsListRead: unknown
+    }
   ).sessionTabsListRead
 }))
 vi.mock('../session/native-chat/agent-session/mobile-native-chat-page-read-operations', () => ({
@@ -71,31 +71,44 @@ describe('latestPrompt', () => {
     expect(latestPrompt([answer])).toBeNull()
   })
 })
-
 describe('createUserTurnGuard', () => {
   beforeEach(() => {
     transcript.current = null
   })
 
+  async function read(guard: ReturnType<typeof createUserTurnGuard>) {
+    const result = await guard.userReplies(client, rows, [reply])
+    result.commit()
+    return result.replies
+  }
+
   it('reads the first reply to a prompt and skips a second one with no new prompt', async () => {
     const guard = createUserTurnGuard()
     transcript.current = [user('u1', 'Build it'), answer]
-    expect(await guard.userReplies(client, rows, [reply])).toEqual([reply])
+    expect(await read(guard)).toEqual([reply])
     // A message from another session is hidden from the transcript: the same prompt is latest.
     transcript.current = [user('u1', 'Build it'), answer, answer]
-    expect(await guard.userReplies(client, rows, [reply])).toEqual([])
+    expect(await read(guard)).toEqual([])
     transcript.current = [user('u1', 'Build it'), answer, answer, user('u2', 'Again'), answer]
-    expect(await guard.userReplies(client, rows, [reply])).toEqual([reply])
+    expect(await read(guard)).toEqual([reply])
+  })
+
+  it('reads a reply again when the poll that found it was dropped', async () => {
+    const guard = createUserTurnGuard()
+    transcript.current = [user('u1', 'Build it'), answer]
+    const dropped = await guard.userReplies(client, rows, [reply])
+    expect(dropped.replies).toEqual([reply])
+    expect(await read(guard)).toEqual([reply])
   })
 
   it('skips a reply to a background task notice', async () => {
     transcript.current = [user('u1', 'Build it'), answer, notice, answer]
-    expect(await createUserTurnGuard().userReplies(client, rows, [reply])).toEqual([])
+    expect(await read(createUserTurnGuard())).toEqual([])
   })
 
   it('reads the reply when the transcript cannot tell', async () => {
-    expect(await createUserTurnGuard().userReplies(client, rows, [reply])).toEqual([reply])
+    expect(await read(createUserTurnGuard())).toEqual([reply])
     transcript.current = [answer]
-    expect(await createUserTurnGuard().userReplies(client, rows, [reply])).toEqual([reply])
+    expect(await read(createUserTurnGuard())).toEqual([reply])
   })
 })

@@ -475,7 +475,11 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     languageVoices.clear()
     applyOptions()
     waiting.forEach { it(tts) }
-    queued.forEach { (id, text) -> enqueue(id, text) }
+    for ((id, text) in queued) {
+      enqueue(id, text)
+      // A refused focus held the reading and told the reader once; the rest wait with it.
+      if (heldByInterruption) break
+    }
   }
 
   private fun enqueue(id: String, text: String) {

@@ -27,6 +27,7 @@ vi.mock('./voice-native-module', () => ({ voiceNativeModule: () => native }))
 
 const { canGoPrevious, previousTarget } = await import('./reader-model')
 const { RESUME_WITHIN_MS, UNPLUG_RECHECK_MS, expireHolds } = await import('./reader-interruptions')
+const { USER_HOLD_EXPIRES_MS } = await import('./reader-model')
 const { playChimeSample, speakSample } = await import('./reader-samples')
 const {
   nextMessage,
@@ -106,14 +107,20 @@ describe('speakReply', () => {
     expect(spoken).toHaveLength(3)
   })
 
-  it('ends the reading but keeps what waits when another app takes the audio for good', () => {
+  it('ends the reading but keeps the message and what waits when another app takes the audio', () => {
     speakReply('a', reply, 'queue')
+    const first = last().text
     speakReply('b', 'Second.', 'queue')
     audio.current('interrupted', 'another app took the audio')
     finishPiece()
     expect(spoken).toHaveLength(1)
     expect(lastState()).toBe('stopped')
+    expect(lastStatus()).toBe('2 waiting')
     speakReply('c', 'Third.', 'queue')
+    expect(last().text).toBe(first)
+    finishPiece()
+    finishPiece()
+    finishPiece()
     expect(last().text).toBe('Second.')
     finishPiece()
     expect(last().text).toBe('Third.')
@@ -632,7 +639,10 @@ describe('interruptions', () => {
     const before = spoken.length
     audio.current('regained', null)
     expect(spoken).toHaveLength(before)
-    expect(lastState()).toBe('idle')
+    // The message waits for Play, from its start.
+    expect(lastState()).toBe('stopped')
+    playReading('test')
+    expect(last().text).toBe(spoken[0].text)
   })
 
   it('stays paused after a call when auto-read was paused during it', () => {
@@ -660,18 +670,98 @@ describe('interruptions', () => {
     audio.current('held', null)
     expireHolds(Date.now() + RESUME_WITHIN_MS + 1)
     expect(lastState()).toBe('stopped')
-    expect(lastStatus()).toBe('1 waiting')
+    expect(lastStatus()).toBe('2 waiting')
+  })
+})
+
+describe('holds nobody came back to', () => {
+  it('lets a new message end a pause older than the limit', () => {
+    speakReply('first', reply, 'queue')
+    const first = last().text
+    pauseReading('headset')
+    speakReply('soon', 'Soon.', 'queue')
+    expect(lastState()).toBe('paused')
+    vi.setSystemTime(Date.now() + USER_HOLD_EXPIRES_MS + 1)
+    speakReply('later', 'Later.', 'queue')
+    expect(lastState()).toBe('reading')
+    expect(last().text).toBe(first)
+  })
+
+  it('lets a new message end a stop older than the limit', () => {
+    speakReply('first', 'First.', 'queue')
+    speakReply('second', 'Second.', 'queue')
+    stopReading('test')
+    vi.setSystemTime(Date.now() + USER_HOLD_EXPIRES_MS + 1)
+    speakReply('third', 'Third.', 'queue')
+    expect(last().text).toBe('First.')
+  })
+
+  it('keeps auto-read paused however long it lasts', () => {
+    speakReply('first', reply, 'queue')
+    setAutoPlay(false)
+    vi.setSystemTime(Date.now() + USER_HOLD_EXPIRES_MS + 1)
+    const before = spoken.length
+    speakReply('later', 'Later.', 'queue')
+    expect(spoken).toHaveLength(before)
+    expect(lastState()).toBe('paused')
+  })
+
+  it('does not end the user’s own pause when auto-read resumes', () => {
+    speakReply('first', reply, 'queue')
+    pauseReading('test')
+    setAutoPlay(false)
+    setAutoPlay(true)
+    expect(lastState()).toBe('paused')
+  })
+
+  it('keeps the message the Read button cut in on when the audio is lost', () => {
+    speakReply('auto', reply, 'queue')
+    const first = last().text
+    speakReply('button', 'Button.', 'interrupt')
+    audio.current('interrupted', null)
+    expect(lastState()).toBe('stopped')
+    playReading('test')
+    expect(last().text).toBe(first)
+  })
+})
+
+describe('intro decided when the message starts', () => {
+  it('asks for the intro only once the message begins', () => {
+    const intro = vi.fn(() => ({ name: 'Orca Voice', title: 'OrcaVoice' }))
+    speakReply('first', reply, 'queue')
+    speakReply('second', 'Second.', 'queue', intro)
+    expect(intro).not.toHaveBeenCalled()
+    for (let i = 0; i < 3; i++) {
+      finishPiece()
+    }
+    expect(intro).toHaveBeenCalledTimes(1)
+    expect(last().text).toBe('Orca Voice.')
+    finishPiece()
+    expect(last().text).toBe('Second.')
   })
 })
 
 describe('headphones only', () => {
-  it('skips auto-read through the phone speaker, but not the Read button', () => {
+  it('holds auto-read until headphones come, but not the Read button', () => {
     setAutoReadNeedsHeadphones(true)
     native.isPrivateOutput.mockReturnValue(false)
     speakReply('auto', 'Auto.', 'queue')
     expect(spoken).toEqual([])
+    expect(lastState()).toBe('paused')
     speakReply('button', 'Button.', 'interrupt')
     expect(last().text).toBe('Button.')
+  })
+
+  it('reads a message that came without headphones once they are back', () => {
+    setAutoReadNeedsHeadphones(true)
+    native.isPrivateOutput.mockReturnValue(false)
+    speakReply('auto', 'Auto.', 'queue')
+    speakReply('next', 'Next.', 'queue')
+    native.isPrivateOutput.mockReturnValue(true)
+    audio.current('private-output', null)
+    expect(last().text).toBe('Auto.')
+    finishPiece()
+    expect(last().text).toBe('Next.')
   })
 
   it('pauses when the headphones go and goes on when they are back', () => {

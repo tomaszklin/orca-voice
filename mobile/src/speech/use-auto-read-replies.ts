@@ -42,6 +42,13 @@ export type ReplyBaseline = ReadonlyMap<string, string>
 /** `endedAt` is when the reply's turn ended, by the host's clock. */
 export type NewReply = { paneKey: string; message: string; endedAt: number }
 
+export type FoundReplies = {
+  baseline: ReplyBaseline
+  newReplies: NewReply[]
+  /** Panes whose finished reply waits for the turn its running subagents wake. */
+  heldBack: string[]
+}
+
 const isRunningSubagent = ({ state }: { state: string }) =>
   state === 'working' || state === 'blocked' || state === 'waiting'
 
@@ -59,9 +66,10 @@ export function findNewReplies(
   baseline: ReplyBaseline,
   agents: readonly SpokenAgentRow[],
   hostSeenBefore = false
-): { baseline: ReplyBaseline; newReplies: NewReply[] } {
+): FoundReplies {
   const next = new Map(baseline)
   const newReplies: NewReply[] = []
+  const heldBack: string[] = []
   for (const agent of agents) {
     // Why: subagent replies are steps of the parent's turn, not answers to the user.
     if (agent.parentPaneKey) {
@@ -86,6 +94,7 @@ export function findNewReplies(
     // Why: an agent that left a subagent working ends its turn with "I'll be back" and wakes when
     // the subagent ends. Left unrecorded, so the text is still read if that turn never comes.
     if (finished !== null && agent.subagents?.some(isRunningSubagent)) {
+      heldBack.push(agent.paneKey)
       continue
     }
     if (finished !== null && key !== seen) {
@@ -95,7 +104,7 @@ export function findNewReplies(
       next.set(agent.paneKey, key)
     }
   }
-  return { baseline: next, newReplies }
+  return { baseline: next, newReplies, heldBack }
 }
 
 /** The latest value, read when a message arrives, so a changed choice applies at once. */
@@ -148,15 +157,25 @@ export function useAutoReadReplies(): void {
     let lastRead: LastReadMessage | null = null
     // Fresh with the reply baseline, so waits that began while auto-read was off are not announced.
     let waitBaseline: WaitBaseline = new Map()
+    // Panes whose agent ended its turn waiting for subagents. The turn they wake starts with a
+    // harness notice, yet answers the user's message, so it is read (review, 2026-11-11: the
+    // reply held for it was then skipped as not the user's, and nothing was heard at all).
+    let awaitingWake: ReadonlySet<string> = new Set()
+    const readsOtherTurn = (paneKey: string) =>
+      otherTurnRepliesRef.current === 'on' || awaitingWake.has(paneKey)
     const speakAutoRead = (id: string, paneKey: string, text: string) => {
       const project = projectByPane.get(paneKey) ?? null
-      const now = Date.now()
-      const intro = {
-        chime: chimeBeforeMessage(chimeModeRef.current, project, lastRead, now),
-        name: projectNameIntro(projectNameModeRef.current, project, lastRead, now),
-        title: project
+      // Decided when the message starts, after what was heard before it, not when it was queued.
+      const intro = () => {
+        const now = Date.now()
+        const said = {
+          chime: chimeBeforeMessage(chimeModeRef.current, project, lastRead, now),
+          name: projectNameIntro(projectNameModeRef.current, project, lastRead, now),
+          title: project
+        }
+        lastRead = { project, at: now }
+        return said
       }
-      lastRead = { project, at: now }
       speakReply(id, text, 'queue', intro)
     }
     const readsEveryMessage = () =>
@@ -165,11 +184,20 @@ export function useAutoReadReplies(): void {
     const nestedSessions = createNestedSessionGuard()
     const userTurns = createUserTurnGuard()
     const structuredTurns = createStructuredTurnReader()
-    const feeds = createChatMessageFeeds((paneKey, messageId, text) => {
+    const feeds = createChatMessageFeeds((paneKey, messageId, text, fromUser) => {
       // Why: feeds stay open off screen, and a message can land before JS is suspended there.
       const offScreen = AppState.currentState !== 'active' && !backgroundReadingActive()
       if (offScreen || !readsEveryMessage()) {
+        logSpeechEvent(
+          `feed message not read (${offScreen ? 'off screen' : 'read scope'}): ${paneKey}`
+        )
         return false
+      }
+      // The same rule as final replies, so the read scope does not decide it (review, 2026-11-11).
+      // Handled, not read: its final reply is skipped too rather than read late.
+      if (!fromUser && !readsOtherTurn(paneKey)) {
+        logSpeechEvent(`skipped feed message in ${paneKey}: its turn began with a harness message`)
+        return true
       }
       speakAutoRead(`${paneKey}#${messageId}`, paneKey, text)
       return true
@@ -220,6 +248,7 @@ export function useAutoReadReplies(): void {
         let baseline = baselineRef.current
         const seenHosts: string[] = []
         const commits: (() => void)[] = []
+        const wake = new Set(awaitingWake)
         for (const [index, { hostId, client }] of connected.entries()) {
           const hostRows = rows[index]
           if (!hostRows) {
@@ -228,19 +257,33 @@ export function useAutoReadReplies(): void {
           const found = findNewReplies(baseline, hostRows, hostsSeen.has(hostId))
           baseline = found.baseline
           seenHosts.push(hostId)
+          for (const paneKey of found.heldBack) {
+            if (!wake.has(paneKey)) {
+              logSpeechEvent(`reply held until the subagents end: ${paneKey}`)
+              wake.add(paneKey)
+            }
+          }
           const turns = await structuredTurns.replies(client, hostRows, found.newReplies)
           commits.push(turns.commit)
           const own = await nestedSessions.ownReplies(client, hostRows, turns.replies)
-          const answers =
-            otherTurnRepliesRef.current === 'on'
-              ? own
-              : await userTurns.userReplies(client, hostRows, own)
+          const woken = own.filter(({ paneKey }) => readsOtherTurn(paneKey))
+          const guarded = await userTurns.userReplies(
+            client,
+            hostRows,
+            own.filter(({ paneKey }) => !readsOtherTurn(paneKey))
+          )
+          commits.push(guarded.commit)
+          const answers = [...woken, ...guarded.replies].sort((a, b) => a.endedAt - b.endedAt)
+          for (const { paneKey } of answers) {
+            wake.delete(paneKey)
+          }
           newReplies.push(...answers)
         }
         if (cancelled || run !== generation) {
           return
         }
         baselineRef.current = baseline
+        awaitingWake = wake
         for (const hostId of seenHosts) {
           hostsSeen.add(hostId)
         }

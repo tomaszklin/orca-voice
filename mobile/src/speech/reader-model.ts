@@ -4,6 +4,14 @@ import type { ReaderState } from './voice-native-module'
 
 const HISTORY_LENGTH = 10
 
+/**
+ * A pause or stop older than this gives way to the next new message. Headphones with ear
+ * detection and some cars press Pause by themselves, and after 10 minutes the headset buttons go
+ * back to the music app (`ReadAloudMediaSession.kt`), so such a pause held every later message
+ * without a sound (review, 2026-11-11). Auto-read's own pause is not affected.
+ */
+export const USER_HOLD_EXPIRES_MS = 10 * 60_000
+
 /** `language`: a sentence run in another language than the reading voice's, read in its own voice. */
 export type Piece = { kind: 'chime' } | { kind: 'text'; text: string; language?: string | null }
 
@@ -19,7 +27,11 @@ export type Utterance = {
   title: string | null
   auto: boolean
   body: string
+  /** Decided when the message starts, so the chime and name follow what was heard last. */
+  intro: (() => ReplyIntro) | null
 }
+
+export type ReplyIntro = { chime?: boolean; name?: string | null; title?: string | null }
 
 /**
  * Why nothing plays while something is waiting to be read: `paused` by the user until they
@@ -27,7 +39,12 @@ export type Utterance = {
  * dictation and `unplugged` (headphones-only option, the headphones or car went away), both
  * resumed when that ends.
  */
-export type Hold = { reason: 'paused' | 'stopped' | 'interrupted' | 'unplugged'; since: number }
+export type Hold = {
+  reason: 'paused' | 'stopped' | 'interrupted' | 'unplugged'
+  since: number
+  /** Made by pausing auto-read, which resuming it ends; the user's own pause stays. */
+  byAutoRead?: boolean
+}
 
 /** The queue's message the Read button cut in on. `hold` is null when it was playing. */
 export type Parked = { utterance: Utterance; piece: number; from: number; hold: Hold | null }
@@ -42,6 +59,11 @@ const HOLD_STATUS: Record<Hold['reason'], string> = {
 /** A hold only the user ends; calls and unplugged headphones leave it as it is. */
 export function heldByUser(hold: Hold | null): boolean {
   return hold?.reason === 'paused' || hold?.reason === 'stopped'
+}
+
+/** The user's pause or stop, kept longer than `USER_HOLD_EXPIRES_MS`. */
+export function holdOverdue(hold: Hold | null, now: number): boolean {
+  return hold !== null && heldByUser(hold) && now - hold.since > USER_HOLD_EXPIRES_MS
 }
 
 /**

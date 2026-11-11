@@ -8,6 +8,7 @@ import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import type { AutoReadAgentRow } from './auto-read-agent-rows'
 import { chatTargetForPane, readWorktreeTabs, type Tab } from './chat-feed-target'
 import { readTail, type TailMessage } from './nested-session-guard'
+import { logSpeechEvent } from './speech-diagnostics'
 import { createStoredChoice } from './stored-choice'
 
 /**
@@ -47,41 +48,51 @@ export function latestPrompt(messages: readonly TailMessage[]): TurnPrompt | nul
 }
 
 export type UserTurnGuard = {
-  /** The replies that answer the owner's own messages; `rows` are one host's current agent rows. */
+  /**
+   * The replies that answer the owner's own messages; `rows` are one host's current agent rows.
+   * `commit` keeps their prompts as answered; a poll whose results are dropped does not call it,
+   * or its replies would be skipped as already answered when found again (review, 2026-11-11).
+   */
   userReplies<T extends { paneKey: string }>(
     client: RpcClient,
     rows: readonly AutoReadAgentRow[],
     replies: readonly T[]
-  ): Promise<T[]>
+  ): Promise<{ replies: T[]; commit: () => void }>
 }
 
 export function createUserTurnGuard(): UserTurnGuard {
   // The prompt each pane's last read reply answered.
   const answered = new Map<string, string>()
 
-  const answersUser = async (
+  /** Why the pane's reply is skipped, or null when it is read; `staged` gets its prompt. */
+  const skipReason = async (
     client: RpcClient,
     paneKey: string,
     tabs: Tab[],
-    rawPaneKey: string
-  ) => {
+    rawPaneKey: string,
+    staged: Map<string, string>
+  ): Promise<string | null> => {
     const target = chatTargetForPane(tabs, rawPaneKey)
     const tail = target ? await readTail(client, target, PROMPT_SEARCH_MESSAGES) : null
     const prompt = tail ? latestPrompt(tail) : null
     if (!prompt || !prompt.id) {
-      return true
+      return null
     }
-    if (!prompt.fromUser || answered.get(paneKey) === prompt.id) {
-      return false
+    if (!prompt.fromUser) {
+      return 'its turn began with a harness message, not the user'
     }
-    answered.set(paneKey, prompt.id)
-    return true
+    if (answered.get(paneKey) === prompt.id) {
+      return 'its prompt was already answered'
+    }
+    staged.set(paneKey, prompt.id)
+    return null
   }
 
   return {
     async userReplies(client, rows, replies) {
       const replying = new Set(replies.map(({ paneKey }) => paneKey))
       const skipped = new Set<string>()
+      const staged = new Map<string, string>()
       const wanted = rows.filter((row) => replying.has(row.paneKey))
       for (const worktreeId of new Set(wanted.flatMap((row) => row.worktreeId ?? []))) {
         let tabs: Tab[]
@@ -91,12 +102,21 @@ export function createUserTurnGuard(): UserTurnGuard {
           continue
         }
         for (const row of wanted.filter((candidate) => candidate.worktreeId === worktreeId)) {
-          if (!(await answersUser(client, row.paneKey, tabs, row.rawPaneKey))) {
+          const reason = await skipReason(client, row.paneKey, tabs, row.rawPaneKey, staged)
+          if (reason) {
+            logSpeechEvent(`skipped reply in ${row.paneKey}: ${reason}`)
             skipped.add(row.paneKey)
           }
         }
       }
-      return replies.filter(({ paneKey }) => !skipped.has(paneKey))
+      return {
+        replies: replies.filter(({ paneKey }) => !skipped.has(paneKey)),
+        commit: () => {
+          for (const [paneKey, prompt] of staged) {
+            answered.set(paneKey, prompt)
+          }
+        }
+      }
     }
   }
 }

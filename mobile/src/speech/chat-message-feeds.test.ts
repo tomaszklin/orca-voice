@@ -118,6 +118,35 @@ describe('createChatMessageFeeds', () => {
     expect(spoken).toEqual(['During'])
   })
 
+  it('tells whether a message belongs to a turn the user started', async () => {
+    const origins: [string, boolean][] = []
+    const feeds = createChatMessageFeeds((_paneKey, _id, text, fromUser) => {
+      origins.push([text, fromUser])
+      return true
+    })
+    const { client, streams } = fakeClient()
+    await feeds.sync('host', client, [{ ...pane, turnStartedAt: null }], 100_000)
+    streams[0].onFrame({ type: 'snapshot', messages: [] })
+    const user = (id: string, text: string) => ({
+      id,
+      role: 'user',
+      blocks: [{ type: 'text', text }]
+    })
+    streams[0].onFrame({
+      type: 'appended',
+      messages: [user('u1', 'Build it'), assistant('a1', 'Built')]
+    })
+    streams[0].onFrame({
+      type: 'appended',
+      messages: [user('u2', '<task-notification>done</task-notification>')]
+    })
+    streams[0].onFrame({ type: 'appended', messages: [assistant('a2', 'The task ended')] })
+    expect(origins).toEqual([
+      ['Built', true],
+      ['The task ended', false]
+    ])
+  })
+
   it('does not remember messages it was told not to read', async () => {
     const feeds = feedsUnderTest()
     const { client, streams } = fakeClient()
