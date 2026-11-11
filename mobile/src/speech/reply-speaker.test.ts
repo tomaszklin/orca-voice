@@ -116,14 +116,13 @@ describe('speakReply', () => {
     expect(spoken).toHaveLength(1)
     expect(lastState()).toBe('stopped')
     expect(lastStatus()).toBe('2 waiting')
+    // A new message is read first; what was cut off waits for Play.
     speakReply('c', 'Third.', 'queue')
-    expect(last().text).toBe(first)
-    finishPiece()
-    finishPiece()
-    finishPiece()
-    expect(last().text).toBe('Second.')
-    finishPiece()
     expect(last().text).toBe('Third.')
+    finishPiece()
+    expect(lastStatus()).toBe('2 waiting')
+    playReading('test')
+    expect(last().text).toBe(first)
   })
 
   it('says the project name first, as its own piece, and never alone', () => {
@@ -282,23 +281,36 @@ describe('the Stop button', () => {
     stopReading('test')
     expect(stopUtterances).toHaveBeenCalled()
     expect(lastState()).toBe('stopped')
-    expect(lastStatus()).toBe('Stopped · Orca · 1 more waiting')
+    expect(lastStatus()).toBe('2 waiting')
     playReading('test')
     expect(last().text).toBe(start)
     expect(lastState()).toBe('reading')
   })
 
-  it('keeps everything silent until Play, new messages included', () => {
+  it('reads a new message at once and keeps what was stopped for Play (owner, 2026-11-11)', () => {
     speakReply('first', 'First.', 'queue')
     speakReply('second', 'Second.', 'queue')
     stopReading('test')
     speakReply('third', 'Third.', 'queue')
-    expect(spoken.map(({ text }) => text)).toEqual(['First.'])
-    expect(lastStatus()).toBe('Stopped · 2 more waiting')
+    expect(last().text).toBe('Third.')
+    finishPiece()
+    expect(lastState()).toBe('stopped')
+    expect(lastStatus()).toBe('2 waiting')
     playReading('test')
     finishPiece()
-    finishPiece()
-    expect(spoken.map(({ text }) => text)).toEqual(['First.', 'First.', 'Second.', 'Third.'])
+    expect(spoken.map(({ text }) => text)).toEqual(['First.', 'Third.', 'First.', 'Second.'])
+  })
+
+  it('keeps messages waiting with nothing being read when Stop is pressed', () => {
+    setAutoPlay(false)
+    speakReply('first', 'First.', 'queue')
+    speakReply('second', 'Second.', 'queue')
+    setAutoPlay(true)
+    stopUtterances.mockClear()
+    stopReading('test')
+    setAutoPlay(true)
+    speakReply('third', 'Third.', 'queue')
+    expect(last().text).toBe('Third.')
   })
 
   it('goes idle with nothing waiting, so new messages are read as they come', () => {
@@ -310,17 +322,19 @@ describe('the Stop button', () => {
   })
 
   it('moves on with Next and goes back with Previous, however long it stood', () => {
-    speakReply('first', 'First.', 'queue')
+    // Ids of their own: the history outlives each test, and a message read again keeps its place.
+    speakReply('nav-first', 'First.', 'queue')
     finishPiece()
-    speakReply('second', 'Second.', 'queue')
-    speakReply('third', 'Third.', 'queue')
+    speakReply('nav-second', 'Second.', 'queue')
+    speakReply('nav-third', 'Third.', 'queue')
     stopReading('test')
     vi.setSystemTime(Date.now() + 60_000)
+    // With nothing being read, Previous reads the stopped message again.
     previousMessage('test')
-    expect(last().text).toBe('First.')
+    expect(last().text).toBe('Second.')
     stopReading('test')
     nextMessage('test')
-    expect(last().text).toBe('Second.')
+    expect(last().text).toBe('Third.')
     expect(lastState()).toBe('reading')
   })
 
@@ -685,15 +699,6 @@ describe('holds nobody came back to', () => {
     speakReply('later', 'Later.', 'queue')
     expect(lastState()).toBe('reading')
     expect(last().text).toBe(first)
-  })
-
-  it('lets a new message end a stop older than the limit', () => {
-    speakReply('first', 'First.', 'queue')
-    speakReply('second', 'Second.', 'queue')
-    stopReading('test')
-    vi.setSystemTime(Date.now() + USER_HOLD_EXPIRES_MS + 1)
-    speakReply('third', 'Third.', 'queue')
-    expect(last().text).toBe('First.')
   })
 
   it('keeps auto-read paused however long it lasts', () => {

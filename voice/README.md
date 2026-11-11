@@ -1108,3 +1108,12 @@ Przegląd kodu czytania (prośba właściciela: „co chwila dziury, kiedy czyta
 - Dzwonek i nazwa projektu decydowane przy starcie wiadomości, nie przy wstawieniu do kolejki.
 - Każde odrzucenie wiadomości jest w logu (`[read-aloud]` w `adb logcat`) z powodem.
 - Natywnie: odmowa fokusu przy starcie silnika zgłasza „held” raz, nie dla każdego kawałka.
+
+## Stop odkłada zaległe, nowa wiadomość czytana od razu (build 64, 2026-11-11)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel: po Stop przy 10 czekających nowa wiadomość zaczynała czytanie od starej. Stop (i utrata
+dźwięku na rzecz innej aplikacji) przenosi teraz przerwaną wiadomość, od początku, i całą kolejkę
+do osobnej listy zaległych (`backlog` w `reply-speaker.ts`). Nowe wiadomości czytają się od razu;
+zaległe czytają tylko Play i Next. Powiadomienie pokazuje je jako „N waiting”.

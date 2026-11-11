@@ -12,6 +12,7 @@ import {
   type Parked,
   type Utterance
 } from './reader-model'
+import { autoReadNeedsHeadphones } from './reader-options'
 import { reportReader, useReported } from './reader-report'
 import { replyUtterance, withIntro, type ReplyIntro } from './reply-pieces'
 import { voiceNativeModule, type ReaderState } from './voice-native-module'
@@ -21,8 +22,15 @@ import { voiceNativeModule, type ReaderState } from './voice-native-module'
  * `title` names the message in the notification and on a car's display.
  */
 export type { ReplyIntro } from './reply-pieces'
+export { autoReadNeedsHeadphones, setAutoReadNeedsHeadphones } from './reader-options'
 
 let queue: Utterance[] = []
+/**
+ * What Stop or a lost audio left waiting: read only with Play or Next, so a message that comes
+ * later is read at once (owner, 2026-11-11: after Stop with 10 waiting, a new message started
+ * an old one).
+ */
+let backlog: Utterance[] = []
 let current: Utterance | null = null
 /** The piece of `current` being read, where a resume starts again. */
 let piece = 0
@@ -34,16 +42,33 @@ let hold: Hold | null = null
 let parked: Parked | null = null
 /** Messages auto-read read lately, oldest first. */
 let history: Utterance[] = []
-let headphonesOnly = false
 // Off while auto-read is paused: nothing starts by itself, new messages wait for Play or Next.
 let autoPlay = true
 
+function waiting(): number {
+  return queue.length + backlog.length
+}
+
 function readerState(): ReaderState {
-  return readingState(current, hold, queue.length)
+  return readingState(current, hold, waiting())
 }
 
 function emit(): void {
-  reportReader(readerReport(current, hold, queue.length, parked !== null, history))
+  reportReader(readerReport(current, hold, waiting(), parked !== null, history))
+}
+
+/** `cutOff` and the queue wait for Play, ahead of what waited before. */
+function toBacklog(cutOff: Utterance | null): void {
+  // The ids are apart already: a message taken or queued leaves the other lists.
+  backlog = [...(cutOff ? [cutOff] : []), ...queue, ...backlog]
+  queue = []
+}
+
+/** Nothing is read any more; the engine stops. */
+function silence(): void {
+  current = null
+  hold = null
+  stopUtterances()
 }
 
 /** Makes `utterance` the one being read, from its start. */
@@ -59,6 +84,7 @@ function take(utterance: Utterance): Utterance {
   const started = withIntro(utterance)
   // Why: Previous can pick a message that also waits in the queue, which would read it twice.
   queue = queue.filter((queued) => queued.id !== started.id)
+  backlog = backlog.filter((waited) => waited.id !== started.id)
   // What the Read button reads stays outside the queue, so Previous never goes back to it.
   if (started.auto) {
     history = remembered(history, started)
@@ -72,8 +98,13 @@ function take(utterance: Utterance): Utterance {
  * as a Bluetooth hiccup when it arrived lost it for good (review, 2026-11-11).
  */
 function playNext(byUser = false): void {
+  if (byUser && queue.length === 0) {
+    queue = backlog
+    backlog = []
+  }
   const next = queue.shift() ?? null
-  if (next?.auto && !byUser && headphonesOnly && voiceNativeModule()?.isPrivateOutput() === false) {
+  const noHeadphones = voiceNativeModule()?.isPrivateOutput() === false
+  if (next?.auto && !byUser && autoReadNeedsHeadphones() && noHeadphones) {
     logSpeechEvent(`waiting for headphones: ${next.id}`)
     current = take(next)
     piece = 0
@@ -166,9 +197,10 @@ function start(utterance: Utterance, mode: 'interrupt' | 'queue'): void {
     `${mode === 'interrupt' ? 'read' : 'auto-read'} ${utterance.id} (${utterance.pieces.length} pieces)`
   )
   // The Read button also takes its reply out of the queue, where it can wait under another id.
-  queue = queue.filter(
-    (queued) => queued.id !== utterance.id && (mode === 'queue' || queued.body !== utterance.body)
-  )
+  const other = (queued: Utterance) =>
+    queued.id !== utterance.id && (mode === 'queue' || queued.body !== utterance.body)
+  queue = queue.filter(other)
+  backlog = backlog.filter(other)
   if (mode === 'interrupt') {
     readOutsideQueue(utterance)
     return
@@ -180,10 +212,9 @@ function start(utterance: Utterance, mode: 'interrupt' | 'queue'): void {
     // A pause nobody came back to (often the headset's own) no longer holds new messages.
     resumeReading(`${hold?.reason} too long, a new message came`)
   } else {
-    const waitingFor = hold?.reason ?? (autoPlay ? null : 'auto-read paused')
-    if (waitingFor) {
-      logSpeechEvent(`waiting (${waitingFor}): ${utterance.id}`)
-    }
+    logSpeechEvent(
+      `waiting: ${utterance.id} (${hold?.reason ?? (autoPlay ? 'reading' : 'auto-read paused')})`
+    )
     emit()
   }
 }
@@ -223,9 +254,7 @@ export function holdReading(reason: Hold['reason'], label: string, byAutoRead = 
   if (heldByUser(hold)) {
     return
   }
-  if (hold === null) {
-    resumeFrom = pieceFrom + spokenOffset()
-  }
+  resumeFrom = hold === null ? pieceFrom + spokenOffset() : resumeFrom
   hold = { reason, since: Date.now(), ...(byAutoRead ? { byAutoRead } : {}) }
   logSpeechEvent(`${reason}: ${label}`)
   // A call's hold keeps the focus request, so its end is reported.
@@ -258,7 +287,7 @@ export function resumeReading(reason: string): void {
 export function playReading(reason: string): void {
   if (hold) {
     resumeReading(reason)
-  } else if (current === null && queue.length > 0) {
+  } else if (current === null && waiting() > 0) {
     logSpeechEvent(`play: ${reason}`)
     playNext(true)
   } else if (current === null && history.length > 0) {
@@ -274,9 +303,7 @@ export function nextMessage(reason: string): void {
     return
   }
   logSpeechEvent(`next: ${reason}`)
-  hold = null
-  current = null
-  stopUtterances()
+  silence()
   playNext(true)
 }
 
@@ -299,25 +326,21 @@ export function previousMessage(reason: string): void {
 }
 
 /**
- * The Stop button, which like a player's keeps the queue: the message goes back to its start, and
- * it and what waits wait for Play. With nothing waiting the reader is simply idle, so new messages
- * are read as they come. Stopping the Read button's message leaves the queue's where it was.
+ * The Stop button. The message, from its start, and what waits are kept for Play or Next; new
+ * messages are read as they come. With nothing waiting the message is only in Previous's history.
+ * Stopping the Read button's message leaves the queue's where it was.
  */
 export function stopReading(reason: string): void {
-  if (current === null || hold?.reason === 'stopped') {
+  if (current === null && queue.length === 0) {
     return
   }
   logSpeechEvent(`stopped: ${reason}`)
-  stopUtterances()
-  if (!current.auto) {
+  if (current?.auto === false) {
+    stopUtterances()
     unpark()
-  } else if (queue.length > 0) {
-    piece = 0
-    resumeFrom = 0
-    hold = { reason: 'stopped', since: Date.now() }
   } else {
-    current = null
-    hold = null
+    toBacklog(queue.length > 0 ? current : null)
+    silence()
   }
   emit()
 }
@@ -325,43 +348,28 @@ export function stopReading(reason: string): void {
 // --- What happens to the audio meanwhile. ---
 
 /**
- * The reading ends without the user asking. The queue's message it cut off goes back to the front
- * of the queue, from its start, so nothing is lost (review, 2026-11-11: the message the Read button
- * cut in on was dropped); it and what waits go on with Play or the next message.
+ * The reading ends without the user asking. The queue's message it cut off, from its start, and
+ * what waits are kept for Play, like after Stop, so nothing is lost (review, 2026-11-11: the
+ * message the Read button cut in on was dropped) and a new message is still read first.
  */
 export function endReading(reason: string): void {
   logSpeechEvent(`ended: ${reason}`)
-  const cutOff = current?.auto ? current : (parked?.utterance ?? null)
-  if (cutOff) {
-    queue = [cutOff, ...queue.filter((queued) => queued.id !== cutOff.id)]
-  }
+  toBacklog(current?.auto ? current : (parked?.utterance ?? null))
   parked = null
-  current = null
-  hold = null
-  stopUtterances()
+  silence()
   emit()
 }
 
 /** Ends only auto-read's part: the queue, and the message being read if it started it. */
 export function stopAutoReading(reason: string): void {
   queue = []
+  backlog = []
   parked = null
   if (current?.auto) {
     logSpeechEvent(`ended: auto-read: ${reason}`)
-    current = null
-    hold = null
-    stopUtterances()
+    silence()
   }
   emit()
-}
-
-/** From the Read aloud settings: auto-read only through headphones or a car. */
-export function setAutoReadNeedsHeadphones(on: boolean): void {
-  headphonesOnly = on
-}
-
-export function autoReadNeedsHeadphones(): boolean {
-  return headphonesOnly
 }
 
 export function readerHold(): Hold | null {
