@@ -162,8 +162,9 @@ class ReadAloudService : Service() {
       } else {
         action(R.drawable.orca_voice_next_off, "No message waiting", null)
       },
-      // Stopped already, messages wait for Play: there is nothing to stop.
-      if (readerState == "reading" || readerState == "paused") {
+      // Also with messages only waiting: Stop marks them as read (owner, 2026-11-12: the count of
+      // waiting messages stayed, with Stop dimmed).
+      if (active) {
         action(R.drawable.orca_voice_stop, "Stop reading", controlIntent(2, ACTION_STOP_READING))
       } else {
         action(R.drawable.orca_voice_stop_off, "Nothing to stop", null)

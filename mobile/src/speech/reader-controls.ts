@@ -10,9 +10,9 @@ import {
   pauseReading,
   playReading,
   previousMessage,
-  setAutoReadNeedsHeadphones,
   stopReading
 } from './reply-speaker'
+import { setAutoReadNeedsHeadphones } from './reader-options'
 import { setLanguageVoices } from './language-segments'
 import { setLinkReading, setTableReading } from './speech-text'
 import { voiceNativeModule, type ReaderControl } from './voice-native-module'

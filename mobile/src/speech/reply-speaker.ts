@@ -8,6 +8,7 @@ import {
   readerReport,
   readingState,
   remembered,
+  waitingReason,
   type Hold,
   type Parked,
   type Utterance
@@ -17,18 +18,11 @@ import { reportReader, useReported } from './reader-report'
 import { replyUtterance, withIntro, type ReplyIntro } from './reply-pieces'
 import { voiceNativeModule, type ReaderState } from './voice-native-module'
 
-/**
- * Said before a message (auto-read): a chime, then the project name, each a piece of its own.
- * `title` names the message in the notification and on a car's display.
- */
-export type { ReplyIntro } from './reply-pieces'
-export { autoReadNeedsHeadphones, setAutoReadNeedsHeadphones } from './reader-options'
-
 let queue: Utterance[] = []
 /**
- * What Stop or a lost audio left waiting: read only with Play or Next, so a message that comes
- * later is read at once (owner, 2026-11-11: after Stop with 10 waiting, a new message started
- * an old one).
+ * What a lost audio (another app, a call too long) left waiting: read only with Play or Next, so a
+ * message that comes later is read at once (owner, 2026-11-11: a new message started an old one);
+ * Stop marks it as read.
  */
 let backlog: Utterance[] = []
 let current: Utterance | null = null
@@ -57,10 +51,13 @@ function emit(): void {
   reportReader(readerReport(current, hold, waiting(), parked !== null, history))
 }
 
-/** `cutOff` and the queue wait for Play, ahead of what waited before. */
-function toBacklog(cutOff: Utterance | null): void {
-  // The ids are apart already: a message taken or queued leaves the other lists.
-  backlog = [...(cutOff ? [cutOff] : []), ...queue, ...backlog]
+/**
+ * The queue's message and everything waiting are marked as read: never read by themselves again,
+ * but kept in Previous's history, oldest first (owner, 2026-11-12: Stop left them waiting).
+ */
+function markRead(): void {
+  history = [...backlog, ...(current?.auto ? [current] : []), ...queue].reduce(remembered, history)
+  backlog = []
   queue = []
 }
 
@@ -205,16 +202,18 @@ function start(utterance: Utterance, mode: 'interrupt' | 'queue'): void {
     readOutsideQueue(utterance)
     return
   }
+  // A pause nobody came back to (often the headset's own) gives way to the new message, and what
+  // waited behind it counts as read, as after Stop (owner, 2026-11-12: old messages came first).
+  if (autoPlay && current?.auto && holdOverdue(hold, Date.now())) {
+    logSpeechEvent(`${hold?.reason} too long: what waited is marked read`)
+    markRead()
+    silence()
+  }
   queue.push(utterance)
   if (current === null && hold === null && autoPlay) {
     playNext()
-  } else if (autoPlay && holdOverdue(hold, Date.now())) {
-    // A pause nobody came back to (often the headset's own) no longer holds new messages.
-    resumeReading(`${hold?.reason} too long, a new message came`)
   } else {
-    logSpeechEvent(
-      `waiting: ${utterance.id} (${hold?.reason ?? (autoPlay ? 'reading' : 'auto-read paused')})`
-    )
+    logSpeechEvent(`waiting: ${utterance.id} (${waitingReason(hold, autoPlay)})`)
     emit()
   }
 }
@@ -244,14 +243,12 @@ export function speakReply(
  * unplugged headphones' hold never replaces it.
  */
 export function holdReading(reason: Hold['reason'], label: string, byAutoRead = false): void {
-  if (current === null) {
-    // Nothing to come back to: the focus kept for a call's end can go now.
-    if (reason === 'interrupted') {
+  // The user's pause or stop stays. With nothing to come back to, the focus kept for a call's end
+  // can go now.
+  if (current === null || heldByUser(hold)) {
+    if (current === null && reason === 'interrupted') {
       stopUtterances()
     }
-    return
-  }
-  if (heldByUser(hold)) {
     return
   }
   resumeFrom = hold === null ? pieceFrom + spokenOffset() : resumeFrom
@@ -326,12 +323,12 @@ export function previousMessage(reason: string): void {
 }
 
 /**
- * The Stop button. The message, from its start, and what waits are kept for Play or Next; new
- * messages are read as they come. With nothing waiting the message is only in Previous's history.
- * Stopping the Read button's message leaves the queue's where it was.
+ * The Stop button: the message and everything waiting are marked as read, and new messages are
+ * read as they come; Previous still reaches them. Stopping the Read button's message leaves the
+ * queue's where it was.
  */
 export function stopReading(reason: string): void {
-  if (current === null && queue.length === 0) {
+  if (current === null && waiting() === 0) {
     return
   }
   logSpeechEvent(`stopped: ${reason}`)
@@ -339,7 +336,7 @@ export function stopReading(reason: string): void {
     stopUtterances()
     unpark()
   } else {
-    toBacklog(queue.length > 0 ? current : null)
+    markRead()
     silence()
   }
   emit()
@@ -354,7 +351,10 @@ export function stopReading(reason: string): void {
  */
 export function endReading(reason: string): void {
   logSpeechEvent(`ended: ${reason}`)
-  toBacklog(current?.auto ? current : (parked?.utterance ?? null))
+  // The ids are apart already: a message taken or queued leaves the other lists.
+  const cutOff = current?.auto ? current : (parked?.utterance ?? null)
+  backlog = [...(cutOff ? [cutOff] : []), ...queue, ...backlog]
+  queue = []
   parked = null
   silence()
   emit()

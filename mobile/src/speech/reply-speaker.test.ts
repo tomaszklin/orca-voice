@@ -28,6 +28,7 @@ vi.mock('./voice-native-module', () => ({ voiceNativeModule: () => native }))
 const { canGoPrevious, previousTarget } = await import('./reader-model')
 const { RESUME_WITHIN_MS, UNPLUG_RECHECK_MS, expireHolds } = await import('./reader-interruptions')
 const { USER_HOLD_EXPIRES_MS } = await import('./reader-model')
+const { setAutoReadNeedsHeadphones } = await import('./reader-options')
 const { playChimeSample, speakSample } = await import('./reader-samples')
 const {
   nextMessage,
@@ -36,7 +37,6 @@ const {
   previousMessage,
   resumeReading,
   setAutoPlay,
-  setAutoReadNeedsHeadphones,
   speakReply,
   stopAutoReading,
   stopReading
@@ -61,9 +61,10 @@ function lastStatus() {
   return native.setReaderState.mock.calls.at(-1)?.[2]
 }
 
+// Auto-read's part first: a Stop would put what waits into the history the next test reads.
 function resetReader() {
-  stopReading('test')
   stopAutoReading('test')
+  stopReading('test')
 }
 
 beforeEach(() => {
@@ -273,32 +274,38 @@ describe('reading controls', () => {
 })
 
 describe('the Stop button', () => {
-  it('keeps the queue: Play starts the message again and reads on', () => {
-    speakReply('first', reply, 'queue', { title: 'Orca' })
-    speakReply('second', 'Second.', 'queue')
-    const start = last().text
+  it('marks the message and what waits as read (owner, 2026-11-12)', () => {
+    speakReply('stop-first', reply, 'queue', { title: 'Orca' })
+    speakReply('stop-second', 'Second.', 'queue')
     finishPiece()
     stopReading('test')
     expect(stopUtterances).toHaveBeenCalled()
-    expect(lastState()).toBe('stopped')
-    expect(lastStatus()).toBe('2 waiting')
-    playReading('test')
-    expect(last().text).toBe(start)
-    expect(lastState()).toBe('reading')
+    expect(lastState()).toBe('idle')
+    expect(lastStatus()).toBeNull()
+    // Previous still reaches them, the last one first.
+    previousMessage('test')
+    expect(last().text).toBe('Second.')
   })
 
-  it('reads a new message at once and keeps what was stopped for Play (owner, 2026-11-11)', () => {
+  it('reads a new message at once and never the ones stopped', () => {
     speakReply('first', 'First.', 'queue')
     speakReply('second', 'Second.', 'queue')
     stopReading('test')
     speakReply('third', 'Third.', 'queue')
     expect(last().text).toBe('Third.')
     finishPiece()
-    expect(lastState()).toBe('stopped')
+    expect(lastState()).toBe('idle')
+    nextMessage('test')
+    expect(spoken.map(({ text }) => text)).toEqual(['First.', 'Third.'])
+  })
+
+  it('clears messages that only wait, after the audio was lost', () => {
+    speakReply('lost', 'Lost.', 'queue')
+    speakReply('behind', 'Behind.', 'queue')
+    audio.current('interrupted', null)
     expect(lastStatus()).toBe('2 waiting')
-    playReading('test')
-    finishPiece()
-    expect(spoken.map(({ text }) => text)).toEqual(['First.', 'Third.', 'First.', 'Second.'])
+    stopReading('test')
+    expect(lastState()).toBe('idle')
   })
 
   it('keeps messages waiting with nothing being read when Stop is pressed', () => {
@@ -327,14 +334,14 @@ describe('the Stop button', () => {
     finishPiece()
     speakReply('nav-second', 'Second.', 'queue')
     speakReply('nav-third', 'Third.', 'queue')
-    stopReading('test')
-    vi.setSystemTime(Date.now() + 60_000)
-    // With nothing being read, Previous reads the stopped message again.
-    previousMessage('test')
-    expect(last().text).toBe('Second.')
-    stopReading('test')
     nextMessage('test')
     expect(last().text).toBe('Third.')
+    stopReading('test')
+    vi.setSystemTime(Date.now() + 60_000)
+    previousMessage('test')
+    expect(last().text).toBe('Third.')
+    previousMessage('test')
+    expect(last().text).toBe('Second.')
     expect(lastState()).toBe('reading')
   })
 
@@ -347,7 +354,7 @@ describe('the Stop button', () => {
     setAutoPlay(false)
     setAutoPlay(true)
     stopReading('test')
-    expect(lastState()).toBe('stopped')
+    expect(lastState()).toBe('idle')
     expect(spoken).toHaveLength(1)
   })
 })
@@ -428,14 +435,14 @@ describe('the Read button stays outside the queue', () => {
     expect(last().text).toBe(first.slice(16))
   })
 
-  it('stays out of a Stop: the queue stays stopped afterwards', () => {
+  it('stays out of a Stop: nothing the Stop cleared comes back after it', () => {
     speakReply('auto', 'Auto.', 'queue')
     speakReply('waiting', 'Waiting.', 'queue')
     stopReading('test')
     speakReply('button', 'Button.', 'interrupt')
     finishPiece()
     expect(last().text).toBe('Button.')
-    expect(lastState()).toBe('stopped')
+    expect(lastState()).toBe('idle')
   })
 
   it('stops alone: silence, with the queue paused at its word for Play', () => {
@@ -689,16 +696,17 @@ describe('interruptions', () => {
 })
 
 describe('holds nobody came back to', () => {
-  it('lets a new message end a pause older than the limit', () => {
+  it('reads a new message after a pause older than the limit, and not what waited', () => {
     speakReply('first', reply, 'queue')
-    const first = last().text
     pauseReading('headset')
     speakReply('soon', 'Soon.', 'queue')
     expect(lastState()).toBe('paused')
     vi.setSystemTime(Date.now() + USER_HOLD_EXPIRES_MS + 1)
     speakReply('later', 'Later.', 'queue')
     expect(lastState()).toBe('reading')
-    expect(last().text).toBe(first)
+    expect(last().text).toBe('Later.')
+    finishPiece()
+    expect(lastState()).toBe('idle')
   })
 
   it('keeps auto-read paused however long it lasts', () => {

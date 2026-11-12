@@ -13,8 +13,8 @@ const MAIN_PILL = { reading: 'Pause', paused: 'Resume', stopped: 'Play' }
 /**
  * Mounted once above the navigator: drives auto-read and the reading buttons, and while a reply is
  * being read shows Pause and Stop pills over whatever screen is open — including the pages the
- * desktop serves, which the shell cannot add controls to. Stopped with messages waiting, a Play
- * pill stays, as the notification exists only with screen-off reading.
+ * desktop serves, which the shell cannot add controls to. With messages only waiting, Play reads
+ * them and Stop marks them as read, as the notification exists only with screen-off reading.
  */
 export function ReplyReaderOverlay(): React.JSX.Element | null {
   useMobileColorScheme()
@@ -42,18 +42,17 @@ export function ReplyReaderOverlay(): React.JSX.Element | null {
         )}
         <Text style={styles.label}>{MAIN_PILL[state]}</Text>
       </Pressable>
-      {state === 'stopped' ? null : (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Stop reading reply"
-          hitSlop={8}
-          style={styles.pill}
-          onPress={() => stopReading('Stop button')}
-        >
-          <Square size={12} color={colors.textPrimary} />
-          <Text style={styles.label}>Stop</Text>
-        </Pressable>
-      )}
+      {/* With messages only waiting too: Stop marks them as read. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Stop reading and mark what waits as read"
+        hitSlop={8}
+        style={styles.pill}
+        onPress={() => stopReading('Stop pill')}
+      >
+        <Square size={12} color={colors.textPrimary} />
+        <Text style={styles.label}>Stop</Text>
+      </Pressable>
     </View>
   )
 }

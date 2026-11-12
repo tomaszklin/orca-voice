@@ -1117,3 +1117,23 @@ Właściciel: po Stop przy 10 czekających nowa wiadomość zaczynała czytanie 
 dźwięku na rzecz innej aplikacji) przenosi teraz przerwaną wiadomość, od początku, i całą kolejkę
 do osobnej listy zaległych (`backlog` w `reply-speaker.ts`). Nowe wiadomości czytają się od razu;
 zaległe czytają tylko Play i Next. Powiadomienie pokazuje je jako „N waiting”.
+
+## Stop oznacza czekające jako przeczytane (build 65, 2026-11-12)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel: po Stop w powiadomieniu wisiał napis „N waiting”, a nowa wiadomość dalej uruchamiała
+stare, pominięte. Teraz:
+- Stop (powiadomienie, słuchawki, pigułka na ekranie) oznacza czytaną wiadomość i wszystko, co
+  czeka, jako przeczytane (`markRead` w `reply-speaker.ts`). Trafiają do historii, więc Poprzednia
+  dalej do nich sięga, ale same już się nie czytają.
+- Stop działa też, gdy wiadomości tylko czekają (wcześniej w powiadomieniu był wyszarzony, a na
+  ekranie nie było pigułki Stop) — tak znika napis „N waiting”.
+- Pauza starsza niż 10 minut: nowa wiadomość czyta się sama, a to, co czekało za pauzą, jest
+  oznaczone jako przeczytane (wcześniej wznawiała starą wiadomość i całą kolejkę).
+- Utrata dźwięku (inna aplikacja, za długi telefon) dalej odkłada wiadomości do zaległych: Play i
+  Następna je czytają, Stop czyści.
+
+Przerwy w czytaniu przy otwartym czacie: dyktowanie Orki (`expo-two-way-audio`) bierze fokus
+`GAIN_TRANSIENT_EXCLUSIVE` i nagrywa mikrofonem, więc czytanie celowo czeka i wraca po dyktowaniu
+(zasada z 2026-10-21). Bez logów z telefonu nie potwierdzone, że to była ta przerwa.

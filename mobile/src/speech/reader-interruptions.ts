@@ -1,11 +1,6 @@
 import { heldByUser, type Hold } from './reader-model'
-import {
-  autoReadNeedsHeadphones,
-  endReading,
-  holdReading,
-  readerHold,
-  resumeReading
-} from './reply-speaker'
+import { autoReadNeedsHeadphones } from './reader-options'
+import { endReading, holdReading, readerHold, resumeReading } from './reply-speaker'
 import { onAudioEvent } from './tts-engine'
 import { voiceNativeModule } from './voice-native-module'
 

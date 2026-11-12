@@ -61,6 +61,11 @@ export function heldByUser(hold: Hold | null): boolean {
   return hold?.reason === 'paused' || hold?.reason === 'stopped'
 }
 
+/** Why a new message waits, for the app log. */
+export function waitingReason(hold: Hold | null, autoPlay: boolean): string {
+  return hold?.reason ?? (autoPlay ? 'reading' : 'auto-read paused')
+}
+
 /** The user's pause or stop, kept longer than `USER_HOLD_EXPIRES_MS`. */
 export function holdOverdue(hold: Hold | null, now: number): boolean {
   return hold !== null && heldByUser(hold) && now - hold.since > USER_HOLD_EXPIRES_MS
