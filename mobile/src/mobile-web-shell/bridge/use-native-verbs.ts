@@ -18,6 +18,7 @@ import {
 } from './bridge-audio-verbs'
 import {
   clipboardReadResultSchema,
+  a11yAnnounceResultSchema,
   clipboardWriteResultSchema,
   pdfViewResultSchema,
   type BridgeClipboardMime,
@@ -71,6 +72,10 @@ export type NativeVerbs = {
   speechRead: () => Promise<BridgeSpeechRead>
   speechFinish: () => Promise<BridgeSpeechFinish>
   speechCancel: () => Promise<void>
+  // Older shells lack it; the page then keeps its live region, which VoiceOver may not read.
+  canAnnounce: boolean
+  // True when the shell spoke it.
+  announce: (message: string) => Promise<boolean>
   canSpeak: boolean
   speak: (id: string, markdown: string) => Promise<boolean>
 }
@@ -208,6 +213,9 @@ export function useNativeVerbs(): NativeVerbs {
       speechCancel: async () => {
         await call(BRIDGE_SPEECH_VERB, { action: 'cancel' }, speechCancelResultSchema)
       },
+      canAnnounce: has('native.a11y.announce'),
+      announce: async (message) =>
+        (await call('native.a11y.announce', { message }, a11yAnnounceResultSchema)).announced,
       canSpeak: has('native.speech.control'),
       speak: async (id, markdown) =>
         (

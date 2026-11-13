@@ -1,5 +1,5 @@
 import type { ActionSheetAction } from '../components/ActionSheetModal'
-import { mobileNativeChatAttachActions } from '../session/native-chat/mobile-native-chat-attach-actions'
+import { mobileNativeChatAttachActions } from '../session/native-chat/composer/mobile-native-chat-attach-actions'
 
 const NOOP = (): void => {}
 const TERMINAL_CHAT_ROWS: ReadonlySet<string> = new Set(['Photos', 'Files'])

@@ -7,6 +7,7 @@ import { NATIVE_AUDIO_DEVICE_SAMPLE_RATE, nativeAudioDeviceEngine } from './nati
 import { createNativeSpeechServer } from './native-speech'
 import { nativeSpeechDeviceEngine } from './native-speech-device'
 import { serveNativeClipboardVerb } from './native-clipboard'
+import { serveNativeAnnounceVerb } from './native-accessibility-announce'
 import { createNativeMediaVerbServer } from './native-media'
 import { serveNativeReplySpeechVerb } from './native-reply-speech'
 import { discardStagedMedia, nativeMediaDeviceDeps } from './native-media-device'
@@ -40,6 +41,9 @@ export function useNativeDeviceVerbs(
       }
       if (verb === 'native.speech.act') {
         return speech.serve(params)
+      }
+      if (verb === 'native.a11y.announce') {
+        return Promise.resolve(serveNativeAnnounceVerb(params))
       }
       if (verb === 'native.audio.start') {
         return speech.mayCapture().then((may) =>

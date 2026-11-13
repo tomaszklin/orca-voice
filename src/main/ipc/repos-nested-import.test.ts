@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type * as GitRunner from '../git/runner'
+import type * as GitSpawnModule from '../git/command-runner/git-spawn'
 import type * as RepoModule from '../git/repo'
 
 const { reposMocks, moduleMocks, gitRepoProbeMocks } = await vi.hoisted(async () => {
@@ -35,8 +35,8 @@ vi.mock('electron', () => moduleMocks.electronModuleMock(reposMocks))
 vi.mock('../git/repo', async (importOriginal) =>
   moduleMocks.gitRepoModuleMock(await importOriginal<typeof RepoModule>(), gitRepoProbeMocks)
 )
-vi.mock('../git/runner', async (importOriginal) =>
-  moduleMocks.gitRunnerModuleMock(reposMocks, await importOriginal<typeof GitRunner>())
+vi.mock('../git/command-runner/git-spawn', async (importOriginal) =>
+  moduleMocks.gitSpawnModuleMock(reposMocks, await importOriginal<typeof GitSpawnModule>())
 )
 vi.mock('../git/worktrees/catalog/worktree-scan-cache', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -50,7 +50,7 @@ vi.mock('../workspaces/creation/worktree-root-preparation', () =>
 )
 
 import { registerRepoHandlers } from './repos'
-import { clearGitCapabilityStateForTests } from '../git/command-runner/git-capability-state'
+import { clearGitCapabilityStateForTests } from '../git/command-runner/host-routing/git-capability-state'
 import { resetSshProviderAuthorities } from '../ssh/connection/authority/ssh-provider-authority'
 import { getGitRepoRoot, isGitRepo } from '../git/repo'
 import { createRepoHandlerHarness, resetProjectGroupMocks } from './repos-remote-test-harness'
@@ -70,7 +70,17 @@ describe('projectGroups IPC validation', () => {
     mockWindow.webContents.send.mockReset()
     resetProjectGroupMocks(reposMocks, { isGitRepo, getGitRepoRoot })
 
-    registerRepoHandlers(mockWindow as never, mockStore as never, {} as never)
+    registerRepoHandlers(
+      mockWindow as never,
+      mockStore as never,
+      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: These IPC cases use only the metadata owner's enqueue method; other runtime handlers are not invoked.
+      {
+        repositoryForkBackfill: {
+          enqueue: vi.fn().mockResolvedValue(undefined),
+          resolve: vi.fn().mockResolvedValue(true)
+        }
+      } as never
+    )
   })
 
   const group = {
@@ -119,7 +129,11 @@ describe('projectGroups IPC validation', () => {
         mode: 'group'
       })
 
-      expect(result).toMatchObject({ importedCount: 0, failedCount: 1 })
+      expect(result).toMatchObject({
+        importedCount: 0,
+        failedCount: 1,
+        projects: [{ errorCode: 'not_in_scan' }]
+      })
       expect(mockStore.addRepo).not.toHaveBeenCalled()
     })
   })

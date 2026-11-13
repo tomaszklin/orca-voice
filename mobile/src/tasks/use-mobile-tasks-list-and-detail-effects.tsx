@@ -1,8 +1,8 @@
 import { githubTaskKey } from './github-task-identity'
+import { taskItemIdentity } from './task-draft-rows'
 import { translate } from '../i18n/mobile-i18n'
 import type { ProjectLoadingActionsModel } from './use-mobile-tasks-project-loading-actions'
 import {
-  type View,
   clearMobileTaskCopyFeedbackTimer,
   dropFailedGitHubRepoSlugEntries,
   useCallback,
@@ -52,7 +52,6 @@ export function useMobileTasksListAndDetailEffects(model: ProjectLoadingActionsM
     setError,
     setGithubProjectError,
     setGithubRepoSlugCache,
-    setLinearCommentDraft,
     setLinearStates,
     setLinearStatesError,
     setLinearStatesLoading,
@@ -82,7 +81,7 @@ export function useMobileTasksListAndDetailEffects(model: ProjectLoadingActionsM
     return () => clearTimeout(timer)
   }, [githubKind, provider, query, taskStateHydrated])
 
-  const setTaskCopyFeedbackRootRef = useCallback((node: View | null): void => {
+  const setTaskCopyFeedbackRootRef = useCallback((node: unknown): void => {
     if (node !== null) {
       return
     }
@@ -246,7 +245,6 @@ export function useMobileTasksListAndDetailEffects(model: ProjectLoadingActionsM
 
   const linearMetadataKey = linearMetadataItem?.key ?? null
   useEffect(() => {
-    setLinearCommentDraft('')
     setLinearSubIssueTitle('')
   }, [linearMetadataKey])
 
@@ -315,7 +313,6 @@ export function useMobileTasksItemSelectionEffects(
     | 'setItemAddAssigneesDraft'
     | 'setItemAddLabelsDraft'
     | 'setItemBodyDraft'
-    | 'setItemCommentDraft'
     | 'setItemRemoveAssigneesDraft'
     | 'setItemRemoveLabelsDraft'
     | 'setItemReplyDrafts'
@@ -333,7 +330,6 @@ export function useMobileTasksItemSelectionEffects(
     setItemAddAssigneesDraft,
     setItemAddLabelsDraft,
     setItemBodyDraft,
-    setItemCommentDraft,
     setItemRemoveAssigneesDraft,
     setItemRemoveLabelsDraft,
     setItemReplyDrafts,
@@ -341,8 +337,7 @@ export function useMobileTasksItemSelectionEffects(
     setItemTitleDraft,
     setPrFileCommentDrafts
   } = model
-  const actionIdentity =
-    actionItem?.provider === 'github' ? githubTaskKey(actionItem.source) : actionItem?.key
+  const actionIdentity = actionItem && taskItemIdentity(actionItem)
 
   const fileRevision =
     model.detailPayload?.provider === 'github'
@@ -357,10 +352,10 @@ export function useMobileTasksItemSelectionEffects(
   }, [actionIdentity, client, fileRevision, resetPrFiles])
 
   // Keyed on identity: status edits, refreshes and reconnects hand over a new object for the same item.
+  // The comment box is not reset: it is kept per item in its draft row.
   useEffect(() => {
     setItemTitleDraft(actionItem?.title ?? '')
     setItemBodyDraft('')
-    setItemCommentDraft('')
     setItemAddLabelsDraft('')
     setItemRemoveLabelsDraft('')
     setItemAddAssigneesDraft('')

@@ -8,7 +8,7 @@ import {
 } from '../../../src/shared/agent-status/contracts/agent-status-field-normalization'
 import { latestStructuredAgentSessionAssistantMessage } from '../../../src/shared/agent-session/requests/structured-agent-session-latest-request'
 import { mainAgentState } from '../../../src/shared/agent-status/lifecycle/main-agent-status'
-import { callAgentSession } from '../session/mobile-structured-agent-session-rpc'
+import { callAgentSession } from '../session/native-chat/agent-session/mobile-structured-agent-session-rpc'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import type { AutoReadAgentRow } from './auto-read-agent-rows'
 import { logSpeechEvent } from './speech-diagnostics'

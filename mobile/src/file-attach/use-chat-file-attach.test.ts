@@ -3,7 +3,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useChatFileAttach } from './use-chat-file-attach'
 import {
-  resetMobileNativeChatDraftStoreForTests,
+  closeMobileNativeChatTabDraft,
   setMobileNativeChatDraftText,
   useMobileNativeChatDraft
 } from '../session/native-chat/composer/mobile-native-chat-draft-store'
@@ -65,7 +65,8 @@ describe('useChatFileAttach', () => {
     renderer = null
     showToast.mockClear()
     picker.pickFiles.mockReset()
-    resetMobileNativeChatDraftStoreForTests()
+    closeMobileNativeChatTabDraft(DRAFT)
+    closeMobileNativeChatTabDraft(OTHER_DRAFT)
   })
 
   function Harness(props: { client: RpcClient; draftKey: string | null }): null {

@@ -4,7 +4,7 @@ import type { AutoReadAgentRow } from './auto-read-agent-rows'
 const calls: { method: string; params: { itemId?: string } }[] = []
 const replies = new Map<string, unknown>()
 
-vi.mock('../session/mobile-structured-agent-session-rpc', () => ({
+vi.mock('../session/native-chat/agent-session/mobile-structured-agent-session-rpc', () => ({
   callAgentSession: async (_client: unknown, method: string, params: { itemId?: string }) => {
     calls.push({ method, params })
     const reply = replies.get(method)
