@@ -63,6 +63,10 @@ export function createVoiceUpdateInstaller(deps: VoiceUpdateInstallerDeps) {
     }
     wired = true
     native.addListener('onUpdateDownload', ({ event, percent, message }) => {
+      if (event === 'installFailed' && status.phase === 'ready') {
+        publish({ phase: 'failed', url: status.url, message: message ?? "Couldn't install the update" })
+        return
+      }
       if (status.phase !== 'downloading') {
         return
       }

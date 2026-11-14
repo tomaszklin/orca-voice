@@ -26,9 +26,9 @@ export type ReaderState = 'idle' | 'reading' | 'paused' | 'stopped'
 /** `ReadAloudControls` in the module. */
 export type ReaderControl = 'stop' | 'previous' | 'pause' | 'play' | 'next'
 
-/** `progress` carries `percent`, `failed` a `message`. */
+/** `progress` carries `percent`; `failed` and `installFailed` (after the download) a `message`. */
 export type UpdateDownloadEvent = {
-  event: 'progress' | 'done' | 'failed'
+  event: 'progress' | 'done' | 'failed' | 'installFailed'
   percent: number | null
   message: string | null
 }

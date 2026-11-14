@@ -8,7 +8,8 @@ import { useVoiceUpdateStatus, voiceUpdateInstaller } from './voice-update-insta
 
 const FINISHED_PHASES = {
   allow: { title: 'Allow Orca to install updates', action: 'Open settings' },
-  ready: { title: 'Update downloaded', action: 'Install' },
+  // Android 12+ installs it silently and Orca restarts; the button is for a refused or older install.
+  ready: { title: 'Installing update', action: 'Install' },
   failed: { title: 'Update failed', action: 'Try again' }
 }
 

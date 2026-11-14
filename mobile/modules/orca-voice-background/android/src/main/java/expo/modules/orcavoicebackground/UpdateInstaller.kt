@@ -5,8 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.content.pm.ServiceInfo
 import android.net.Uri
 import android.os.Build
@@ -61,6 +63,50 @@ class UpdateDownloadService : Service() {
 }
 
 /**
+ * Gets the result of a session install. Android asks the user only when it cannot update silently
+ * (when another store owns Orca's updates, say); then this opens its confirmation.
+ */
+class UpdateInstallReceiver : BroadcastReceiver() {
+  override fun onReceive(context: Context, intent: Intent) {
+    when (intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
+      PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+        @Suppress("DEPRECATION")
+        val confirm = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT) ?: return
+        try {
+          context.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: Exception) {
+          UpdateInstaller.installFailed(context, "Couldn't open the installer")
+        }
+      }
+      PackageInstaller.STATUS_SUCCESS -> {}
+      // The user said no; the overlay keeps "Install" for another try.
+      PackageInstaller.STATUS_FAILURE_ABORTED -> UpdateInstaller.clearRelaunch(context)
+      else -> UpdateInstaller.installFailed(
+        context,
+        intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "Couldn't install the update"
+      )
+    }
+  }
+}
+
+/**
+ * Runs in the new build after Orca updated itself: the update ends the old process, so this brings
+ * Orca back. Android may block opening it from here, so the notification does the same on a tap.
+ */
+class UpdateReplacedReceiver : BroadcastReceiver() {
+  override fun onReceive(context: Context, intent: Intent) {
+    if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+    if (!UpdateInstaller.takeRelaunch(context)) return
+    val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
+    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    UpdateInstaller.notifyUpdated(context, launch)
+    try {
+      context.startActivity(launch)
+    } catch (_: Exception) {}
+  }
+}
+
+/**
  * Orca Voice fork: downloads a build from the fork's GitHub releases. JS follows it through
  * [listener] and opens the system installer when the file is ready; a notification shows the same
  * and also opens the installer, for when Orca was left during the download.
@@ -69,6 +115,7 @@ object UpdateInstaller {
   const val NOTIFICATION_ID = 7419
   const val EXTRA_URL = "url"
   private const val CHANNEL_ID = "orca-voice-updates"
+  private const val RELAUNCH_MARKER = "relaunch"
   @Volatile private var running = false
 
   /** Called with `progress` and a percent, then with `done`, or `failed` and a message. */
@@ -107,9 +154,18 @@ object UpdateInstaller {
     }
   }
 
-  /** False when the download is gone or the installer did not start. */
+  /**
+   * False when the download is gone or the installer did not start. Android 12+ lets an app update
+   * itself without asking, which skips the installer's screens; older phones get the installer.
+   */
   fun openInstaller(context: Context): Boolean {
     if (!apkFile(context).exists()) return false
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      notificationManager(context).cancel(NOTIFICATION_ID)
+      // Why a thread: copying 60 MB into the session would hold up JS for a second or more.
+      Thread { installInSession(context.applicationContext) }.start()
+      return true
+    }
     return try {
       context.startActivity(installerIntent(context))
       notificationManager(context).cancel(NOTIFICATION_ID)
@@ -117,6 +173,67 @@ object UpdateInstaller {
     } catch (_: Exception) {
       false
     }
+  }
+
+  private fun installInSession(context: Context) {
+    val installer = context.packageManager.packageInstaller
+    var sessionId = -1
+    try {
+      val apk = apkFile(context)
+      val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+      params.setAppPackageName(context.packageName)
+      params.setSize(apk.length())
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+      }
+      sessionId = installer.createSession(params)
+      installer.openSession(sessionId).use { session ->
+        apk.inputStream().use { input ->
+          session.openWrite("orca-voice.apk", 0, apk.length()).use { output ->
+            input.copyTo(output, 64 * 1024)
+            session.fsync(output)
+          }
+        }
+        File(updatesDir(context), RELAUNCH_MARKER).createNewFile()
+        val result = Intent(context, UpdateInstallReceiver::class.java)
+        // Mutable: the installer adds the status to this intent.
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+        session.commit(PendingIntent.getBroadcast(context, 3, result, flags).intentSender)
+      }
+    } catch (error: Exception) {
+      if (sessionId != -1) {
+        try {
+          installer.abandonSession(sessionId)
+        } catch (_: Exception) {}
+      }
+      installFailed(context, error.message ?: "Couldn't install the update")
+    }
+  }
+
+  fun installFailed(context: Context, message: String) {
+    clearRelaunch(context)
+    notify(context, "Update failed", message, null, null)
+    listener?.invoke("installFailed", null, message)
+  }
+
+  /** True once after an update this installer started; also drops the installed APK. */
+  fun takeRelaunch(context: Context): Boolean {
+    val due = File(updatesDir(context), RELAUNCH_MARKER).exists()
+    updatesDir(context).listFiles()?.forEach { it.delete() }
+    return due
+  }
+
+  fun clearRelaunch(context: Context) {
+    File(updatesDir(context), RELAUNCH_MARKER).delete()
+  }
+
+  fun notifyUpdated(context: Context, launch: Intent) {
+    notify(context, "Orca updated", "Tap to open", null, launch)
+  }
+
+  /** Orca running again makes the "Orca updated" notification old news. */
+  fun dismissUpdated(context: Context) {
+    if (!running) notificationManager(context).cancel(NOTIFICATION_ID)
   }
 
   /** Android 8+ opens the installer for an app only after the user allowed that app once. */

@@ -37,6 +37,7 @@ function harness(opts: { allowed?: boolean; moduleMissing?: boolean } = {}) {
     progress: (percent: number) => emit({ event: 'progress', percent, message: null }),
     done: () => emit({ event: 'done', percent: null, message: null }),
     fail: (message: string) => emit({ event: 'failed', percent: null, message }),
+    installFail: (message: string) => emit({ event: 'installFailed', percent: null, message }),
     returnToApp: () => returnToApp()
   }
 }
@@ -129,6 +130,18 @@ describe('the in-app update', () => {
     h.installer.install(URL_A)
     h.done()
     expect(h.installer.getStatus().phase).toBe('failed')
+  })
+
+  it('fails visibly when Android refuses the silent install', () => {
+    const h = harness()
+    h.installer.install(URL_A)
+    h.done()
+    h.installFail('INSTALL_FAILED_UPDATE_INCOMPATIBLE')
+    expect(h.installer.getStatus()).toEqual({
+      phase: 'failed',
+      url: URL_A,
+      message: 'INSTALL_FAILED_UPDATE_INCOMPATIBLE'
+    })
   })
 
   it('dismisses a finished update but not a running download', () => {

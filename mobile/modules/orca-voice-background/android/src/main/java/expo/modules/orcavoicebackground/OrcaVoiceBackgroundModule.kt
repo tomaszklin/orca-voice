@@ -33,7 +33,10 @@ class OrcaVoiceBackgroundModule : Module() {
       UpdateInstaller.listener = { event, percent, message ->
         sendEvent("onUpdateDownload", mapOf("event" to event, "percent" to percent, "message" to message))
       }
-      appContext.reactContext?.let { ReadAloudOutput.watch(it) }
+      appContext.reactContext?.let {
+        ReadAloudOutput.watch(it)
+        UpdateInstaller.dismissUpdated(it)
+      }
     }
 
     /** False when Android refused the service, e.g. a start attempted from the background. */

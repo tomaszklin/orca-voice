@@ -1162,3 +1162,26 @@ Desktop właściciela jest na `v1.4.258`; fork przeniesiony z `v1.4.255` (skill 
 
 Do sprawdzenia na telefonie: czy aplikacja startuje (nowe Expo, nasz moduł natywny), przycisk „Read”,
 auto-czytanie przy zgaszonym ekranie, załączanie plików, wbudowana strona i aktualizacja w aplikacji.
+
+## Cicha aktualizacja (build 70, 2026-11-14)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel: po „Update” Android pokazywał cztery okna: „Zaktualizuj” (instalator), „Skanuj” i
+„Zainstaluj” (Play Protect), na końcu „Otwórz”. Chciał, żeby aktualizacja szła sama.
+
+- `UpdateInstaller.kt`: na Androidzie 12+ zamiast otwierać instalator (`ACTION_VIEW`) Orka instaluje
+  APK sama przez sesję `PackageInstaller` z `USER_ACTION_NOT_REQUIRED` i uprawnieniem
+  `UPDATE_PACKAGES_WITHOUT_USER_ACTION`. Android pozwala na to aplikacji, która aktualizuje samą
+  siebie. Starsze Androidy dalej dostają instalator.
+- `UpdateInstallReceiver`: gdy Android jednak chce zgody, otwiera jego okno (jedno). Błąd instalacji
+  idzie do nakładki jako „Update failed” (zdarzenie `installFailed`).
+- Aktualizacja kończy stary proces. `UpdateReplacedReceiver` (`MY_PACKAGE_REPLACED`) w nowym buildzie
+  próbuje otworzyć Orkę i pokazuje powiadomienie „Orca updated — Tap to open” na wypadek, gdyby Android
+  zablokował start z tła. Działa tylko po aktualizacji, którą zaczęła Orka (plik `relaunch` w
+  katalogu aktualizacji).
+- Nakładka w fazie „ready” mówi „Installing update”.
+- Wejście tej zmiany: aktualizacja **do** buildu 70 idzie jeszcze starą drogą. Cicha działa od
+  aktualizacji na kolejny build.
+- Niepewne: czy Play Protect dalej pyta o skanowanie przy cichej instalacji (podpis kluczem debug,
+  każdy build nowy dla Google). Tego aplikacja nie wyłączy.
