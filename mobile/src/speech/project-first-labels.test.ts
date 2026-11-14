@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { projectFirstPlace, projectFirstTitle, shownBranchName } from './project-first-labels'
+import {
+  PROJECT_ROW_NEST,
+  projectFirstPlace,
+  projectFirstRow,
+  projectFirstRowText,
+  projectFirstTitle,
+  shownBranchName
+} from './project-first-labels'
 
 describe('project-first labels', () => {
   it('names a main checkout after its project, not its branch', () => {
@@ -48,5 +55,30 @@ describe('project-first labels', () => {
         branch: 'main'
       })
     ).toBe('OrcaVoice · Phone app')
+  })
+})
+
+describe('project-first rows', () => {
+  const main = { displayName: 'voice', repo: 'OrcaVoice', branch: 'voice', isMainWorktree: true }
+
+  it('shows no branch for a main checkout, even off the default branch', () => {
+    expect(projectFirstRowText(main, null)).toEqual({ title: 'OrcaVoice', metaText: '' })
+  })
+
+  it('lets the agents stand in for a title that repeats the project header', () => {
+    const row = projectFirstRow({ ...main, agents: [{}] }, 'Folder', true, true)
+    expect(row).toMatchObject({ hideTitle: true, nest: PROJECT_ROW_NEST })
+    expect(projectFirstRow(main, 'Folder', true, true)).toMatchObject({
+      hideTitle: false,
+      titleRepeats: true
+    })
+  })
+
+  it('keeps the title outside a project group', () => {
+    expect(projectFirstRow({ ...main, agents: [{}] }, 'Folder', false, true)).toMatchObject({
+      title: 'OrcaVoice',
+      hideTitle: false,
+      nest: 0
+    })
   })
 })

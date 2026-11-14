@@ -22,7 +22,8 @@ import { WorktreeAgentList } from './WorktreeAgentList'
 import { WorktreeMetaGlyphs, prStateColor } from './WorktreeMetaGlyphs'
 import { PrStateIcon } from './PrStateIcon'
 import { WorktreeUnsavedName } from './WorktreeUnsavedName'
-import { projectFirstRowText } from '../speech/project-first-labels'
+import { projectFirstRow } from '../speech/project-first-labels'
+import { ProjectFirstRowTitle } from '../speech/ProjectFirstRowTitle'
 import { WORKTREE_ROW_LAYOUT } from './worktree-list-row-layout'
 
 type Props = {
@@ -69,12 +70,13 @@ function WorktreeListRowComponent({
   const isFolderWorkspace = item.workspaceKind === 'folder-workspace'
   const folderMeta =
     item.comment?.trim() || item.path || t('components.worktreeListRow.folder', 'Folder')
-  // Orca Voice fork: the project leads; a default or repeated branch is left out.
-  const { title, metaText } = projectFirstRowText(item, isFolderWorkspace ? folderMeta : null)
   const lineageDepth = Math.max(0, view.lineageDepth ?? 0)
-  const indent = projectGroupRowIndent(item, view) + lineageDepth * 18
-  const count = view.lineageChildCount ?? 0
   const shouldHideRepo = hideRepo && !view.showProjectName
+  // Orca Voice fork: the project leads; branches and titles repeating the header are left out.
+  const look = projectFirstRow(item, folderMeta, shouldHideRepo, cardDetails.inlineAgents)
+  const { title, metaText } = look
+  const indent = projectGroupRowIndent(item, view) + lineageDepth * 18 + look.nest
+  const count = view.lineageChildCount ?? 0
   const showRepoChip = cardDetails.repoInTitle && !shouldHideRepo && !isFolderWorkspace
   const showRepoInMetaRow = !cardDetails.repoInTitle && !shouldHideRepo && title !== item.repo
   const hostId = view.hostContextHostId ?? item.hostId
@@ -145,16 +147,14 @@ function WorktreeListRowComponent({
               <MobileRepoIcon repoIcon={repoIcon} size={11} color={repoColor} />
             </View>
           )}
-          <Text
+          <ProjectFirstRowTitle
+            look={look}
             style={[
               styles.worktreeName,
               item.unread && styles.worktreeNameUnread,
               isReadOnly && styles.textReadOnly
             ]}
-            numberOfLines={1}
-          >
-            {title}
-          </Text>
+          />
           {cardDetails.pr && item.linkedPR && (
             <View style={styles.prBadge}>
               <PrStateIcon state={prState} size={10} color={prColor} />

@@ -35,10 +35,11 @@ export const hostScreenSecondaryStyles = themedStyleSheet(() => ({
   sectionRepoIcon: {
     marginRight: spacing.xs
   },
+  // Orca Voice fork: the project header leads its rows, so it reads louder than they do.
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
     flexShrink: 1
   },
   sectionCount: {

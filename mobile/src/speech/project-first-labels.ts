@@ -1,11 +1,15 @@
 /**
  * Orca Voice fork (owner's request, 2026-11-14): session lists lead with the project, not the
  * branch. Orca names a workspace after its branch until someone renames it, so a main checkout
- * shows as "main" on every row while the project name gets cut short. The owner rarely uses
- * branches, so a default branch says nothing and an automatic name is replaced by the project.
+ * shows as "main" on every row under a project header that looks quieter than the row. The owner
+ * rarely uses branches: a main checkout shows no branch at all, and a row that would only repeat
+ * its project header drops its title.
  */
 
 const DEFAULT_BRANCHES = new Set(['main', 'master'])
+
+/** Rows under a project header sit this much deeper than the header's title. */
+export const PROJECT_ROW_NEST = 16
 
 export function shortBranchName(branch: string | null | undefined): string {
   return branch?.replace(/^refs\/heads\//, '').trim() ?? ''
@@ -21,13 +25,17 @@ export function ownWorkspaceName(args: {
   return name === args.repo || name === shortBranchName(args.branch) ? '' : name
 }
 
-/** What a row is called: its own name, else its branch unless that is a default one, else the project. */
+/**
+ * What a row is called: its own name, else (not for a main checkout) its branch unless that is a
+ * default one, else the project.
+ */
 export function projectFirstTitle(args: {
   name: string | null | undefined
   repo: string
   branch: string | null | undefined
+  main?: boolean
 }): string {
-  const branch = shortBranchName(args.branch)
+  const branch = args.main ? '' : shortBranchName(args.branch)
   return (
     ownWorkspaceName(args) || (branch && !DEFAULT_BRANCHES.has(branch) ? branch : '') || args.repo
   )
@@ -41,12 +49,40 @@ export function shownBranchName(branch: string | null | undefined, title: string
 
 /** A workspace row's title and line below it; a folder workspace keeps its own line. */
 export function projectFirstRowText(
-  item: { displayName: string; repo: string; branch: string },
+  item: { displayName: string; repo: string; branch: string; isMainWorktree?: boolean },
   folderMeta: string | null
 ): { title: string; metaText: string } {
-  const branch = folderMeta === null ? item.branch : ''
-  const title = projectFirstTitle({ name: item.displayName, repo: item.repo, branch })
-  return { title, metaText: folderMeta ?? shownBranchName(branch, title) }
+  if (folderMeta !== null) {
+    return { title: item.displayName || item.repo, metaText: folderMeta }
+  }
+  const main = item.isMainWorktree === true
+  const title = projectFirstTitle({ ...item, name: item.displayName, main })
+  return { title, metaText: main ? '' : shownBranchName(item.branch, title) }
+}
+
+/**
+ * A workspace row's text and nesting. Under a project header a title that only repeats the
+ * project gives way to the row's agents, or reads as a quiet "no agents" when it has none.
+ */
+export function projectFirstRow(
+  item: Parameters<typeof projectFirstRowText>[0] & {
+    workspaceKind?: string
+    agents?: readonly unknown[]
+  },
+  folderMeta: string,
+  underProject: boolean,
+  inlineAgents: boolean
+) {
+  const isFolder = item.workspaceKind === 'folder-workspace'
+  const text = projectFirstRowText(item, isFolder ? folderMeta : null)
+  const titleRepeats = underProject && text.title === item.repo
+  const hasAgents = inlineAgents && (item.agents?.length ?? 0) > 0
+  return {
+    ...text,
+    nest: underProject ? PROJECT_ROW_NEST : 0,
+    titleRepeats,
+    hideTitle: titleRepeats && hasAgents
+  }
 }
 
 /** The agent row's footer: project first, then the workspace's own name if it has one. */
