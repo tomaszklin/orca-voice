@@ -342,6 +342,10 @@ export function MobileNativeChatComposer({
             }
             placeholderTextColor={colors.textMuted}
             selectionColor={colors.accentBlue}
+            // Why: on Android a tap on an underlined word opens the system spelling popup, which
+            // keeps reopening over this controlled field and blocks editing the word by hand.
+            // The keyboard's own suggestion strip still works.
+            spellCheck={false}
             multiline
             editable={!editSession?.locked}
             // Why: never revoke `editable` — iOS resigns first responder on a focused
