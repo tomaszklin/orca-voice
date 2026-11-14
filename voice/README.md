@@ -67,6 +67,10 @@ Czat to strona z desktopu, więc APK niesie **własną kopię strony** i serwuje
 - **Przełącznik:** Settings → Chat UI → „Built-in chat page (Read buttons)”, domyślnie włączony
   (`speech/built-in-page-preference.ts`, klucz `orca:voiceBuiltInPage`). Wyłączony = strona z
   desktopu. Zmiana działa dla ekranów otwartych później.
+- **Pamięć strony (build 69, 2026-11-14):** powłoka najpierw otwiera stronę z pamięci, a nowszą tylko
+  pobiera w tle na następne wejście. Przez to buildy 67–68 wyglądały na telefonie jak bez zmian.
+  `openCache` w `mobile-web-shell-session-effects.ts` pomija zapisaną stronę, gdy jej buildId różni się
+  od wbudowanej.
 - Odrzucone: łatanie zainstalowanego desktopu (asar z listą plików po hashach → pełny repack,
   restart Orki, powtarzać po każdej aktualizacji).
 ## Czytanie przy zgaszonym ekranie (build 5–7, 2026-10-18)
