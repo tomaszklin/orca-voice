@@ -20,6 +20,7 @@ import { areStructurallyEqual } from '../worktree/structural-equality'
 import type { AgentListSection } from './agent-list-model'
 import { agentStatusGroup, type AgentListRow } from './agent-list-rows'
 import { agentListPreview } from './agent-list-row-text'
+import { projectFirstPlace } from '../speech/project-first-labels'
 
 // The Home rollup glyph is the list's size; this maps a per-agent state onto its palette.
 const GLYPH_STATUS: Record<AgentDotState, WorktreeStatus> = {
@@ -157,7 +158,8 @@ const MobileAgentListRow = memo(function MobileAgentListRow(props: {
   const needsYou = group === 'needs-you'
   const stateWord = needsYou ? agentStateLabel(row.dotState) : ''
   const place = [
-    props.footer === 'agent' ? formatAgentTypeLabel(agent.agentType) : row.entry.workspaceName,
+    // Orca Voice fork: the project leads, not the workspace named after its branch.
+    props.footer === 'agent' ? formatAgentTypeLabel(agent.agentType) : projectFirstPlace(row.entry),
     props.nameDesktop ? desktop : null
   ]
     .filter(Boolean)

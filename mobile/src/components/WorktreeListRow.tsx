@@ -22,6 +22,7 @@ import { WorktreeAgentList } from './WorktreeAgentList'
 import { WorktreeMetaGlyphs, prStateColor } from './WorktreeMetaGlyphs'
 import { PrStateIcon } from './PrStateIcon'
 import { WorktreeUnsavedName } from './WorktreeUnsavedName'
+import { projectFirstRowText } from '../speech/project-first-labels'
 import { WORKTREE_ROW_LAYOUT } from './worktree-list-row-layout'
 
 type Props = {
@@ -68,14 +69,14 @@ function WorktreeListRowComponent({
   const isFolderWorkspace = item.workspaceKind === 'folder-workspace'
   const folderMeta =
     item.comment?.trim() || item.path || t('components.worktreeListRow.folder', 'Folder')
-  // Match desktop formatBranchName by hiding refs/heads/ prefix.
-  const metaText = isFolderWorkspace ? folderMeta : item.branch.replace(/^refs\/heads\//, '')
+  // Orca Voice fork: the project leads; a default or repeated branch is left out.
+  const { title, metaText } = projectFirstRowText(item, isFolderWorkspace ? folderMeta : null)
   const lineageDepth = Math.max(0, view.lineageDepth ?? 0)
   const indent = projectGroupRowIndent(item, view) + lineageDepth * 18
   const count = view.lineageChildCount ?? 0
   const shouldHideRepo = hideRepo && !view.showProjectName
   const showRepoChip = cardDetails.repoInTitle && !shouldHideRepo && !isFolderWorkspace
-  const showRepoInMetaRow = !cardDetails.repoInTitle && !shouldHideRepo
+  const showRepoInMetaRow = !cardDetails.repoInTitle && !shouldHideRepo && title !== item.repo
   const hostId = view.hostContextHostId ?? item.hostId
   const prState = item.linkedPR?.state ?? ''
   const prColor = prStateColor(prState)
@@ -89,7 +90,7 @@ function WorktreeListRowComponent({
   // Why: like the desktop, skip a blank meta lane when every part of it is off.
   const showMetaRow =
     cardDetails.metaRow &&
-    (lineageDepth > 0 || showHostBadge || showRepoInMetaRow || cardDetails.identity)
+    (lineageDepth > 0 || showHostBadge || showRepoInMetaRow || (cardDetails.identity && metaText))
   // Agent rows take their own taps, so they share the card's long-press menu.
   const openActions = onLongPress
     ? () => {
@@ -152,7 +153,7 @@ function WorktreeListRowComponent({
             ]}
             numberOfLines={1}
           >
-            {item.displayName || item.repo}
+            {title}
           </Text>
           {cardDetails.pr && item.linkedPR && (
             <View style={styles.prBadge}>
@@ -212,11 +213,11 @@ function WorktreeListRowComponent({
                 </Text>
               </>
             )}
-            {cardDetails.identity && (
+            {cardDetails.identity && metaText ? (
               <Text style={styles.branchName} numberOfLines={1}>
                 {metaText}
               </Text>
-            )}
+            ) : null}
           </View>
         )}
         {unsavedName ? <WorktreeUnsavedName name={unsavedName} /> : null}
@@ -361,7 +362,8 @@ const styles = themedStyleSheet(() => ({
   repoName: {
     fontSize: 11,
     color: colors.textSecondary,
-    maxWidth: 100
+    // Orca Voice fork: the project keeps its width; the branch gets what is left.
+    flexShrink: 1
   },
   branchName: {
     fontSize: 11,
