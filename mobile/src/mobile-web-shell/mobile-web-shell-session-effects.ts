@@ -47,7 +47,10 @@ export async function openCache(
 ): Promise<CachedGeneration | null> {
   try {
     const active = await store.readActiveGeneration(hostKey)
-    return active === null
+    // Orca Voice fork: a cached page older than the built-in one would show until a later visit,
+    // so an APK update looked like no change; skip it and load the built-in page now.
+    const embedded = await embeddedManifestInUse()
+    return active === null || (embedded !== null && embedded.buildId !== active.buildId)
       ? null
       : {
           buildId: active.buildId,
