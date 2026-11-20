@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { ID, harness } from '../bridge-host-test-harness'
-import { clientFrame, flushBridge } from '../bridge-host-test-fakes'
-import { BRIDGE_MAX_MESSAGE_BYTES } from './bridge-caps'
-import { SPEECH_MAX_MARKDOWN_CHARS } from './bridge-speech-verbs'
+import { ID, harness } from '../test-support/bridge-host-test-harness'
+import { clientFrame, flushBridge } from '../test-support/bridge-host-test-fakes'
+import { BRIDGE_MAX_MESSAGE_BYTES } from './protocol/bridge-caps'
+import { SPEECH_MAX_MARKDOWN_CHARS } from './native-capabilities/bridge-speech-verbs'
 
 const VERB = 'native.speech.control'
 

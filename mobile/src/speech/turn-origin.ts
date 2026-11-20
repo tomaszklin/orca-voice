@@ -1,4 +1,4 @@
-import { isKnownHarnessInjectedUserTurnText } from '../../../src/shared/harness-injected-user-turns'
+import { isKnownHarnessInjectedUserTurnText } from '../../../src/shared/agent-session/journal/harness-injected-user-turns'
 
 /**
  * Orca Voice fork: whether each message of a chat feed belongs to a turn the owner started, for

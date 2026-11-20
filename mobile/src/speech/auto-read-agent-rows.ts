@@ -2,9 +2,9 @@ import { z } from 'zod'
 import { isRecord } from '../../../src/shared/agent-status/child-work/agent-status-child-work-value-guards'
 import { AGENT_STATUS_STATES } from '../../../src/shared/agent-status/contracts/agent-status-types'
 import { mainAgentState } from '../../../src/shared/agent-status/lifecycle/main-agent-status'
-import type { RuntimeWorktreeAgentRow } from '../../../src/shared/runtime-types'
+import type { RuntimeWorktreeAgentRow } from '../../../src/shared/worktree/catalog/runtime-worktree-contracts'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
-import { worktreeCatalogRead } from '../worktree/worktree-catalog-operations'
+import { worktreeCatalogRead } from '../worktree/catalog/worktree-catalog-operations'
 import type { AgentPane } from './chat-message-feeds'
 
 /** The fields of a `worktree.ps` agent row that auto-read reads. */

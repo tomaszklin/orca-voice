@@ -1,5 +1,5 @@
 import * as z from 'zod'
-import { BRIDGE_MAX_MESSAGE_BYTES } from './bridge-caps'
+import { BRIDGE_MAX_MESSAGE_BYTES } from './protocol/bridge-caps'
 
 /**
  * Orca Voice fork: the page asks the shell to read a reply aloud with the phone's TTS.

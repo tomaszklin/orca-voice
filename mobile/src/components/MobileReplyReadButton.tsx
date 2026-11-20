@@ -4,7 +4,7 @@ import { useReplySpeech } from '../platform/reply-speech'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
-import { scaledType } from '../session/native-chat/transcript/mobile-native-chat-message-styles'
+import { scaledType } from '../session/native-chat/transcript/messages/mobile-native-chat-message-styles'
 
 /**
  * Orca Voice fork: "Read" under an assistant reply, beside Copy. Reads the reply aloud with the

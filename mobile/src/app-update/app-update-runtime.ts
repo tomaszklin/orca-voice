@@ -2,6 +2,7 @@ import Constants from 'expo-constants'
 import * as Linking from 'expo-linking'
 import { useSyncExternalStore } from 'react'
 import { AppState, Platform } from 'react-native'
+import { OrcaPlayStorePresence } from '../../modules/orca-play-store-presence/src'
 import {
   loadAppUpdatePreferences,
   saveAppUpdateCheck,
@@ -10,7 +11,11 @@ import {
 import { appStoreUpdateSource } from './app-store-update-source'
 import { createAppUpdateChecker, type AppUpdateState } from './app-update-checker'
 import type { AppUpdateSource } from './app-update-source'
-import { githubReleaseUpdateSource } from './github-release-update-source'
+import {
+  ANDROID_RELEASE_TAG_PREFIX,
+  createGithubReleaseUpdateSource,
+  RETIRED_ANDROID_RELEASE_TAG_PREFIX
+} from './github-release-update-source'
 import {
   isNewerVoiceBuild,
   isVoiceUpdateUrl,
@@ -33,10 +38,30 @@ export const installedVersionLabel: string | null =
     ? `${installedAppVersion} (${voiceBuildLabel(voiceBuild)})`
     : installedAppVersion
 
+// Orca Voice fork: our builds keep the old package but are not the retired app.
+/** The GitHub APK's package. Orca moved to Google Play as dev.orca.app, so this app gets no more updates. */
+export const isRetiredGithubAndroidApp =
+  !voiceBuild &&
+  Platform.OS === 'android' &&
+  Constants.expoConfig?.android?.package === 'com.stably.orca.mobile'
+
+/** Play delivers this install's updates and forbids other update channels. */
+export const isGooglePlayInstall =
+  Platform.OS === 'android' && (OrcaPlayStorePresence?.isInstalledByPlayStore() ?? false)
+
 /** The channel that installed this binary. */
 function resolveAppUpdateSource(): AppUpdateSource | null {
   if (Platform.OS === 'android') {
-    return voiceBuild ? voiceBuildUpdateSource : githubReleaseUpdateSource
+    if (voiceBuild) {
+      return voiceBuildUpdateSource
+    }
+    if (isGooglePlayInstall) {
+      return null
+    }
+    return createGithubReleaseUpdateSource(
+      (input, init) => fetch(input, init),
+      isRetiredGithubAndroidApp ? RETIRED_ANDROID_RELEASE_TAG_PREFIX : ANDROID_RELEASE_TAG_PREFIX
+    )
   }
   if (Platform.OS === 'ios') {
     return appStoreUpdateSource
@@ -44,8 +69,13 @@ function resolveAppUpdateSource(): AppUpdateSource | null {
   return null
 }
 
+const appUpdateSource = resolveAppUpdateSource()
+
+/** False where no channel can be asked, so there is nothing to check by hand. */
+export const canCheckForAppUpdates = appUpdateSource !== null
+
 export const appUpdateChecker = createAppUpdateChecker({
-  source: resolveAppUpdateSource(),
+  source: appUpdateSource,
   installedVersion: voiceBuild ? voiceBuildLabel(voiceBuild) : installedAppVersion,
   ...(voiceBuild
     ? { isNewer: isNewerVoiceBuild, checkIntervalMs: VOICE_UPDATE_CHECK_INTERVAL_MS }
@@ -70,7 +100,7 @@ export function useAppUpdateState(): AppUpdateState {
   return useSyncExternalStore(appUpdateChecker.subscribe, appUpdateChecker.getSnapshot)
 }
 
-/** Opens the channel's page for the update: the GitHub release (Android) or App Store (iOS). */
+/** Opens the update the check found: the GitHub release (Android) or App Store (iOS). */
 export function openAppUpdate(url: string): void {
   if (isVoiceUpdateUrl(url)) {
     installVoiceUpdate(url)

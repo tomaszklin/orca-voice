@@ -10,11 +10,16 @@ module.exports = ({ config }) => ({
   // `expo run` installs a dev-client build cached for the current native fingerprint instead of
   // rebuilding; scripts/native-client.mjs populates the cache.
   buildCacheProvider: { plugin: './scripts/native-build-cache.cjs' },
+  // Orca Voice fork: upstream moved Android to dev.orca.app; the phone has this app as
+  // com.stably.orca.mobile, so an update must keep that package and its name.
+  android: { ...config.android, package: 'com.stably.orca.mobile' },
   ios: {
     ...config.ios,
     entitlements: { ...config.ios?.entitlements, 'aps-environment': APS_ENVIRONMENT }
   },
-  plugins: (config.plugins ?? []).map((plugin) =>
+  plugins: (config.plugins ?? [])
+    .filter((plugin) => plugin !== './plugins/android-retired-app-name.js')
+    .map((plugin) =>
     plugin === 'expo-notifications'
       ? [
           'expo-notifications',

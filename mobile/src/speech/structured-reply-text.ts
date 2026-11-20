@@ -1,7 +1,7 @@
 import { isRootAgentJournalItem } from '../../../src/shared/agent-session/journal/agent-session-journal-producer'
 import type { AgentJournalRenderItem } from '../../../src/shared/agent-session/journal/agent-session-journal-types'
 import type { AgentSessionHistoryResult } from '../../../src/shared/agent-session/agent-session-wire'
-import { readAgentJournalTurn } from '../../../src/shared/agent-session/lifecycle/agent-session-turn-record'
+import { readAgentJournalTurn } from '../../../src/shared/agent-session/lifecycle/records/agent-session-turn-record'
 import {
   AGENT_STATUS_MAX_FIELD_LENGTH,
   normalizeOptionalField

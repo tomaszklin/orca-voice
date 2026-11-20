@@ -1,4 +1,4 @@
-import type { PickerOption } from '../components/PickerModal'
+import type { PickerOption } from '../components/sheets/PickerModal'
 import type { NativeVoiceList } from './voice-native-module'
 
 /** Picker value for "whatever the phone's text-to-speech settings say". */

@@ -56,7 +56,9 @@ export function createAppUpdateChecker(deps: AppUpdateCheckerDeps) {
 
   function buildSnapshot(): AppUpdateState {
     const latest = prefs.latest
+    // No source (a Play install): a release stored by an earlier GitHub install of this package is not ours to offer.
     const available =
+      deps.source &&
       latest &&
       deps.installedVersion &&
       (deps.isNewer ?? isNewerReleaseVersion)(latest.version, deps.installedVersion)

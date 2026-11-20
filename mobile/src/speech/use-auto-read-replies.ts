@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { AppState } from 'react-native'
 import { mainAgentState } from '../../../src/shared/agent-status/lifecycle/main-agent-status'
-import { withoutNativeChatVisualDirectiveLines } from '../../../src/shared/native-chat/native-chat-visual-directive'
+import { withoutNativeChatVisualDirectiveLines } from '../../../src/shared/native-chat/visuals/native-chat-visual-directive'
 import { useRpcClientContext } from '../transport/connection/client-context'
 import {
   findNewWaits,

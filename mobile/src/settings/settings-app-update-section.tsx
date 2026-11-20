@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   appUpdateChecker,
+  canCheckForAppUpdates,
   installedVersionLabel,
   openAppUpdate,
   useAppUpdateState
@@ -28,7 +29,7 @@ export function SettingsAppUpdateSection() {
       lastCheckedAt={state.lastCheckedAt}
       checkStatus={checkStatus}
       onUpdate={openAppUpdate}
-      onCheck={runCheck}
+      onCheck={canCheckForAppUpdates ? runCheck : undefined}
     />
   )
 }

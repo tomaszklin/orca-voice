@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { SPEECH_MAX_MARKDOWN_CHARS } from '../mobile-web-shell/bridge/bridge-reply-speech-verbs'
-import { useNativeVerbs } from '../mobile-web-shell/bridge/use-native-verbs'
+import { useNativeVerbs } from '../mobile-web-shell/bridge/native-capabilities/use-native-verbs'
 import type { ReplySpeech } from './reply-speech'
 
 /**

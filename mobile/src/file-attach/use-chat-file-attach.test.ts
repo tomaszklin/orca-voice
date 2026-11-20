@@ -6,16 +6,16 @@ import {
   closeMobileNativeChatTabDraft,
   setMobileNativeChatDraftText,
   useMobileNativeChatDraft
-} from '../session/native-chat/composer/mobile-native-chat-draft-store'
-import type { PickedMobileFile } from '../platform/media-picker-contract'
-import type { RpcClient } from '../transport/rpc-client'
-import type { RpcResponse } from '../transport/types'
+} from '../session/native-chat/composer/drafts/mobile-native-chat-draft-store'
+import type { PickedMobileFile } from '../platform/media-picking/media-picker-contract'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
+import type { RpcResponse } from '../transport/rpc/rpc-wire-types'
 
 // vitest.setup.ts stubs this hook for the chat suites; this suite is its own.
 vi.unmock('./use-chat-file-attach')
 
 const picker = vi.hoisted(() => ({ pickFiles: vi.fn() }))
-vi.mock('../platform/media-picker', () => ({ useMediaPicker: () => picker }))
+vi.mock('../platform/media-picking/media-picker', () => ({ useMediaPicker: () => picker }))
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: { getItem: async () => null, setItem: async () => {}, removeItem: async () => {} }
 }))

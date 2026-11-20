@@ -1,4 +1,4 @@
-import { isKnownHarnessInjectedUserTurnText } from '../../../src/shared/harness-injected-user-turns'
+import { isKnownHarnessInjectedUserTurnText } from '../../../src/shared/agent-session/journal/harness-injected-user-turns'
 import {
   DEFAULT_OTHER_TURN_REPLIES,
   OTHER_TURN_REPLIES_KEY,

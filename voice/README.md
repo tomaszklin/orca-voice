@@ -46,7 +46,7 @@ Settings → Chat UI pokaże, czy problem jest w odpytywaniu `worktree.ps`, czy 
 Właściciel chce: auto-czytanie jako opcja + **niezależnie** przycisk „Read” pod każdą odpowiedzią.
 Czat to strona z desktopu, więc APK niesie **własną kopię strony** i serwuje ją zamiast desktopowej.
 
-- **Baza forka = wydanie Orki** (od 2026-11-13 `v1.4.258`; wcześniej `v1.4.255`, `v1.4.247`, `v1.4.245`, `v1.4.243`, `v1.4.229`). Zob. „Aktualizacja
+- **Baza forka = wydanie Orki** (od 2026-11-20 `v1.4.265`; wcześniej `v1.4.258`, `v1.4.255`, `v1.4.247`, `v1.4.245`, `v1.4.243`, `v1.4.229`). Zob. „Aktualizacja
   z upstream”.
 - **Mostek:** jeden czasownik `native.speech.control` (`{action:'speak', id, markdown}` |
   `{action:'stop'}`) — `bridge/bridge-reply-speech-verbs.ts`, wpis w `bridge-native-verbs.ts`, obsługa
@@ -1021,6 +1021,8 @@ jest w `speech/read-aloud-screen-styles.ts`. Do zrobienia kiedyś: przenieść t
 `ListRow` / `SettingsSection`. Pnpm z `.voice-tools` (12.14), nie z corepack.
 2026-11-10 z `v1.4.247` na `v1.4.255` (kopia: `voice-before-1.4.255`, lokalna), skillem `update-orca-base`.
 2026-11-13 z `v1.4.255` na `v1.4.258` (kopia: `voice-before-1.4.258`, lokalna), skillem `update-orca-base`.
+2026-11-20 z `v1.4.258` na `v1.4.265` (kopia: `voice-before-1.4.265`, lokalna), skillem `update-orca-base`.
+Orka zmieniła pakiet Androida na `dev.orca.app`; fork zostaje przy `com.stably.orca.mobile` (`app.config.js`).
 
 Uwaga: oficjalne APK Orki zainstalowane na tę wersję usuwa czytanie (wraca oryginał).
 
@@ -1185,3 +1187,25 @@ Właściciel: po „Update” Android pokazywał cztery okna: „Zaktualizuj” 
   aktualizacji na kolejny build.
 - Niepewne: czy Play Protect dalej pyta o skanowanie przy cichej instalacji (podpis kluczem debug,
   każdy build nowy dla Google). Tego aplikacja nie wyłączy.
+
+## Wersja Orki 1.4.265 (build 73, 2026-11-20)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Fork przeniesiony z `v1.4.258` na `v1.4.265` (desktop właściciela: `1.4.264`).
+
+- Orka przeszła na Google Play jako `dev.orca.app` i starą aplikację z GitHuba
+  (`com.stably.orca.mobile`) zasłania ekranem „przenieś się” (`AppMoveScreen`) z nazwą „Orca (old)”.
+  Telefon ma nas jako `com.stably.orca.mobile`, więc `app.config.js` trzyma ten pakiet (inaczej
+  aktualizacja nie weszłaby na miejsce starej i dane by zniknęły), pomija wtyczkę
+  `android-retired-app-name.js`, a `isRetiredGithubAndroidApp` jest fałszywe w naszych buildach.
+- Orka przeniosła wiele plików do podfolderów (kompozytor, mostek, platforma, wiersz projektu);
+  importy forka i ścieżki w `vi.mock` poprawione. Style wiersza projektu są teraz w
+  `worktree/row-presentation/worktree-list-row-styles.ts` (nasza zmiana `repoName` tam).
+- Wiersz projektu: tytuł forka (projekt najpierw) plus nowe logo agentów bota z Orki; linia stanu
+  bota ma pierwszeństwo przed naszym opisem.
+- Ustawienia: nasz jeden wiersz wersji; Orka może ukryć sprawdzanie, gdy nie ma kanału aktualizacji.
+
+Do sprawdzenia na telefonie: czy aktualizacja wchodzi na miejsce (ta sama ikona, bez ekranu
+„przenieś się”, bez nazwy „Orca (old)”), przycisk „Read”, auto-czytanie przy zgaszonym ekranie,
+załączanie plików, lista projektów, aktualizacja w aplikacji.

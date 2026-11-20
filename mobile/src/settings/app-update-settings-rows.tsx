@@ -35,7 +35,8 @@ export function AppUpdateSettingsRows(props: {
   lastCheckedAt: number | null
   checkStatus: AppUpdateCheckRowStatus
   onUpdate: (url: string) => void
-  onCheck: () => void
+  /** Omitted when the install has no update channel to ask; hides the check row. */
+  onCheck?: () => void
 }) {
   useMobileColorScheme()
   const { available, onUpdate, onCheck } = props
@@ -52,7 +53,7 @@ export function AppUpdateSettingsRows(props: {
           : { value })}
         accessibilityLabel={`${label}, ${value}`}
         busy={checking}
-        onPress={() => (available ? onUpdate(available.url) : onCheck())}
+        onPress={() => (available ? onUpdate(available.url) : onCheck?.())}
       />
     </SettingsSection>
   )

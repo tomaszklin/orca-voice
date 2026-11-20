@@ -1,6 +1,6 @@
 import { View, Text, Pressable } from 'react-native'
 import { ChevronRight } from 'lucide-react-native'
-import { MobileSwitch } from '../components/MobileSwitch'
+import { MobileSwitch } from '../components/controls/MobileSwitch'
 import { readAloudScreenStyles as styles } from './read-aloud-screen-styles'
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'

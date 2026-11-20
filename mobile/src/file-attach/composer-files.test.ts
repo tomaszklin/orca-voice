@@ -2,11 +2,11 @@ import { createElement, type ComponentProps } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MobileNativeChatComposer } from '../session/native-chat/composer/MobileNativeChatComposer'
-import { ActionSheetModal } from '../components/ActionSheetModal'
+import { ActionSheetModal } from '../components/sheets/ActionSheetModal'
 import { ChatFileAttachContext, type ChatFileAttach } from './chat-file-attach-context'
 
-vi.mock('../components/MobileSwitch', () => ({ MobileSwitch: 'Switch' }))
-vi.mock('../session/native-chat/composer/MobileNativeChatContextUsageRing', () => ({
+vi.mock('../components/controls/MobileSwitch', () => ({ MobileSwitch: 'Switch' }))
+vi.mock('../session/native-chat/composer/commands/MobileNativeChatContextUsageRing', () => ({
   useMobileNativeChatContextRing: () => ({ barProps: {}, ring: null })
 }))
 vi.mock('react-native-reanimated', async () =>
