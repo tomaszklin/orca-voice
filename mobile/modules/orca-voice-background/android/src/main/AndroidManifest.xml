@@ -13,6 +13,19 @@
     <meta-data
       android:name="com.google.android.gms.car.application"
       android:resource="@xml/automotive_app_desc" />
+    <!-- Orca Voice fork: Orca's own screen in Android Auto (OrcaCarApp.kt). -->
+    <meta-data
+      android:name="androidx.car.app.minCarApiLevel"
+      android:value="1" />
+    <service
+      android:name="expo.modules.orcavoicebackground.OrcaCarAppService"
+      android:exported="true"
+      android:label="Orca">
+      <intent-filter>
+        <action android:name="androidx.car.app.CarAppService" />
+        <category android:name="androidx.car.app.category.IOT" />
+      </intent-filter>
+    </service>
     <receiver
       android:name="expo.modules.orcavoicebackground.CarMessageReceiver"
       android:exported="false" />

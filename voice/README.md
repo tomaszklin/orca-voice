@@ -1233,3 +1233,26 @@ do terminala tego agenta.
 - **Android Auto nie pokazuje aplikacji spoza Sklepu Play**, dopóki w ustawieniach Android Auto
   nie włączy się trybu dewelopera (kilka stuknięć w „Wersja”) i w menu dewelopera opcji
   „Nieznane źródła”.
+
+## Orka na ekranie auta (build 75, 2026-11-24)
+
+**Stan: zbudowane, niepotwierdzone w samochodzie.**
+
+Uwagi właściciela po buildzie 74: Orki nie ma na liście aplikacji w aucie (tak działają aplikacje
+oparte tylko na powiadomieniach), wiadomości czytał głos samochodu zamiast ustawionego w Orce, a
+odpowiedź dawała „Reply was not sent”.
+
+- **Własny ekran w Android Auto** (`OrcaCarApp.kt`, Car App Library, kategoria `IOT`, bo
+  aplikacje z „nieznanych źródeł” mogą mieć dowolną): lista agentów (projekt, stan, początek
+  ostatniej wiadomości), ekran agenta z przyciskami „Czytaj” i „Odpowiedz”, pasek z Pauza/Wznów/
+  Dalej/Stop czytnika (`ReadAloudControls`). Napisy po polsku na polskim telefonie.
+  Dane z JS: `setCarAgents` przy każdym odpytaniu auto-czytania (`rememberCarPanes`).
+- **Czytanie w aucie zostaje w czytniku Orki** (głos, opcje, kolejka). Powiadomienia Android Auto
+  są teraz opcją, domyślnie wyłączoną: „Android Auto notifications” (nowy klucz
+  `orca:voiceCarNotifications`).
+- **Odpowiedź głosem z ekranu auta** (`CarVoiceInput.kt`): mikrofon auta przez `CarAudioRecord`
+  (API auta 5+), dźwięk przez rurę do `SpeechRecognizer` (`EXTRA_AUDIO_SOURCE`, Android 13+);
+  inaczej mikrofon rozpoznawania mowy telefonu. Potem „Wyślij” / „Jeszcze raz”, wynik jako toast.
+- Wysyłanie: terminal szukany po `leafId` (wcześniej wymagana zgodność `tabId`, możliwa przyczyna
+  „not sent”), po odmowie zapis do terminala drugą drogą (`terminal.send`, jak dyktowanie).
+  Komunikat błędu podaje powód; dziennik czytnika też.

@@ -98,6 +98,17 @@ export type VoiceNativeModule = {
   /** Adds an agent's message to its car conversation (`conversation`: the pane). */
   postCarMessage(conversation: string, title: string, text: string): boolean
   clearCarMessages(): void
+  /** What Orca's car screen lists; `message` is plain text. */
+  setCarAgents(
+    agents: { paneKey: string; project: string; state: string; message: string | null }[]
+  ): void
+  /** How a reply from the car screen went, shown there. */
+  carReplyResult(ok: boolean, message: string): void
+  /** The car screen's Read and Reply (`text`: what the car's microphone heard). */
+  addListener(
+    event: 'onCarAction',
+    listener: (payload: { action: string; paneKey: string; text: string | null }) => void
+  ): { remove(): void }
   addListener(
     event: 'onCarConnection',
     listener: (payload: { connected: boolean }) => void

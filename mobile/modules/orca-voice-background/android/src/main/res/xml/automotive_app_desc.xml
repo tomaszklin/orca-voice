@@ -2,4 +2,5 @@
 <!-- Orca Voice fork: Android Auto shows Orca's agent messages (CarMessaging.kt). -->
 <automotiveApp>
   <uses name="notification" />
+  <uses name="template" />
 </automotiveApp>

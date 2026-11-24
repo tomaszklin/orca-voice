@@ -167,7 +167,6 @@ export function useAutoReadReplies(): void {
       otherTurnRepliesRef.current === 'on' || awaitingWake.has(paneKey)
     const speakAutoRead = (id: string, paneKey: string, text: string) => {
       const project = projectByPane.get(paneKey) ?? null
-      // In a car with Android Auto, the car reads it as a chat message and takes a spoken reply.
       if (sendToCar(paneKey, project, text)) {
         return
       }
