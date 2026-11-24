@@ -13,6 +13,7 @@ import { useOtherTurnReplies } from './user-turn-guard'
 import { useAutoReadRepliesPreference } from './auto-read-preference'
 import { useBuiltInPagePreference } from './built-in-page-preference'
 import { useBackgroundReadingPreference } from './background-reading'
+import { useCarConnected, useCarMessages } from './car-messages'
 import {
   CHIME_MODES,
   LINK_READINGS,
@@ -166,6 +167,8 @@ function AutoReadOptions({
   const { backgroundReading, setBackgroundReading } = useBackgroundReadingPreference()
   const { value: announceWaits, setValue: setAnnounceWaits } = useAnnounceWaits()
   const { value: headphonesOnly, setValue: setHeadphonesOnly } = useHeadphonesOnly()
+  const { value: carMessages, setValue: setCarMessages } = useCarMessages()
+  const carConnected = useCarConnected()
   const disabled = !enabled
   // Why: screen-off reading and headphones-only need the Android reader; elsewhere they do nothing.
   const nativeReader = voiceNativeModule() !== null
@@ -197,6 +200,18 @@ function AutoReadOptions({
             accessibilityLabel="Auto-read only with headphones or a car"
             value={headphonesOnly === 'on'}
             onValueChange={(on) => setHeadphonesOnly(on ? 'on' : 'off')}
+            disabled={disabled}
+          />
+        ) : null}
+        {nativeReader ? <View style={styles.separator} /> : null}
+        {nativeReader ? (
+          <SwitchRow
+            label="Android Auto messages"
+            sublabel={`In the car, messages go to Android Auto, which reads them and takes your spoken reply. ${
+              carConnected ? 'Car connected.' : 'No car connected.'
+            }`}
+            value={carMessages === 'on'}
+            onValueChange={(on) => setCarMessages(on ? 'on' : 'off')}
             disabled={disabled}
           />
         ) : null}

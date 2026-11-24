@@ -54,7 +54,11 @@ export type VoiceNativeModule = {
    * tag of the voice the reader last read with, null before its engine first started.
    */
   getSpeechOptions():
-    | (SpeechOptions & { phoneRate: number; language: string | null; recordable: boolean })
+    | (SpeechOptions & {
+        phoneRate: number
+        language: string | null
+        recordable: boolean
+      })
     | null
   /** Speech as media audio, so a screen recording captures it; navigation audio otherwise. */
   setRecordable(on: boolean): boolean
@@ -89,6 +93,20 @@ export type VoiceNativeModule = {
   canInstallUpdates(): boolean
   /** The system screen with Orca's "Install unknown apps" switch; false when it did not open. */
   openInstallPermission(): boolean
+  /** Whether the phone is connected to Android Auto; `onCarConnection` reports changes. */
+  isCarConnected(): boolean
+  /** Adds an agent's message to its car conversation (`conversation`: the pane). */
+  postCarMessage(conversation: string, title: string, text: string): boolean
+  clearCarMessages(): void
+  addListener(
+    event: 'onCarConnection',
+    listener: (payload: { connected: boolean }) => void
+  ): { remove(): void }
+  /** A reply spoken in the car, for the conversation's agent. */
+  addListener(
+    event: 'onCarReply',
+    listener: (payload: { conversation: string; text: string }) => void
+  ): { remove(): void }
   addListener(event: 'onTick' | 'onAutoReadToggle', listener: () => void): { remove(): void }
   addListener(
     event: 'onUpdateDownload',
@@ -114,7 +132,9 @@ export function voiceNativeModule(): VoiceNativeModule | null {
       // Both required lazily, so suites that reach this file through the chat or the bridge never
       // load React Native's Flow sources or the native module system.
       // oxlint-disable-next-line typescript/no-require-imports
-      const { Platform } = require('react-native') as { Platform: { OS: string } }
+      const { Platform } = require('react-native') as {
+        Platform: { OS: string }
+      }
       if (Platform.OS === 'android') {
         // oxlint-disable-next-line typescript/no-require-imports
         const core = require('expo-modules-core') as {

@@ -14,6 +14,7 @@ import { useAutoReadRepliesPreference } from './auto-read-preference'
 import { useBackgroundReadingPreference, useBackgroundReadingService } from './background-reading'
 import { backgroundReadingActive } from './background-reading-state'
 import { createChatMessageFeeds } from './chat-message-feeds'
+import { rememberCarPanes, sendToCar, useCarMessaging } from './car-messages'
 import {
   chimeBeforeMessage,
   projectNameIntro,
@@ -137,6 +138,7 @@ export function useAutoReadReplies(): void {
   const pollRef = useRef<() => void>(() => undefined)
   const onServiceTick = useCallback(() => pollRef.current(), [])
   useBackgroundReadingService(autoRead && backgroundReading, onServiceTick)
+  useCarMessaging()
 
   useEffect(() => {
     if (!autoRead) {
@@ -165,6 +167,10 @@ export function useAutoReadReplies(): void {
       otherTurnRepliesRef.current === 'on' || awaitingWake.has(paneKey)
     const speakAutoRead = (id: string, paneKey: string, text: string) => {
       const project = projectByPane.get(paneKey) ?? null
+      // In a car with Android Auto, the car reads it as a chat message and takes a spoken reply.
+      if (sendToCar(paneKey, project, text)) {
+        return
+      }
       // Decided when the message starts, after what was heard before it, not when it was queued.
       const intro = () => {
         const now = Date.now()
@@ -237,6 +243,7 @@ export function useAutoReadReplies(): void {
         // A host whose read failed this round is left out rather than treated as having no
         // agents, so its panes keep their baseline and nothing is re-read when it answers again.
         const agents = rows.flatMap((hostRows) => hostRows ?? [])
+        rememberCarPanes(agents)
         // Merged, not replaced: a host whose read failed this round keeps its panes' projects.
         projectByPane = new Map([
           ...projectByPane,

@@ -1209,3 +1209,27 @@ Fork przeniesiony z `v1.4.258` na `v1.4.265` (desktop właściciela: `1.4.264`).
 Do sprawdzenia na telefonie: czy aktualizacja wchodzi na miejsce (ta sama ikona, bez ekranu
 „przenieś się”, bez nazwy „Orca (old)”), przycisk „Read”, auto-czytanie przy zgaszonym ekranie,
 załączanie plików, lista projektów, aktualizacja w aplikacji.
+
+## Android Auto: odpowiedzi jako wiadomości (build 74, 2026-11-24)
+
+**Stan: zbudowane, niepotwierdzone w samochodzie.**
+
+Właściciel chciał Orkę w aucie i wybrał wersję „komunikator”: odpowiedź agenta przychodzi do
+Android Auto jako wiadomość, auto czyta ją swoim głosem, a odpowiedź podyktowana asystentowi idzie
+do terminala tego agenta.
+
+- `modules/orca-voice-background/.../CarMessaging.kt`: powiadomienia `MessagingStyle`, jedna rozmowa
+  na panel agenta (ostatnie 6 linii), akcja odpowiedzi z `RemoteInput` i akcja „przeczytane”
+  (obie z akcjami semantycznymi, wymagane przez Android Auto). `CarMessageReceiver` przekazuje
+  odpowiedź do JS (`onCarReply`). Połączenie z autem: `CarConnection` z `androidx.car.app:app`
+  (`onCarConnection`). Manifest: `com.google.android.gms.car.application` →
+  `res/xml/automotive_app_desc.xml` (`<uses name="notification"/>`).
+- `speech/car-messages.ts`: przełącznik Settings → Read aloud → „Android Auto messages” (domyślnie
+  włączony, klucz `orca:voiceCarMessages`). Gdy auto jest połączone, `speakAutoRead` w
+  `use-auto-read-replies.ts` wysyła wiadomość do auta zamiast czytać ją czytnikiem telefonu.
+  Odpowiedź z auta: `terminal.list` dla workspace'u → uchwyt terminala panelu →
+  `sendMobileNativeChatMessage` (tekst + Enter). Błąd → wiadomość „Your reply was not sent.”
+- Wymaga włączonego auto-czytania (i czytania przy zgaszonym ekranie) — to ono znajduje odpowiedzi.
+- **Android Auto nie pokazuje aplikacji spoza Sklepu Play**, dopóki w ustawieniach Android Auto
+  nie włączy się trybu dewelopera (kilka stuknięć w „Wersja”) i w menu dewelopera opcji
+  „Nieznane źródła”.

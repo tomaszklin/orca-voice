@@ -9,6 +9,13 @@
   <!-- Lets Orca update itself without the installer's screens (Android 12+). -->
   <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
   <application>
+    <!-- Orca Voice fork: agent replies as Android Auto messages (CarMessaging.kt). -->
+    <meta-data
+      android:name="com.google.android.gms.car.application"
+      android:resource="@xml/automotive_app_desc" />
+    <receiver
+      android:name="expo.modules.orcavoicebackground.CarMessageReceiver"
+      android:exported="false" />
     <service
       android:name="expo.modules.orcavoicebackground.ReadAloudService"
       android:exported="false"
