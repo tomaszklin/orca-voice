@@ -22,12 +22,15 @@ import android.os.Looper
 internal object ReadAloudMediaSession {
   private const val RELEASE_PAUSED_AFTER_MS = 10 * 60_000L
   private const val ACTIONS = PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
-    PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_STOP
+    PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_STOP or
+    PlaybackState.ACTION_PLAY_FROM_MEDIA_ID
 
   private val handler = Handler(Looper.getMainLooper())
   private var session: MediaSession? = null
   private var lastState: String? = null
   private val releasePaused = Runnable { release() }
+  /** While Android Auto browses Orca ([CarMediaBrowser]), the session stays, paused when idle. */
+  private var kept = false
 
   private val callback = object : MediaSession.Callback() {
     override fun onPlay() = ReadAloudControls.send(ReadAloudControls.PLAY)
@@ -35,6 +38,7 @@ internal object ReadAloudMediaSession {
     override fun onSkipToNext() = ReadAloudControls.send(ReadAloudControls.NEXT)
     override fun onSkipToPrevious() = ReadAloudControls.send(ReadAloudControls.PREVIOUS)
     override fun onStop() = ReadAloudControls.send(ReadAloudControls.STOP_READING)
+    override fun onPlayFromMediaId(mediaId: String?, extras: android.os.Bundle?) = CarMediaBrowser.play(mediaId)
   }
 
   /** `state`: "idle", "reading", "paused" or "stopped"; `title` is what a car's display shows. */
@@ -57,8 +61,60 @@ internal object ReadAloudMediaSession {
     }
   }
 
+  /** Main thread: the session for [CarMediaBrowser], made now if nothing is read. */
+  fun keep(context: Context): MediaSession.Token {
+    kept = true
+    val media = session ?: create(context.applicationContext)
+    if (lastState != "reading" && lastState != "paused") {
+      idle(media)
+    }
+    return media.sessionToken
+  }
+
+  /** Main thread: the car stopped browsing; an idle session goes as before. */
+  fun letGo() {
+    kept = false
+    if (lastState != "reading" && lastState != "paused") {
+      release()
+    }
+  }
+
+  private fun create(context: Context): MediaSession =
+    MediaSession(context, "OrcaVoiceReadAloud").also {
+      // Before Android 8 a session without these flags gets no headset buttons.
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+        @Suppress("DEPRECATION")
+        it.setFlags(
+          MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS
+        )
+      }
+      it.setCallback(callback, handler)
+      session = it
+    }
+
+  /** Kept for the car with nothing read: paused, so the car shows Orca and its list. */
+  private fun idle(media: MediaSession) {
+    media.setPlaybackState(
+      PlaybackState.Builder()
+        .setActions(ACTIONS)
+        .setState(PlaybackState.STATE_PAUSED, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1f)
+        .build()
+    )
+    media.setMetadata(
+      MediaMetadata.Builder()
+        .putString(MediaMetadata.METADATA_KEY_TITLE, "Orca")
+        .putString(MediaMetadata.METADATA_KEY_ARTIST, "Orca Voice")
+        .build()
+    )
+    if (!media.isActive) media.isActive = true
+  }
+
   private fun release() {
     handler.removeCallbacks(releasePaused)
+    if (kept) {
+      session?.let { idle(it) }
+      return
+    }
     session?.let {
       it.isActive = false
       it.release()
@@ -79,17 +135,7 @@ internal object ReadAloudMediaSession {
     val stillPaused = state == "paused" && previous == "paused"
     if (!stillPaused) handler.removeCallbacks(releasePaused)
     val existing = session
-    val media = existing ?: MediaSession(context, "OrcaVoiceReadAloud").also {
-      // Before Android 8 a session without these flags gets no headset buttons.
-      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-        @Suppress("DEPRECATION")
-        it.setFlags(
-          MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS
-        )
-      }
-      it.setCallback(callback, handler)
-      session = it
-    }
+    val media = existing ?: create(context)
     val wasPlaying = existing?.controller?.playbackState?.state == PlaybackState.STATE_PLAYING
     val playing = state == "reading"
     media.setPlaybackState(

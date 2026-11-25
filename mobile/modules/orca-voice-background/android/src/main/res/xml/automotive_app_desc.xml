@@ -3,5 +3,7 @@
      Android Auto lists Orca as a messaging app and opens its own message view instead of this
      screen (build 76). -->
 <automotiveApp>
+  <!-- Build 78: Orca as a media app (CarMediaBrowser.kt); Android Auto lists those. -->
+  <uses name="media" />
   <uses name="template" />
 </automotiveApp>

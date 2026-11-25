@@ -93,6 +93,7 @@ object CarState {
     }
     agents = next
     redraw()
+    CarMediaBrowser.refresh()
   }
 
   fun setReader(state: String) {

@@ -52,6 +52,8 @@ type CarPane = {
 const panes = new Map<string, CarPane>()
 /** The last message auto-read handled per pane, as markdown. */
 const lastMessages = new Map<string, string>()
+/** What the car shows per pane, as markdown: the last message, else the last finished reply. */
+const shownMessages = new Map<string, string>()
 
 const polish = () => readerLanguage() === 'pl'
 
@@ -76,6 +78,9 @@ export function rememberCarPanes(rows: readonly AutoReadAgentRow[]): void {
     const message =
       lastMessages.get(row.paneKey) ??
       (state === 'done' && row.lastAssistantMessage ? row.lastAssistantMessage : null)
+    if (message) {
+      shownMessages.set(row.paneKey, message)
+    }
     const since = row.mainAgent?.stateStartedAt ?? row.stateStartedAt
     shown.push({
       paneKey: row.paneKey,
@@ -209,7 +214,7 @@ async function deliverAndLog(
 }
 
 function readLast(paneKey: string): void {
-  const message = lastMessages.get(paneKey)
+  const message = lastMessages.get(paneKey) ?? shownMessages.get(paneKey)
   if (message) {
     speakReply(`car:${paneKey}@${Date.now()}`, message, 'interrupt', {
       title: panes.get(paneKey)?.project ?? null

@@ -1267,3 +1267,12 @@ to widok wiadomości samego Android Auto, nie nasz ekran. Przez `<uses name="not
 traktowało Orkę jak komunikator i nie otwierało `OrcaCarAppService`. Deklaracja usunięta (zostaje
 `template`), przełącznik „Android Auto notifications” zniknął z ustawień (kod powiadomień został,
 wyłączony). Tytuł listy w aucie pokazuje numer buildu.
+
+Build 78 (2026-11-25): w buildzie 77 Orki nie było na liście aplikacji Android Auto — ekran z Car App
+Library (kategoria `IOT`) nie jest pokazywany, a podczas czytania auto widziało tylko odtwarzacz
+(nasza sesja mediów) bez możliwości przeglądania. Teraz Orka jest **aplikacją multimedialną**
+(`CarMediaBrowser.kt`, `MediaBrowserService`, `<uses name="media"/>`): lista agentów (projekt, stan,
+pierwsza linia ostatniej wiadomości), wybór agenta = czytnik Orki czyta jego ostatnią wiadomość
+(`onPlayFromMediaId` → `onCarAction read`). Sesja `ReadAloudMediaSession` zostaje (wstrzymana), póki
+auto przegląda Orkę. Ekran `OrcaCarApp.kt` został w kodzie. **Odpowiadanie głosem w tej wersji
+nie działa** — aplikacja multimedialna nie ma pola na tekst; do zrobienia osobno.
