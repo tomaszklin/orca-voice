@@ -57,6 +57,8 @@ internal object CarWords {
   val listening get() = if (pl) "Słucham…" else "Listening…"
   val noMessage get() = if (pl) "Brak wiadomości." else "No message yet."
   val notHeard get() = if (pl) "Nie usłyszałem. Spróbuj jeszcze raz." else "Didn't catch that. Try again."
+  val neverUpdated get() = if (pl) "(Orka na telefonie jeszcze nic nie przysłała.)" else "(Orca on the phone has sent nothing yet.)"
+  fun updatedAgo(seconds: Long) = if (pl) "(Lista z telefonu sprzed $seconds s.)" else "(List from the phone, $seconds s ago.)"
   val sending get() = if (pl) "Wysyłam…" else "Sending…"
   fun state(state: String): String = when (state) {
     "working" -> if (pl) "pracuje" else "working"
@@ -74,6 +76,9 @@ object CarState {
     private set
   @Volatile var readerState: String = "idle"
     private set
+  /** When JS last sent the list, 0 = never: shown on an empty list, to tell why it is empty. */
+  @Volatile var updatedAt: Long = 0
+    private set
   /** JS: `onCarAction` with `action` read | reply and the pane, plus `text` for a reply. */
   @Volatile var actionListener: ((action: String, paneKey: String, text: String?) -> Unit)? = null
   private val screens = mutableSetOf<Screen>()
@@ -81,7 +86,9 @@ object CarState {
   private var lastResult: ((ok: Boolean, message: String) -> Unit)? = null
 
   fun setAgents(next: List<CarAgent>) {
-    if (next == agents) {
+    val firstUpdate = updatedAt == 0L
+    updatedAt = System.currentTimeMillis()
+    if (next == agents && !firstUpdate) {
       return
     }
     agents = next
@@ -159,7 +166,10 @@ class AgentListScreen(carContext: CarContext) : Screen(carContext) {
     val list = ItemList.Builder()
     val agents = CarState.agents
     if (agents.isEmpty()) {
-      list.setNoItemsMessage(CarWords.noAgents)
+      val updated = CarState.updatedAt
+      val age = if (updated == 0L) CarWords.neverUpdated
+      else CarWords.updatedAgo((System.currentTimeMillis() - updated) / 1000)
+      list.setNoItemsMessage("${CarWords.noAgents} $age")
     }
     agents.take(6).forEach { agent ->
       val row = Row.Builder()

@@ -86,10 +86,11 @@ export function rememberCarPanes(rows: readonly AutoReadAgentRow[]): void {
     })
   }
   shown.sort((a, b) => b.order - a.order)
+  const agents: CarAgent[] = shown.map(({ order: _order, ...agent }) => agent)
   try {
-    voiceNativeModule()?.setCarAgents(shown.map(({ order: _order, ...agent }) => agent))
-  } catch {
-    // A build without the car screen.
+    voiceNativeModule()?.setCarAgents(JSON.stringify(agents))
+  } catch (error) {
+    logSpeechEvent(`car list failed: ${error instanceof Error ? error.message : String(error)}`)
   }
 }
 

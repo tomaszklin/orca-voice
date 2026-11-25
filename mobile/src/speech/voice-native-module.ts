@@ -99,9 +99,8 @@ export type VoiceNativeModule = {
   postCarMessage(conversation: string, title: string, text: string): boolean
   clearCarMessages(): void
   /** What Orca's car screen lists; `message` is plain text. */
-  setCarAgents(
-    agents: { paneKey: string; project: string; state: string; message: string | null }[]
-  ): void
+  /** JSON of `{ paneKey, project, state, message }[]`; answers how many it took. */
+  setCarAgents(json: string): number
   /** How a reply from the car screen went, shown there. */
   carReplyResult(ok: boolean, message: string): void
   /** The car screen's Read and Reply (`text`: what the car's microphone heard). */

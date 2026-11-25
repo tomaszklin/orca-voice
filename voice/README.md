@@ -1256,3 +1256,8 @@ odpowiedź dawała „Reply was not sent”.
 - Wysyłanie: terminal szukany po `leafId` (wcześniej wymagana zgodność `tabId`, możliwa przyczyna
   „not sent”), po odmowie zapis do terminala drugą drogą (`terminal.send`, jak dyktowanie).
   Komunikat błędu podaje powód; dziennik czytnika też.
+
+Build 76 (2026-11-25): w buildzie 75 ekran auta był pusty mimo czytania wiadomości — lista z JS
+prawdopodobnie nie przechodziła konwersji argumentu Expo (`List<Map<String, Any?>>`), a błąd był
+połykany. Teraz `setCarAgents` bierze JSON, błąd idzie do dziennika czytnika, a pusta lista w aucie
+mówi, kiedy telefon ostatnio ją przysłał („nigdy” = JS nic nie wysłał).

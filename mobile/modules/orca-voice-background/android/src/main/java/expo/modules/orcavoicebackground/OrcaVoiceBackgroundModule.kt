@@ -65,19 +65,24 @@ class OrcaVoiceBackgroundModule : Module() {
       true
     }
 
-    /** The agents Orca's car screen lists: maps with paneKey, project, state, message. */
-    Function("setCarAgents") { agents: List<Map<String, Any?>> ->
-      CarState.setAgents(
-        agents.mapNotNull { entry ->
-          val paneKey = entry["paneKey"] as? String ?: return@mapNotNull null
-          CarAgent(
-            paneKey,
-            entry["project"] as? String ?: "Orca",
-            entry["state"] as? String ?: "",
-            entry["message"] as? String
-          )
-        }
-      )
+    /**
+     * The agents Orca's car screen lists, as a JSON array of objects with paneKey, project, state
+     * and message. JSON, so no value of the list can fail Expo's argument conversion.
+     */
+    Function("setCarAgents") { json: String ->
+      val array = org.json.JSONArray(json)
+      val agents = (0 until array.length()).mapNotNull { index ->
+        val entry = array.optJSONObject(index) ?: return@mapNotNull null
+        val paneKey = entry.optString("paneKey").takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+        CarAgent(
+          paneKey,
+          entry.optString("project").ifEmpty { "Orca" },
+          entry.optString("state"),
+          if (entry.isNull("message")) null else entry.optString("message")
+        )
+      }
+      CarState.setAgents(agents)
+      agents.size
     }
 
     /** How a reply from the car screen went; shown there as a toast. */
