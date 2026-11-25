@@ -9,11 +9,10 @@
   <!-- Lets Orca update itself without the installer's screens (Android 12+). -->
   <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
   <application>
-    <!-- Orca Voice fork: agent replies as Android Auto messages (CarMessaging.kt). -->
+    <!-- Orca Voice fork: Orca as an Android Auto media app listing the agents (CarMediaBrowser.kt). -->
     <meta-data
       android:name="com.google.android.gms.car.application"
       android:resource="@xml/automotive_app_desc" />
-    <!-- Orca Voice fork: Orca's agents as a media list in Android Auto (CarMediaBrowser.kt). -->
     <service
       android:name="expo.modules.orcavoicebackground.CarMediaBrowser"
       android:exported="true"
@@ -22,22 +21,6 @@
         <action android:name="android.media.browse.MediaBrowserService" />
       </intent-filter>
     </service>
-    <!-- Orca Voice fork: Orca's own screen in Android Auto (OrcaCarApp.kt). -->
-    <meta-data
-      android:name="androidx.car.app.minCarApiLevel"
-      android:value="1" />
-    <service
-      android:name="expo.modules.orcavoicebackground.OrcaCarAppService"
-      android:exported="true"
-      android:label="Orca">
-      <intent-filter>
-        <action android:name="androidx.car.app.CarAppService" />
-        <category android:name="androidx.car.app.category.IOT" />
-      </intent-filter>
-    </service>
-    <receiver
-      android:name="expo.modules.orcavoicebackground.CarMessageReceiver"
-      android:exported="false" />
     <service
       android:name="expo.modules.orcavoicebackground.ReadAloudService"
       android:exported="false"

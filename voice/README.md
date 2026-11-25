@@ -73,6 +73,7 @@ Czat to strona z desktopu, więc APK niesie **własną kopię strony** i serwuje
   od wbudowanej.
 - Odrzucone: łatanie zainstalowanego desktopu (asar z listą plików po hashach → pełny repack,
   restart Orki, powtarzać po każdej aktualizacji).
+
 ## Czytanie przy zgaszonym ekranie (build 5–7, 2026-10-18)
 
 **Stan: działa na telefonie właściciela (potwierdzone 2026-10-18, build 7).** Od buildu 7 usługa
@@ -123,6 +124,7 @@ expo-speech zostaje jako zapas, gdy modułu brak.
 **Stan: zbudowane, niepotwierdzone na telefonie.**
 
 Zgłoszenia właściciela z 2026-10-21:
+
 - **Czytanie urywało się po kilku sekundach** (Stop + Read od razu pomagało). Przyczyny nie
   ustalono (brak logów z telefonu). Zmiany: odpowiedź idzie w kawałkach ≤ 300 znaków
   (`SPEECH_PIECE_LENGTH` w `speech/reply-speaker.ts`), kawałek przerwany przez silnik jest
@@ -617,6 +619,7 @@ Właściciel: wyłączenie czytania automatycznego nie zdejmowało powiadomienia
 ale tuż przed zatrzymaniem JS kazał odświeżyć powiadomienie (stan pauzy, a przy wyłączeniu też stan
 czytnika). Gdy odświeżenie trafiło na wątek główny już po tym, jak Android zdjął powiadomienie usługi,
 `notify` wystawiało je od nowa jako zwykłe, nieusuwalne — i zostawało bez usługi. Teraz:
+
 - `stop` usługi od razu przestaje odświeżać powiadomienie, a `onDestroy` je kasuje;
 - `background-reading.ts` wysyła stan pauzy tylko wtedy, gdy usługa ma działać.
 
@@ -640,6 +643,7 @@ dotknięcie — odwrotnie: przy czytaniu automatycznym dymek z trójkątem, przy
 **Stan: zbudowane, niepotwierdzone na telefonie.**
 
 Automatyczny recenzent zgłoszenia do Orki (#35166) znalazł drobiazgi; te same poprawki są w forku:
+
 - gdy JS aplikacji znika (przeładowanie), moduł zatrzymuje mowę i usługę, zamiast trzymać blokadę
   uśpienia bez nikogo, kto by nią sterował;
 - sesja multimediów zwolniona po 10 minutach pauzy nie wraca przy każdej zmianie statusu (nowa
@@ -651,6 +655,7 @@ Automatyczny recenzent zgłoszenia do Orki (#35166) znalazł drobiazgi; te same 
   czytany (`limitedMarkdown` w `platform/reply-speech.web.ts`).
 
 **Build 40 (2026-10-30), druga runda CodeRabbita:**
+
 - Previous nie czyta dwa razy wiadomości, która jednocześnie czeka w kolejce;
 - bez „Keep reading with the screen off” czytanie automatyczne kończy się, gdy Orka schodzi z
   ekranu (jak mówi opis opcji); to, co włączył przycisk Read, czyta dalej (`stopAutoReading`);
@@ -669,7 +674,7 @@ Dodawanie plików jest zgłoszone do Orki ([#36361](https://github.com/stablyai/
 Ten build to wersja testowa do nagrania filmu. Zgłoszenie stoi na nowszej bazie Orki (w `v1.4.243` nie
 ma jego magazynu szkiców), więc do forka przeszło to samo zachowanie, nie ten sam kod:
 
-- Linijka w szkicu: `` [File from my phone, saved on this computer as `…`] ``, bez osobnej nazwy (jest
+- Linijka w szkicu: ``[File from my phone, saved on this computer as `…`]``, bez osobnej nazwy (jest
   w ścieżce). To nie wzmianka `@`: Claude Code podaje modelowi przy wzmiance tylko rozmiar PDF-a. W
   próbie z `claude -p` tekst znalazł 3 na 5 razy przez `@`, 5 na 5 z samej ścieżki i 10 na 10 z tej
   linijki.
@@ -786,8 +791,7 @@ otwierało przeglądarkę. Do tego ekran blokady („Get Orca build N”) zawsze
 - `UpdateInstaller.kt`: pobiera do pliku `.part` i przenosi po sprawdzeniu długości, żeby urwane
   połączenie nie dało uszkodzonego APK. Nowe funkcje modułu: `openUpdateInstaller`,
   `canInstallUpdates`, `openInstallPermission`, zdarzenie `onUpdateDownload`.
-- Wejście tej zmiany: aktualizacja **do** buildu 45 idzie jeszcze starą drogą, bo robi ją kod buildu
-  43. Nowy pasek widać od aktualizacji na kolejny build.
+- Wejście tej zmiany: aktualizacja **do** buildu 45 idzie jeszcze starą drogą, bo robi ją kod buildu 43. Nowy pasek widać od aktualizacji na kolejny build.
 - **Test na emulatorze:** APK na telefon (tylko arm64) wywraca się na starcie
   (`couldn't find DSO to load: libreactnative.so`), także build 43, mimo tłumaczenia ARM. Trzeba
   zbudować x86_64: po `build-apk.ps1` w `mobile/android` `gradlew assembleRelease
@@ -923,9 +927,10 @@ długo (Gradle pobiera zależności, kompiluje C++), kolejne kilka minut.
 
 Dwie poprawki pod Windows, wbudowane w skrypt (bez nich kompilacja C++ `react-native-worklets`
 kończy się „ninja: manifest 'build.ninja' still dirty after 100 tries” — za długie ścieżki):
+
 - `node_modules` w układzie płaskim (`pnpm_config_node_linker=hoisted`; lockfile bez zmian),
 - CMake 3.31.6 z ninja 1.12 (`sdkmanager "cmake/3.31.6"`) wskazany w `android/local.properties`.
-Skrypt robi `expo prebuild --clean`, więc katalog `mobile/android/` jest za każdym razem generowany od nowa.
+  Skrypt robi `expo prebuild --clean`, więc katalog `mobile/android/` jest za każdym razem generowany od nowa.
 
 ## Wydania na GitHubie (od buildu 20, 2026-10-25)
 
@@ -1035,6 +1040,7 @@ mowy przechodzą. Na tym Windowsie **niezależnie od zmian** (sprawdzone na czys
 przechodzi 70 testów w `rpc-recording/*` i `native-document-bundle` oraz kilka plików, którym
 brakuje zależności głównego workspace'u (`zod`, `oxc-parser`…). `tsc --noEmit`: 7 błędów, wszystkie
 w plikach spoza zmian (brak tych samych zależności).
+
 ## Wersja Orki 1.4.247 (build 54, 2026-11-04)
 
 **Stan: zbudowane, niepotwierdzone na telefonie.**
@@ -1082,6 +1088,7 @@ wiersz `worktree.ps` jest `done` tylko w tej przerwie. Telefon pyta co 3 s (ekra
 **Stan: zbudowane, niepotwierdzone na telefonie.**
 
 Desktop właściciela jest na `v1.4.255`; fork przeniesiony z `v1.4.247` (skill `update-orca-base`).
+
 - Orka dodała własne dyktowanie na telefonie (`native.speech.act`) w plikach o tych samych nazwach co
   nasz przycisk „Read”. Nasze pliki mają teraz własne nazwy: `bridge/bridge-reply-speech-verbs.ts`,
   `platform/native-reply-speech.ts`; czasownik dalej `native.speech.control`.
@@ -1099,6 +1106,7 @@ terminalowym, dyktowanie Orki razem z czytaniem na głos.
 **Stan: zbudowane, niepotwierdzone na telefonie.**
 
 Przegląd kodu czytania (prośba właściciela: „co chwila dziury, kiedy czyta, kiedy nie”).
+
 - Pauza albo Stop starsze niż 10 minut ustępują następnej nowej wiadomości
   (`USER_HOLD_EXPIRES_MS`). Słuchawki z czujnikiem ucha i auta same naciskają Pauzę, a po
   10 minutach przyciski słuchawek wracają do muzyki, więc taka pauza blokowała czytanie po cichu.
@@ -1131,6 +1139,7 @@ zaległe czytają tylko Play i Next. Powiadomienie pokazuje je jako „N waiting
 
 Właściciel: po Stop w powiadomieniu wisiał napis „N waiting”, a nowa wiadomość dalej uruchamiała
 stare, pominięte. Teraz:
+
 - Stop (powiadomienie, słuchawki, pigułka na ekranie) oznacza czytaną wiadomość i wszystko, co
   czeka, jako przeczytane (`markRead` w `reply-speaker.ts`). Trafiają do historii, więc Poprzednia
   dalej do nich sięga, ale same już się nie czytają.
@@ -1150,6 +1159,7 @@ Przerwy w czytaniu przy otwartym czacie: dyktowanie Orki (`expo-two-way-audio`) 
 **Stan: zbudowane, niepotwierdzone na telefonie.**
 
 Desktop właściciela jest na `v1.4.258`; fork przeniesiony z `v1.4.255` (skill `update-orca-base`).
+
 - Orka przeszła z Expo 55 na Expo 58. `expo-speech` teraz `~58.0.3` (58.0.4 jest za świeże dla
   `minimumReleaseAge` w pnpm).
 - Orka dodała czasownik `native.a11y.announce`; stoi obok naszego `native.speech.control` w
@@ -1276,3 +1286,20 @@ pierwsza linia ostatniej wiadomości), wybór agenta = czytnik Orki czyta jego o
 (`onPlayFromMediaId` → `onCarAction read`). Sesja `ReadAloudMediaSession` zostaje (wstrzymana), póki
 auto przegląda Orkę. Ekran `OrcaCarApp.kt` został w kodzie. **Odpowiadanie głosem w tej wersji
 nie działa** — aplikacja multimedialna nie ma pola na tekst; do zrobienia osobno.
+
+Build 79 (2026-11-25): poprawki po przeglądzie kodu całej funkcji i porządki.
+
+- Usunięte, bo Android Auto ich nie używa: własny ekran auta (`OrcaCarApp.kt`), odpowiedź głosem
+  przez mikrofon auta (`CarVoiceInput.kt`), wiadomości jako powiadomienia (`CarMessaging.kt`), wysyłanie
+  odpowiedzi do terminala i zależność `androidx.car.app`. Zostaje aplikacja multimedialna:
+  `CarMediaBrowser.kt` + `speech/car-agents.ts`. Odpowiadanie wróci jako osobna praca; przegląd
+  znalazł w starym wysyłaniu podwójne wysłanie przy niepewnym dostarczeniu (`'unknown'` brane za
+  odmowę i wysyłane drugą drogą) — nie powtarzać tego.
+- Korzeń listy ma jeden element przeglądalny „Agenci” (auta przyjmują w korzeniu tylko takie, jako
+  zakładki); w nim agenci do odtworzenia.
+- Listę może przeglądać tylko Android Auto, aplikacje systemowe i sama Orka (`onGetRoot`), bo niesie
+  wiadomości agentów.
+- Komunikat „agent czeka” nie zastępuje już wiadomości agenta w aucie; nowsza zakończona tura
+  z hosta zastępuje starszą przeczytaną wiadomość (test `car-agents.test.ts`).
+- Sesja mediów trzymana dla auta: po rozłączeniu auta pauza dłuższa niż 10 minut zwalnia sesję od
+  razu (wcześniej mogła zostać do śmierci procesu i zabierać przyciski muzyce).

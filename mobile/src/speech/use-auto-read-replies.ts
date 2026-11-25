@@ -14,7 +14,7 @@ import { useAutoReadRepliesPreference } from './auto-read-preference'
 import { useBackgroundReadingPreference, useBackgroundReadingService } from './background-reading'
 import { backgroundReadingActive } from './background-reading-state'
 import { createChatMessageFeeds } from './chat-message-feeds'
-import { rememberCarPanes, sendToCar, useCarMessaging } from './car-messages'
+import { noteCarMessage, publishCarAgents, useCarAgentPicks } from './car-agents'
 import {
   chimeBeforeMessage,
   projectNameIntro,
@@ -138,7 +138,7 @@ export function useAutoReadReplies(): void {
   const pollRef = useRef<() => void>(() => undefined)
   const onServiceTick = useCallback(() => pollRef.current(), [])
   useBackgroundReadingService(autoRead && backgroundReading, onServiceTick)
-  useCarMessaging()
+  useCarAgentPicks()
 
   useEffect(() => {
     if (!autoRead) {
@@ -165,10 +165,10 @@ export function useAutoReadReplies(): void {
     let awaitingWake: ReadonlySet<string> = new Set()
     const readsOtherTurn = (paneKey: string) =>
       otherTurnRepliesRef.current === 'on' || awaitingWake.has(paneKey)
-    const speakAutoRead = (id: string, paneKey: string, text: string) => {
+    const speakAutoRead = (id: string, paneKey: string, text: string, agentMessage = true) => {
       const project = projectByPane.get(paneKey) ?? null
-      if (sendToCar(paneKey, project, text)) {
-        return
+      if (agentMessage) {
+        noteCarMessage(paneKey, text)
       }
       // Decided when the message starts, after what was heard before it, not when it was queued.
       const intro = () => {
@@ -242,7 +242,7 @@ export function useAutoReadReplies(): void {
         // A host whose read failed this round is left out rather than treated as having no
         // agents, so its panes keep their baseline and nothing is re-read when it answers again.
         const agents = rows.flatMap((hostRows) => hostRows ?? [])
-        rememberCarPanes(agents)
+        publishCarAgents(agents)
         // Merged, not replaced: a host whose read failed this round keeps its panes' projects.
         projectByPane = new Map([
           ...projectByPane,
@@ -321,7 +321,7 @@ export function useAutoReadReplies(): void {
         if (announceWaitsRef.current === 'on') {
           for (const wait of waits.newWaits) {
             const id = `${wait.paneKey}~wait~${wait.since}`
-            speakAutoRead(id, wait.paneKey, waitAnnouncement(wait.kind))
+            speakAutoRead(id, wait.paneKey, waitAnnouncement(wait.kind), false)
           }
         }
         if (readScopeRef.current === 'replies') {

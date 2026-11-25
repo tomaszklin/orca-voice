@@ -54,11 +54,7 @@ export type VoiceNativeModule = {
    * tag of the voice the reader last read with, null before its engine first started.
    */
   getSpeechOptions():
-    | (SpeechOptions & {
-        phoneRate: number
-        language: string | null
-        recordable: boolean
-      })
+    | (SpeechOptions & { phoneRate: number; language: string | null; recordable: boolean })
     | null
   /** Speech as media audio, so a screen recording captures it; navigation audio otherwise. */
   setRecordable(on: boolean): boolean
@@ -93,29 +89,12 @@ export type VoiceNativeModule = {
   canInstallUpdates(): boolean
   /** The system screen with Orca's "Install unknown apps" switch; false when it did not open. */
   openInstallPermission(): boolean
-  /** Whether the phone is connected to Android Auto; `onCarConnection` reports changes. */
-  isCarConnected(): boolean
-  /** Adds an agent's message to its car conversation (`conversation`: the pane). */
-  postCarMessage(conversation: string, title: string, text: string): boolean
-  clearCarMessages(): void
-  /** What Orca's car screen lists; `message` is plain text. */
-  /** JSON of `{ paneKey, project, state, message }[]`; answers how many it took. */
+  /** JSON of the agents Android Auto lists: `[{ paneKey, project, state, snippet }]`. */
   setCarAgents(json: string): number
-  /** How a reply from the car screen went, shown there. */
-  carReplyResult(ok: boolean, message: string): void
-  /** The car screen's Read and Reply (`text`: what the car's microphone heard). */
+  /** An agent picked in Android Auto, whose last message is to be read. */
   addListener(
-    event: 'onCarAction',
-    listener: (payload: { action: string; paneKey: string; text: string | null }) => void
-  ): { remove(): void }
-  addListener(
-    event: 'onCarConnection',
-    listener: (payload: { connected: boolean }) => void
-  ): { remove(): void }
-  /** A reply spoken in the car, for the conversation's agent. */
-  addListener(
-    event: 'onCarReply',
-    listener: (payload: { conversation: string; text: string }) => void
+    event: 'onCarRead',
+    listener: (payload: { paneKey: string }) => void
   ): { remove(): void }
   addListener(event: 'onTick' | 'onAutoReadToggle', listener: () => void): { remove(): void }
   addListener(
@@ -142,9 +121,7 @@ export function voiceNativeModule(): VoiceNativeModule | null {
       // Both required lazily, so suites that reach this file through the chat or the bridge never
       // load React Native's Flow sources or the native module system.
       // oxlint-disable-next-line typescript/no-require-imports
-      const { Platform } = require('react-native') as {
-        Platform: { OS: string }
-      }
+      const { Platform } = require('react-native') as { Platform: { OS: string } }
       if (Platform.OS === 'android') {
         // oxlint-disable-next-line typescript/no-require-imports
         const core = require('expo-modules-core') as {

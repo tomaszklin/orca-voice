@@ -5,6 +5,7 @@ import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 
@@ -28,9 +29,13 @@ internal object ReadAloudMediaSession {
   private val handler = Handler(Looper.getMainLooper())
   private var session: MediaSession? = null
   private var lastState: String? = null
-  private val releasePaused = Runnable { release() }
-  /** While Android Auto browses Orca ([CarMediaBrowser]), the session stays, paused when idle. */
+  // Kept while Android Auto browses Orca (CarMediaBrowser); with nothing read it shows paused there.
   private var kept = false
+  private var pauseHoldPending = false
+  private val releasePaused = Runnable {
+    pauseHoldPending = false
+    if (!kept) release()
+  }
 
   private val callback = object : MediaSession.Callback() {
     override fun onPlay() = ReadAloudControls.send(ReadAloudControls.PLAY)
@@ -38,7 +43,7 @@ internal object ReadAloudMediaSession {
     override fun onSkipToNext() = ReadAloudControls.send(ReadAloudControls.NEXT)
     override fun onSkipToPrevious() = ReadAloudControls.send(ReadAloudControls.PREVIOUS)
     override fun onStop() = ReadAloudControls.send(ReadAloudControls.STOP_READING)
-    override fun onPlayFromMediaId(mediaId: String?, extras: android.os.Bundle?) = CarMediaBrowser.play(mediaId)
+    override fun onPlayFromMediaId(mediaId: String?, extras: Bundle?) = CarMediaBrowser.play(mediaId)
   }
 
   /** `state`: "idle", "reading", "paused" or "stopped"; `title` is what a car's display shows. */
@@ -61,22 +66,16 @@ internal object ReadAloudMediaSession {
     }
   }
 
-  /** Main thread: the session for [CarMediaBrowser], made now if nothing is read. */
+  /** Main thread: the session for [CarMediaBrowser]. */
   fun keep(context: Context): MediaSession.Token {
     kept = true
-    val media = session ?: create(context.applicationContext)
-    if (lastState != "reading" && lastState != "paused") {
-      idle(media)
-    }
-    return media.sessionToken
+    return (session ?: create(context.applicationContext).also { idle(it) }).sessionToken
   }
 
-  /** Main thread: the car stopped browsing; an idle session goes as before. */
+  /** Main thread: the car is gone; a pause still inside its 10 minutes is left to its timer. */
   fun letGo() {
     kept = false
-    if (lastState != "reading" && lastState != "paused") {
-      release()
-    }
+    if (lastState != "reading" && !(lastState == "paused" && pauseHoldPending)) release()
   }
 
   private fun create(context: Context): MediaSession =
@@ -92,7 +91,7 @@ internal object ReadAloudMediaSession {
       session = it
     }
 
-  /** Kept for the car with nothing read: paused, so the car shows Orca and its list. */
+  /** Kept for the car with nothing read: paused, so the car still shows Orca. */
   private fun idle(media: MediaSession) {
     media.setPlaybackState(
       PlaybackState.Builder()
@@ -111,6 +110,7 @@ internal object ReadAloudMediaSession {
 
   private fun release() {
     handler.removeCallbacks(releasePaused)
+    pauseHoldPending = false
     if (kept) {
       session?.let { idle(it) }
       return
@@ -133,7 +133,10 @@ internal object ReadAloudMediaSession {
     if (state == "paused" && previous == "paused" && session == null) return
     // A paused status that only changed (a new message waiting) keeps the release timer running.
     val stillPaused = state == "paused" && previous == "paused"
-    if (!stillPaused) handler.removeCallbacks(releasePaused)
+    if (!stillPaused) {
+      handler.removeCallbacks(releasePaused)
+      pauseHoldPending = false
+    }
     val existing = session
     val media = existing ?: create(context)
     val wasPlaying = existing?.controller?.playbackState?.state == PlaybackState.STATE_PLAYING
@@ -156,7 +159,10 @@ internal object ReadAloudMediaSession {
     )
     if (!media.isActive) media.isActive = true
     if (playing && !wasPlaying) claimButtons()
-    if (!playing && !stillPaused) handler.postDelayed(releasePaused, RELEASE_PAUSED_AFTER_MS)
+    if (!playing && !stillPaused) {
+      handler.postDelayed(releasePaused, RELEASE_PAUSED_AFTER_MS)
+      pauseHoldPending = true
+    }
   }
 
   private fun claimButtons() {

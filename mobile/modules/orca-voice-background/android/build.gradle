@@ -17,6 +17,4 @@ android {
 dependencies {
   // NotificationCompat/ContextCompat; already on the APK classpath through React Native.
   implementation 'androidx.core:core:1.13.1'
-  // CarConnection: whether the phone is connected to Android Auto (CarMessaging.kt).
-  implementation 'androidx.car.app:app:1.4.0'
 }

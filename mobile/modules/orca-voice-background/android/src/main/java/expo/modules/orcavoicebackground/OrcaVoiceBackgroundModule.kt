@@ -14,10 +14,7 @@ class OrcaVoiceBackgroundModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("OrcaVoiceBackground")
 
-    Events(
-      "onTick", "onSpeech", "onAutoReadToggle", "onReaderControl", "onUpdateDownload",
-      "onCarReply", "onCarConnection", "onCarAction"
-    )
+    Events("onTick", "onSpeech", "onAutoReadToggle", "onReaderControl", "onUpdateDownload", "onCarRead")
 
     // Wired at creation rather than on first observer: a module instance exists only while the
     // app's JS runs, which is exactly what the sticky service checks the ticker listener for.
@@ -36,63 +33,28 @@ class OrcaVoiceBackgroundModule : Module() {
       UpdateInstaller.listener = { event, percent, message ->
         sendEvent("onUpdateDownload", mapOf("event" to event, "percent" to percent, "message" to message))
       }
-      CarMessaging.connectionListener = { connected ->
-        sendEvent("onCarConnection", mapOf("connected" to connected))
-      }
-      CarMessaging.replyListener = { conversation, text ->
-        sendEvent("onCarReply", mapOf("conversation" to conversation, "text" to text))
-      }
-      CarState.actionListener = { action, paneKey, text ->
-        sendEvent("onCarAction", mapOf("action" to action, "paneKey" to paneKey, "text" to text))
-      }
+      CarAgents.readListener = { paneKey -> sendEvent("onCarRead", mapOf("paneKey" to paneKey)) }
       appContext.reactContext?.let {
         ReadAloudOutput.watch(it)
         UpdateInstaller.dismissUpdated(it)
-        CarMessaging.watch(it)
       }
     }
 
-    /** Whether the phone is connected to Android Auto (or runs in a car's own Android). */
-    Function("isCarConnected") {
-      appContext.reactContext?.let { CarMessaging.watch(it) }
-      CarMessaging.connected
-    }
-
-    /** Adds an agent's message to its conversation in the car; `conversation` is the pane. */
-    Function("postCarMessage") { conversation: String, title: String, text: String ->
-      val context = appContext.reactContext ?: return@Function false
-      CarMessaging.post(context, conversation, title, text)
-      true
-    }
-
-    /**
-     * The agents Orca's car screen lists, as a JSON array of objects with paneKey, project, state
-     * and message. JSON, so no value of the list can fail Expo's argument conversion.
-     */
+    /** The agents Android Auto lists, as JSON: `[{ paneKey, project, state, snippet }]`. */
     Function("setCarAgents") { json: String ->
       val array = org.json.JSONArray(json)
       val agents = (0 until array.length()).mapNotNull { index ->
         val entry = array.optJSONObject(index) ?: return@mapNotNull null
         val paneKey = entry.optString("paneKey").takeIf { it.isNotEmpty() } ?: return@mapNotNull null
-        CarAgent(
+        CarAgents.Agent(
           paneKey,
           entry.optString("project").ifEmpty { "Orca" },
           entry.optString("state"),
-          if (entry.isNull("message")) null else entry.optString("message")
+          if (entry.isNull("snippet")) null else entry.optString("snippet")
         )
       }
-      CarState.setAgents(agents)
+      CarAgents.set(agents)
       agents.size
-    }
-
-    /** How a reply from the car screen went; shown there as a toast. */
-    Function("carReplyResult") { ok: Boolean, message: String ->
-      CarState.replyResult(ok, message)
-    }
-
-    /** Ends every car conversation, e.g. when the setting is switched off. */
-    Function("clearCarMessages") {
-      appContext.reactContext?.let { CarMessaging.clear(it) }
     }
 
     /** False when Android refused the service, e.g. a start attempted from the background. */
@@ -212,7 +174,6 @@ class OrcaVoiceBackgroundModule : Module() {
     Function("setReaderState") { state: String, title: String?, status: String?, canRepeat: Boolean,
       canPrevious: Boolean, canNext: Boolean, outsideQueue: Boolean ->
       ReadAloudService.showReader(state, status, canRepeat, canPrevious, canNext, outsideQueue)
-      CarState.setReader(state)
       appContext.reactContext?.let {
         // Also here, in case there was no context yet when the module was created.
         ReadAloudOutput.watch(it)
@@ -231,9 +192,7 @@ class OrcaVoiceBackgroundModule : Module() {
       ReadAloudSpeech.listener = null
       ReadAloudControls.listener = null
       UpdateInstaller.listener = null
-      CarMessaging.replyListener = null
-      CarMessaging.connectionListener = null
-      CarState.actionListener = null
+      CarAgents.readListener = null
       // Why: with no JS left to drive them, speech and the service's wake lock would only linger.
       ReadAloudSpeech.stop()
       appContext.reactContext?.let { ReadAloudService.stop(it) }
