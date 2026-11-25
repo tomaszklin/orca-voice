@@ -1261,3 +1261,9 @@ Build 76 (2026-11-25): w buildzie 75 ekran auta był pusty mimo czytania wiadomo
 prawdopodobnie nie przechodziła konwersji argumentu Expo (`List<Map<String, Any?>>`), a błąd był
 połykany. Teraz `setCarAgents` bierze JSON, błąd idzie do dziennika czytnika, a pusta lista w aucie
 mówi, kiedy telefon ostatnio ją przysłał („nigdy” = JS nic nie wysłał).
+
+Build 77 (2026-11-25): build 76 dalej pokazywał w aucie „Brak nowych wiadomości podczas tej trasy” —
+to widok wiadomości samego Android Auto, nie nasz ekran. Przez `<uses name="notification"/>` auto
+traktowało Orkę jak komunikator i nie otwierało `OrcaCarAppService`. Deklaracja usunięta (zostaje
+`template`), przełącznik „Android Auto notifications” zniknął z ustawień (kod powiadomień został,
+wyłączony). Tytuł listy w aucie pokazuje numer buildu.

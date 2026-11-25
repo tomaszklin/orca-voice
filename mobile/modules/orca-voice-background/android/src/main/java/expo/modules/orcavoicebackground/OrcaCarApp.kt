@@ -179,8 +179,15 @@ class AgentListScreen(carContext: CarContext) : Screen(carContext) {
       firstLine(agent.message, 120).takeIf { it.isNotEmpty() }?.let { row.addText(it) }
       list.addItem(row.build())
     }
+    // The build, so the owner can see in the car which one runs ("0.0.67-voice.77" -> "build 77").
+    val build = try {
+      carContext.packageManager.getPackageInfo(carContext.packageName, 0).versionName
+        ?.substringAfter("voice.", "")?.takeIf { it.isNotEmpty() }
+    } catch (_: Exception) {
+      null
+    }
     return ListTemplate.Builder()
-      .setTitle("Orca")
+      .setTitle(if (build != null) "Orca · build $build" else "Orca")
       .setHeaderAction(Action.APP_ICON)
       .setSingleList(list.build())
       .setActionStrip(readerStrip())

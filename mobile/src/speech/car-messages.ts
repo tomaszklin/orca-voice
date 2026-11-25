@@ -27,8 +27,9 @@ import { voiceNativeModule } from './voice-native-module'
  * message; Read speaks it with Orca's reader, Reply sends what the car's microphone heard to the
  * agent's terminal. Messages keep being read by Orca's reader, in the voice set on the phone.
  *
- * Optionally (off by default) messages go to Android Auto as chat notifications instead: the car
- * reads them in its own voice and takes a reply through the Assistant.
+ * Messages can also go to Android Auto as chat notifications (`orca:voiceCarNotifications`, off,
+ * no switch since build 77): that needs `notification` in `automotive_app_desc.xml`, which makes
+ * Android Auto open its own message view instead of Orca's screen, so it is not declared now.
  */
 
 export const useCarNotifications = createStoredChoice<'on' | 'off'>(

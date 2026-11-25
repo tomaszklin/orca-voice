@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Orca Voice fork: Android Auto shows Orca's agent messages (CarMessaging.kt). -->
+<!-- Orca Voice fork: Orca's own screen in Android Auto (OrcaCarApp.kt). No "notification": with it
+     Android Auto lists Orca as a messaging app and opens its own message view instead of this
+     screen (build 76). -->
 <automotiveApp>
-  <uses name="notification" />
   <uses name="template" />
 </automotiveApp>
