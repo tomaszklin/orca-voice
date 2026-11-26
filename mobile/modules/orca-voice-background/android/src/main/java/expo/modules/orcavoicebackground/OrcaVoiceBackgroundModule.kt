@@ -16,7 +16,7 @@ class OrcaVoiceBackgroundModule : Module() {
 
     Events(
       "onTick", "onSpeech", "onAutoReadToggle", "onReaderControl", "onUpdateDownload",
-      "onCarRead", "onCarReply", "onCarLive", "onCarSession", "onCarHistory"
+      "onCarRead", "onCarReply", "onCarLive", "onCarSession", "onCarHistory", "onCarNewSession"
     )
 
     // Wired at creation rather than on first observer: a module instance exists only while the
@@ -51,6 +51,11 @@ class OrcaVoiceBackgroundModule : Module() {
     /** A session's messages for the car, newest first, as JSON: `[{ id, fromUser, at, snippet }]`. */
     Function("setCarHistory") { paneKey: String, json: String ->
       CarData.setHistory(paneKey, json)
+    }
+
+    /** A new chat from the car: its pane key for the reply screen, or why it failed. */
+    Function("carNewSessionResult") { requestId: String, ok: Boolean, value: String ->
+      CarData.newSessionResult(requestId, ok, value)
     }
 
     /** How a reply spoken in the car went; the car shows `message`. */

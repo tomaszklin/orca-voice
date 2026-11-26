@@ -1434,3 +1434,19 @@ spróbować pełnego ekranu bez Sklepu Play przez UnknownAuto (Shizuku), potem w
 - Odtwarzacz dalej odpowiada przez wiadomość Android Auto (dyktowanie Asystenta, urywa się przy
   pauzach). Dyktowanie telefonem przy zgaszonym ekranie wymagałoby mikrofonu w tle — Android to
   ogranicza; nie zrobione.
+
+## Wszystkie projekty i „Nowa sesja” w aucie (build 85, 2026-11-26)
+
+**Stan: zbudowane, niesprawdzone w aucie.**
+
+- Lista projektów pokazuje też projekty bez sesji (prośba właściciela): `readAgentRows` zapamiętuje
+  worktree z `worktree.ps` (`latestHostWorktrees`, bez zarchiwizowanych), `car-projects.ts` składa
+  projekty hosta (nazwa repo albo workspace'u) od ostatniej aktywności (`lastActivityAt` worktree
+  i sesji). JS wysyła je w danych dla auta (`projects`).
+- „Nowa sesja” na górze listy sesji projektu tworzy czat Claude (`createMobileStructuredAgentSession`,
+  agent `claude`) w głównym worktree projektu, a bez niego w ostatnio aktywnym. Pełny ekran od razu
+  otwiera ekran odpowiedzi dla nowej sesji (pierwszą wiadomość się dyktuje); odtwarzacz mówi, że
+  sesja powstała, i wystawia wiadomość „Podyktuj pierwszą wiadomość.” (odpowiedź przez Android
+  Auto). Nowa sesja ma w JS tymczasowy klucz `new:<id>`, dopóki host nie poda jej panelu.
+- Porządki: wspólny stan auta w `car-sessions.ts`, historia i czytanie w `car-history-store.ts`
+  (car-agents.ts przekroczył limit 300 linii).

@@ -57,6 +57,41 @@ const agentRowSchema = z.object({
   agentType: z.string().nullish().catch(null)
 })
 
+/** A worktree `worktree.ps` listed, for the car's project list. */
+export type HostWorktree = {
+  worktreeId: string
+  project: string
+  isMain: boolean
+  lastActivityAt: number
+}
+
+const hostWorktrees = new Map<string, readonly HostWorktree[]>()
+
+/** The worktrees `worktree.ps` last listed on a host, archived ones left out. */
+export function latestHostWorktrees(hostId: string): readonly HostWorktree[] {
+  return hostWorktrees.get(hostId) ?? []
+}
+
+function worktreesFromWorktreePs(worktrees: readonly unknown[]): HostWorktree[] {
+  return worktrees.flatMap((worktree) => {
+    const project = isRecord(worktree) ? worktreeProjectName(worktree) : null
+    if (!isRecord(worktree) || !project || worktree.isArchived === true) {
+      return []
+    }
+    const { worktreeId, isMainWorktree, lastActivityAt } = worktree
+    return typeof worktreeId === 'string'
+      ? [
+          {
+            worktreeId,
+            project,
+            isMain: isMainWorktree === true,
+            lastActivityAt: typeof lastActivityAt === 'number' ? lastActivityAt : 0
+          }
+        ]
+      : []
+  })
+}
+
 function worktreeProjectName(worktree: Record<string, unknown>): string | null {
   const name =
     typeof worktree.repo === 'string' && worktree.repo ? worktree.repo : worktree.displayName
@@ -103,6 +138,7 @@ export async function readAgentRows(
   if (!catalog.accepted) {
     throw new Error('worktree.ps refused')
   }
+  hostWorktrees.set(hostId, worktreesFromWorktreePs(catalog.value.worktrees ?? []))
   return agentRowsFromWorktreePs(hostId, catalog.value.worktrees ?? [])
 }
 

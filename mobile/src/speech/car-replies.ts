@@ -4,7 +4,10 @@ import { sendMobileStructuredAgentSessionMessage } from '../session/native-chat/
 import { structuredSessionOperationId } from '../session/native-chat/agent-session/structured-session-operation-id'
 import { sendMobileNativeChatMessageWithOutcome } from '../session/native-chat/composer/delivery/mobile-native-chat-send'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
+import { carSessions, clientOf, type HostClient } from './car-sessions'
 import { readerLanguage } from './reader-words'
+import { logSpeechEvent } from './speech-diagnostics'
+import { voiceNativeModule } from './voice-native-module'
 
 export type CarReplyOutcome =
   | 'sent'
@@ -101,4 +104,28 @@ export function carReplyWords({ outcome, reason }: CarReplyResult): string {
   const [polish, english] = WORDS[outcome]
   const words = readerLanguage() === 'pl' ? polish : english
   return reason ? `${words} ${reason}` : words
+}
+
+/** A reply spoken in the car, sent to its session; the car hears how it went. */
+export async function replyFromCar(
+  hosts: readonly HostClient[],
+  requestId: string,
+  paneKey: string,
+  text: string
+): Promise<void> {
+  const target = carSessions.get(paneKey)
+  const client = target ? clientOf(hosts, target.hostId) : undefined
+  let result: CarReplyResult = { outcome: 'gone' }
+  if (target && !client) {
+    result = { outcome: 'offline' }
+  } else if (target && client) {
+    result = await sendCarReply(client, target, text).catch((error: unknown): CarReplyResult => ({
+      outcome: 'unknown',
+      reason: error instanceof Error ? error.message : undefined
+    }))
+  }
+  logSpeechEvent(
+    `car reply ${result.outcome}${result.reason ? ` (${result.reason})` : ''}: ${paneKey}`
+  )
+  voiceNativeModule()?.carReplyResult(requestId, result.outcome === 'sent', carReplyWords(result))
 }

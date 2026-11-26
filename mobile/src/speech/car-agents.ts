@@ -3,36 +3,28 @@ import { mainAgentState } from '../../../src/shared/agent-status/lifecycle/main-
 import { parseOrcaSessionAddress } from '../../../src/shared/agent-session/identity/orca-session-address'
 import { loadStoredHostProfiles } from '../host-catalog/host-metadata-store'
 import { useRpcClientContext } from '../transport/connection/client-context'
-import type { RpcClient } from '../transport/rpc/rpc-client-contract'
-import type { AutoReadAgentRow } from './auto-read-agent-rows'
+import { latestHostWorktrees, type AutoReadAgentRow } from './auto-read-agent-rows'
 import { setCarSessionActive } from './background-reading-state'
-import { createCarAgentMessages } from './car-agent-messages'
-import { readCarHistory, wholeCarMessage, type CarHistoryMessage } from './car-history'
-import { carReplyWords, sendCarReply, type CarReplyResult } from './car-replies'
+import { loadCarHistory, readForCar, refreshCarHistory } from './car-history-store'
+import { newSessionFromCar } from './car-new-session'
+import { carProjects } from './car-projects'
+import { replyFromCar } from './car-replies'
+import {
+  carMessages as messages,
+  carSessions as sessions,
+  carSnippet as snippet,
+  type HostClient
+} from './car-sessions'
 import { readerLanguage } from './reader-words'
 import { speakReply } from './reply-speaker'
 import { structuredSessionId } from './structured-reply-text'
 import { logSpeechEvent } from './speech-diagnostics'
-import { toSpeechText } from './speech-text'
 import { voiceNativeModule } from './voice-native-module'
 
 // Orca Voice fork: what Orca's Android Auto screens show (OrcaCarApp.kt, CarMediaBrowser.kt), and their requests.
 
-type HostClient = { hostId: string; client: RpcClient }
-type CarSession = {
-  hostId: string
-  address: string | null
-  /** An Orca chat's session id; replies go there rather than to a terminal. */
-  chatSessionId: string | null
-  project: string | null
-  title: string
-}
-
-const SNIPPET_LENGTH = 400
 const HOST_NAMES_EVERY_MS = 60_000
 
-const messages = createCarAgentMessages()
-const sessions = new Map<string, CarSession>()
 let hostNames = new Map<string, string>()
 let hostNamesAt = 0
 let lastRows: readonly AutoReadAgentRow[] = []
@@ -41,10 +33,9 @@ let lastHosts: readonly HostClient[] = []
 let live: string | null = null
 let autoReadOn = false
 let carSession = false
-// Sessions whose messages a car view asked for, and the activity they were last read at.
-const histories = new Map<string, readonly CarHistoryMessage[]>()
-const historyStamps = new Map<string, number>()
-const loadingHistories = new Set<string>()
+// Where a new chat from the car goes: each host's project's worktree.
+const projectWorktrees = new Map<string, string>()
+const projectKey = (hostId: string, project: string) => `${hostId}\u001f${project}`
 const carSessionListeners = new Set<() => void>()
 
 /** Notes an agent's message for the car; false when the car's choices keep it from being read. */
@@ -53,11 +44,6 @@ export function carLetsRead(paneKey: string, markdown: string, agentMessage: boo
     messages.note(paneKey, markdown)
   }
   return live === null ? autoReadOn : paneKey === live
-}
-
-function snippet(markdown: string | null): string | null {
-  const text = markdown ? toSpeechText(markdown).trim() : ''
-  return text ? text.slice(0, SNIPPET_LENGTH) : null
 }
 
 function refreshHostNames(): void {
@@ -95,10 +81,7 @@ export function publishCarData(
       const address = row.address ?? null
       const chatSessionId = structuredSessionId(row.rawPaneKey)
       const stamp = lastActive(row)
-      if (histories.has(row.paneKey) && historyStamps.get(row.paneKey) !== stamp) {
-        historyStamps.set(row.paneKey, stamp)
-        void loadHistory(hosts, row.paneKey)
-      }
+      refreshCarHistory(hosts, row.paneKey, stamp)
       sessions.set(row.paneKey, {
         hostId,
         address,
@@ -117,7 +100,26 @@ export function publishCarData(
           chatSessionId !== null || (address !== null && parseOrcaSessionAddress(address) === null)
       }
     })
+  const activity = rows
+    .filter((row) => !row.parentPaneKey)
+    .map((row) => ({
+      hostId: row.paneKey.slice(0, row.paneKey.length - row.rawPaneKey.length - 1),
+      project: row.project ?? 'Orca',
+      lastActive: lastActive(row),
+      worktreeId: row.worktreeId
+    }))
+  const projects = carProjects(
+    hosts.map(({ hostId }) => hostId),
+    latestHostWorktrees,
+    activity
+  )
+  for (const project of projects) {
+    if (project.worktreeId) {
+      projectWorktrees.set(projectKey(project.hostId, project.name), project.worktreeId)
+    }
+  }
   const data = {
+    projects: projects.map(({ hostId, name, lastActive }) => ({ hostId, name, lastActive })),
     hosts: hosts.map(({ hostId, client }) => ({
       id: hostId,
       name: hostNames.get(hostId) ?? 'Orca',
@@ -138,92 +140,6 @@ export function publishCarData(
   } catch (error) {
     logSpeechEvent(`car data failed: ${error instanceof Error ? error.message : String(error)}`)
   }
-}
-
-// Without a chat to read, the messages auto-read noted for the pane stand in.
-function notedHistory(paneKey: string): CarHistoryMessage[] {
-  return messages
-    .recent()
-    .filter((message) => message.paneKey === paneKey)
-    .map(({ id, at, markdown }) => ({ id, fromUser: false, at, markdown, shortened: false }))
-}
-
-async function loadHistory(hosts: readonly HostClient[], paneKey: string): Promise<void> {
-  const target = sessions.get(paneKey)
-  const native = voiceNativeModule()
-  if (!target || !native || loadingHistories.has(paneKey)) {
-    return
-  }
-  loadingHistories.add(paneKey)
-  const client = hosts.find(({ hostId }) => hostId === target.hostId)?.client
-  let list = notedHistory(paneKey)
-  try {
-    if (target.chatSessionId && client) {
-      list = await readCarHistory(client, target.chatSessionId)
-    }
-  } catch (error) {
-    logSpeechEvent(`car history failed: ${error instanceof Error ? error.message : String(error)}`)
-    list = histories.get(paneKey)?.slice() ?? list
-  } finally {
-    loadingHistories.delete(paneKey)
-  }
-  histories.set(paneKey, list)
-  const shown = list.map(({ id, fromUser, at, markdown }) => ({
-    id,
-    fromUser,
-    at,
-    snippet: snippet(markdown) ?? ''
-  }))
-  native.setCarHistory(paneKey, JSON.stringify(shown))
-}
-
-/** A session's last message, or one message of its history or of the recent list. */
-async function readForCar(
-  hosts: readonly HostClient[],
-  paneKey: string | null,
-  messageId: string | null
-): Promise<void> {
-  const inHistory =
-    paneKey && messageId ? histories.get(paneKey)?.find(({ id }) => id === messageId) : undefined
-  const recent =
-    !inHistory && messageId ? messages.recent().find(({ id }) => id === messageId) : undefined
-  const pane = recent?.paneKey ?? paneKey
-  let message = inHistory?.markdown ?? recent?.markdown ?? (pane ? messages.get(pane) : null)
-  const target = pane ? sessions.get(pane) : undefined
-  const client = target ? hosts.find(({ hostId }) => hostId === target.hostId)?.client : undefined
-  if (inHistory?.shortened && target?.chatSessionId && client) {
-    message = await wholeCarMessage(client, target.chatSessionId, inHistory).catch(() => message)
-  }
-  if (!pane || !message) {
-    logSpeechEvent(`car read without a message: ${pane ?? messageId}`)
-    return
-  }
-  speakReply(`car:${messageId ?? pane}@${Date.now()}`, message, 'interrupt', {
-    title: target?.project ?? null
-  })
-}
-
-async function replyFromCar(
-  hosts: readonly HostClient[],
-  requestId: string,
-  paneKey: string,
-  text: string
-): Promise<void> {
-  const target = sessions.get(paneKey)
-  const client = target ? hosts.find(({ hostId }) => hostId === target.hostId)?.client : undefined
-  let result: CarReplyResult = { outcome: 'gone' }
-  if (target && !client) {
-    result = { outcome: 'offline' }
-  } else if (target && client) {
-    result = await sendCarReply(client, target, text).catch((error: unknown): CarReplyResult => ({
-      outcome: 'unknown',
-      reason: error instanceof Error ? error.message : undefined
-    }))
-  }
-  logSpeechEvent(
-    `car reply ${result.outcome}${result.reason ? ` (${result.reason})` : ''}: ${paneKey}`
-  )
-  voiceNativeModule()?.carReplyResult(requestId, result.outcome === 'sent', carReplyWords(result))
 }
 
 // The media list has no toast, so the reader says what Read new did.
@@ -269,7 +185,11 @@ export function useCarControls(autoRead: boolean): boolean {
         void readForCar(rpc.getAllClients(), paneKey, messageId)
       }),
       native.addListener('onCarHistory', ({ paneKey }) => {
-        void loadHistory(rpc.getAllClients(), paneKey)
+        void loadCarHistory(rpc.getAllClients(), paneKey)
+      }),
+      native.addListener('onCarNewSession', (request) => {
+        const worktreeId = projectWorktrees.get(projectKey(request.hostId, request.project))
+        void newSessionFromCar(rpc.getAllClients(), request, worktreeId)
       }),
       native.addListener('onCarLive', ({ paneKey, announce }) => {
         live = paneKey

@@ -102,7 +102,7 @@ class HostsScreen(carContext: CarContext) : OrcaScreen(carContext) {
     CarData.hosts.forEach { host ->
       val sessions = CarData.sessions.filter { it.hostId == host.id }
       val text = if (!host.connected) CarWords.disconnected
-      else CarWords.summary(sessions.map { it.project }.distinct().size, sessions.size, sessions.count { it.state != "done" })
+      else CarWords.summary(CarData.projects.count { it.hostId == host.id }, sessions.size, sessions.count { it.state != "done" })
       list.addItem(
         Row.Builder().setTitle(host.name).addText(text).setBrowsable(true)
           .setOnClickListener { screenManager.push(ProjectsScreen(carContext, host.id, host.name)) }.build()
@@ -122,14 +122,16 @@ class HostsScreen(carContext: CarContext) : OrcaScreen(carContext) {
 
 class ProjectsScreen(carContext: CarContext, private val hostId: String, private val hostName: String) :
   OrcaScreen(carContext) {
-  private val projects = CarData.sessions.filter { it.hostId == hostId }.map { it.project }.distinct()
+  private val projects = CarData.projects.filter { it.hostId == hostId }.map { it.name }
 
   override fun onGetTemplate(): Template {
-    val list = ItemList.Builder().setNoItemsMessage(CarWords.noSessions)
+    val list = ItemList.Builder().setNoItemsMessage(CarWords.noProjects)
     projects.forEach { project ->
       val sessions = CarData.sessions.filter { it.hostId == hostId && it.project == project }
+      val text = if (sessions.isEmpty()) CarWords.noSessions
+      else CarWords.summary(null, sessions.size, sessions.count { it.state != "done" })
       list.addItem(
-        Row.Builder().setTitle(project).addText(CarWords.summary(null, sessions.size, sessions.count { it.state != "done" }))
+        Row.Builder().setTitle(project).addText(text)
           .setBrowsable(true).setOnClickListener { screenManager.push(SessionsScreen(carContext, hostId, project)) }.build()
       )
     }
@@ -144,7 +146,11 @@ class SessionsScreen(carContext: CarContext, private val hostId: String, private
     .map { it.paneKey to it.title }
 
   override fun onGetTemplate(): Template {
-    val list = ItemList.Builder().setNoItemsMessage(CarWords.noSessions)
+    val list = ItemList.Builder()
+    list.addItem(
+      Row.Builder().setTitle(CarWords.newSession).addText(CarWords.newSessionHint).setBrowsable(true)
+        .setOnClickListener { startSession() }.build()
+    )
     opened.forEach { (paneKey, title) ->
       val session = CarData.session(paneKey)
       val row = Row.Builder().setTitle(title).addText(sessionStatus(session))
@@ -155,6 +161,15 @@ class SessionsScreen(carContext: CarContext, private val hostId: String, private
     }
     return ListTemplate.Builder().setTitle(project).setHeaderAction(Action.BACK).setSingleList(list.build())
       .setActionStrip(listStrip { SessionsScreen(carContext, hostId, project) }).build()
+  }
+
+  // A Claude chat in this project; its first message is dictated like any reply.
+  private fun startSession() {
+    CarToast.makeText(carContext, CarWords.creating, CarToast.LENGTH_SHORT).show()
+    CarData.newSession(hostId, project, announce = false) { ok, value ->
+      if (ok) screenManager.push(ReplyScreen(carContext, value, CarWords.newSession))
+      else CarToast.makeText(carContext, value, CarToast.LENGTH_LONG).show()
+    }
   }
 }
 
@@ -370,6 +385,11 @@ internal object CarWords {
 
   val agents get() = say("Agenci", "Agents")
   val agent get() = say("Agent", "Agent")
+  val noProjects get() = say("Brak projektów.", "No projects.")
+  val newSession get() = say("Nowa sesja", "New session")
+  val newSessionHint get() = say("Czat Claude w tym projekcie. Pierwszą wiadomość podyktujesz.", "A Claude chat in this project. You dictate its first message.")
+  val creating get() = say("Tworzę nową sesję…", "Creating a new session…")
+  val firstMessagePrompt get() = say("Podyktuj pierwszą wiadomość.", "Say the first message.")
   val newest get() = say("Najnowsza", "Newest")
   val previous get() = say("Poprzednia", "Previous")
   val earlier get() = say("Wcześniejsza", "Earlier")

@@ -12,6 +12,9 @@ import org.json.JSONObject
 object CarData {
   data class Host(val id: String, val name: String, val connected: Boolean)
 
+  /** A project on a host, sessions or not, most recently active first. */
+  data class Project(val hostId: String, val name: String)
+
   data class Session(
     val paneKey: String,
     val hostId: String,
@@ -29,13 +32,15 @@ object CarData {
 
   private data class Snapshot(
     val hosts: List<Host>,
+    val projects: List<Project>,
     val sessions: List<Session>,
     val recent: List<Recent>,
     val live: String?
   )
 
-  @Volatile private var snapshot = Snapshot(emptyList(), emptyList(), emptyList(), null)
+  @Volatile private var snapshot = Snapshot(emptyList(), emptyList(), emptyList(), emptyList(), null)
   val hosts get() = snapshot.hosts
+  val projects get() = snapshot.projects
   val sessions get() = snapshot.sessions
   val recent get() = snapshot.recent
   val live get() = snapshot.live
@@ -59,6 +64,7 @@ object CarData {
   // Main thread only.
   private val screens = mutableSetOf<Screen>()
   private val replies = mutableMapOf<String, (Boolean, String) -> Unit>()
+  private val newSessions = mutableMapOf<String, (Boolean, String) -> Unit>()
   private var nextReply = 0
   // The car screens poll through the background reader's tick, which JS hears even off screen.
   private val tick = object : Runnable {
@@ -74,6 +80,7 @@ object CarData {
       objects(root.optJSONArray("hosts")).map {
         Host(it.getString("id"), it.optString("name").ifEmpty { "Orca" }, it.optBoolean("connected"))
       },
+      objects(root.optJSONArray("projects")).map { Project(it.getString("hostId"), it.getString("name")) },
       objects(root.optJSONArray("sessions")).map {
         Session(
           it.getString("paneKey"),
@@ -153,6 +160,22 @@ object CarData {
 
   fun replyResult(requestId: String, ok: Boolean, message: String) {
     main.post { replies.remove(requestId)?.invoke(ok, message) }
+  }
+
+  /**
+   * Main thread. A new Claude chat in `project`; `onResult` gets its pane key for the reply screen,
+   * or why it failed. `announce`: the reader says how it went, for the media list.
+   */
+  fun newSession(hostId: String, project: String, announce: Boolean, onResult: (Boolean, String) -> Unit) {
+    val send = listener ?: return onResult(false, CarWords.phoneAppGone)
+    val id = "new-${nextReply++}"
+    newSessions[id] = onResult
+    main.postDelayed({ newSessions.remove(id)?.invoke(false, CarWords.noAnswer) }, REPLY_TIMEOUT_MS)
+    send("onCarNewSession", mapOf("requestId" to id, "hostId" to hostId, "project" to project, "announce" to announce))
+  }
+
+  fun newSessionResult(requestId: String, ok: Boolean, value: String) {
+    main.post { newSessions.remove(requestId)?.invoke(ok, value) }
   }
 
   fun sessionStarted() {

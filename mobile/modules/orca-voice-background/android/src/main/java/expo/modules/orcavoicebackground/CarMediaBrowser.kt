@@ -69,20 +69,24 @@ class CarMediaBrowser : MediaBrowserService() {
     }.toMutableList()
   }
 
+  // Every project of the host, sessions or not, most recently active first.
   private fun projectItems(hostId: String): MutableList<MediaBrowser.MediaItem> {
-    val sessions = CarData.sessions.filter { it.hostId == hostId }
-    if (sessions.isEmpty()) return mutableListOf(note(CarWords.noSessions, CarWords.updated()))
-    return sessions.map { it.project }.distinct().map { project ->
-      val inProject = sessions.filter { it.project == project }
-      folder(id(PROJECT, hostId, project), project, CarWords.summary(null, inProject.size, inProject.count { it.state != "done" }))
+    val projects = CarData.projects.filter { it.hostId == hostId }
+    if (projects.isEmpty()) return mutableListOf(note(CarWords.noProjects, CarWords.updated()))
+    return projects.map { project ->
+      val inProject = CarData.sessions.filter { it.hostId == hostId && it.project == project.name }
+      val text = if (inProject.isEmpty()) CarWords.noSessions
+      else CarWords.summary(null, inProject.size, inProject.count { it.state != "done" })
+      folder(id(PROJECT, hostId, project.name), project.name, text)
     }.toMutableList()
   }
 
+  // New session first, then the project's sessions.
   private fun sessionItems(hostId: String, project: String): MutableList<MediaBrowser.MediaItem> {
     val sessions = CarData.sessions.filter { it.hostId == hostId && it.project == project }
-    if (sessions.isEmpty()) return mutableListOf(note(CarWords.noSessions, CarWords.updated()))
-    return sessions.map { folder(id(SESSION, it.paneKey), it.title, listOfNotNull(status(it), firstLine(it.snippet)).joinToString(" · ")) }
-      .toMutableList()
+    val items = mutableListOf(playable(id(NEW, hostId, project), CarWords.newSession, CarWords.newSessionHint))
+    sessions.forEach { items.add(folder(id(SESSION, it.paneKey), it.title, listOfNotNull(status(it), firstLine(it.snippet)).joinToString(" · "))) }
+    return items
   }
 
   // Reply first, then the session's messages newest first (owner, 2026-11-26), then Read new.
@@ -144,6 +148,7 @@ class CarMediaBrowser : MediaBrowserService() {
     private const val PROJECT = "project"
     private const val SESSION = "session"
     private const val MESSAGE = "message"
+    private const val NEW = "new"
     private const val LIVE = "live"
     private const val REPLY = "reply"
     private const val RECENT_ITEM = "recent"
@@ -170,6 +175,13 @@ class CarMediaBrowser : MediaBrowserService() {
         RECENT_ITEM -> CarData.read(parts.getOrNull(2), paneKey)
         LIVE -> CarData.setLive(if (CarData.live == paneKey) null else paneKey, announce = true)
         REPLY -> instance?.let { CarReplyNotification.post(it.applicationContext, paneKey) }
+        // Here `paneKey` is the host: a new session's message comes once the chat exists.
+        NEW -> {
+          val project = parts.getOrNull(2) ?: return
+          CarData.newSession(paneKey, project, announce = true) { ok, value ->
+            if (ok) instance?.let { CarReplyNotification.post(it.applicationContext, value, fresh = project) }
+          }
+        }
       }
     }
   }

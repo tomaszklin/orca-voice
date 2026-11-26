@@ -95,6 +95,8 @@ export type VoiceNativeModule = {
   setCarHistory(paneKey: string, json: string): void
   /** How a reply spoken in the car went; the car shows `message`. */
   carReplyResult(requestId: string, ok: boolean, message: string): void
+  /** A new chat from the car: its pane key for the car's reply screen, or why it failed. */
+  carNewSessionResult(requestId: string, ok: boolean, value: string): void
   /** Whether Orca's screen is open in Android Auto; `onCarSession` reports changes. */
   isCarSessionActive(): boolean
   addListener(
@@ -105,6 +107,16 @@ export type VoiceNativeModule = {
   addListener(
     event: 'onCarRead',
     listener: (payload: { paneKey: string | null; messageId: string | null }) => void
+  ): { remove(): void }
+  /** New Claude chat in a project; answered with `carNewSessionResult`. */
+  addListener(
+    event: 'onCarNewSession',
+    listener: (payload: {
+      requestId: string
+      hostId: string
+      project: string
+      announce?: boolean
+    }) => void
   ): { remove(): void }
   /** A car view of the session opened: send its messages with `setCarHistory`. */
   addListener(
