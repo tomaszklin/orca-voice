@@ -1372,3 +1372,13 @@ głosem; dodatkowo lista ostatnich wiadomości. Odtwarzacz z buildu 78–80 zost
 - **Emulator**: AVD `orca_auto` (Android 16 z Google Play) i DHU (`extras;google;auto`) zainstalowane,
   ale Android Auto na emulatorze to zaślepka, którą aktualizuje dopiero Sklep Play po zalogowaniu.
   Pełny test wymaga logowania do Play na emulatorze albo telefonu podłączonego do komputera (DHU).
+
+**Dlaczego ekranu z buildu 82 (i 77) nie ma w aucie** (ustalone 2026-11-26): Google, „Test Android
+apps for cars”: opcja dewelopera „Unknown sources” „applies to media, messaging notifications, and
+parked apps but doesn't apply to apps built using the Android for Cars App Library”, a „to test your
+app in real vehicles, you must install it from a trusted source such as Google Play”. Aplikacja
+z szablonami (Car App Library) instalowana z GitHuba nigdy nie pokaże się w prawdziwym aucie;
+w DHU tak. Droga oficjalna: Google Play (Internal App Sharing albo ścieżka testów wewnętrznych, bez
+przeglądu), czyli konto dewelopera Play właściciela i instalacja z Play (inny podpis niż nasz klucz
+debug: jednorazowa reinstalacja, aktualizacje przez Play). Bez Play zostają: aplikacja multimedialna
+(lista może mieć foldery) i powiadomienia z odpowiedzią przez Asystenta.
