@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { LinkReading, TableReading } from '../storage/speech-preferences'
+import type { FileReading, LinkReading, TableReading } from '../storage/speech-preferences'
 import { speakSample } from './reader-samples'
 import { readerWords } from './reader-words'
-import { setLinkReading, setTableReading } from './speech-text'
+import { setFileReading, setLinkReading, setTableReading } from './speech-text'
 import { voiceNativeModule, type NativeVoiceList, type SpeechOptions } from './voice-native-module'
 
 // Why: a few taps on the speed buttons read one sample at the final speed, not one per tap.
@@ -22,6 +22,11 @@ export function speakLinkSample(mode: LinkReading): void {
 export function speakTableSample(mode: TableReading): void {
   setTableReading(mode)
   speakSample(readerWords().tableSample)
+}
+
+export function speakFileSample(mode: FileReading): void {
+  setFileReading(mode)
+  speakSample(readerWords().fileSample)
 }
 
 /**

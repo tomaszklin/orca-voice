@@ -1314,3 +1314,26 @@ wstrzymywało „multimedia” (nasz przycisk pauzy). Dwie zmiany:
 - Dziennik czytnika podaje, która aplikacja nacisnęła pauzę, stop lub odtwarzanie (np.
   `pause button (com.google.android.projection.gearhead)`), z `MediaSession.getCurrentControllerInfo`.
   Przy następnym urwaniu: Settings → Read aloud → dziennik czytnika.
+
+## Ścieżki plików: wybór w ustawieniach (build 81, 2026-11-26)
+
+**Stan: zbudowane, niepotwierdzone na telefonie.**
+
+Właściciel: czytane są całe ścieżki plików; chciał wyboru: cała ścieżka, nazwa pliku albo pominięcie.
+Skracanie do nazwy działało tylko dla ścieżek w backtickach. Całe ścieżki szły z trzech miejsc
+(sprawdzone na odpowiedziach agentów z dwóch tygodni): ścieżka zwykłym tekstem (agent SmartHome
+kończy odpowiedzi linią „Plik: E:\…\central-vacuum.md”), link do pliku (`[profil/zawodnik.md](…)`
+czytany „link profil/zawodnik.md”) i sama nazwa pliku z rozszerzeniem („CLAUDE kropka md”).
+
+- Settings → Read aloud → LINKS, FILES AND TABLES → **File paths**: „Only the file name” (domyślnie),
+  „The whole path” (jak napisane), „Skip file paths”. Klucz `orca:voiceFiles`, przykład czytany przy
+  wyborze (`fileSample` w `reader-words.ts`).
+- `speech/speech-files.ts`: rozpoznaje ścieżki w backtickach i w zwykłym tekście. W zwykłym tekście
+  ukośnik łączy też słowa i liczby (`and/or`, `FV/90/10/2026`, `UI.Colour/UI.Font`), więc ścieżką
+  jest tam tylko słowo z dyskiem (`E:\`), odwrotnym ukośnikiem, `./`, `~/`, `file://` albo znanym
+  rozszerzeniem (`.md`, `.py`, `.bat`…). Nazwa: bez folderów, numeru linii (`:12`, `:12-20`),
+  znanego rozszerzenia, z „-”/„_” i CamelCase jako spacjami (`ReleaseNotes.md` → „Release Notes”).
+- Link do pliku (cel bez `http`/`mailto`) czyta się jak ścieżkę, bez słowa „link”; tekst linku
+  w kilku słowach zostaje.
+- Strzałki zamieniane przed ścieżkami (`plan.py→trip.py` → „plan, trip”); po pominiętej ścieżce nie
+  zostaje samotny przecinek ani dwukropek.

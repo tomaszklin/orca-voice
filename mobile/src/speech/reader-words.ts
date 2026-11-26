@@ -22,6 +22,8 @@ export type ReaderWords = {
   linkSample: string
   /** Markdown read when a table option is picked. */
   tableSample: string
+  /** Markdown read when a file path option is picked. */
+  fileSample: string
 }
 
 export const READER_WORDS = {
@@ -41,7 +43,8 @@ export const READER_WORDS = {
       '|---|---|',
       '| Tuesday | Intervals |',
       '| Thursday | Easy run |'
-    ].join('\n')
+    ].join('\n'),
+    fileSample: 'The plan is in the file `docs/plans/training-plan.md`.'
   },
   pl: {
     code: 'Pomijam fragment kodu.',
@@ -59,7 +62,8 @@ export const READER_WORDS = {
       '|---|---|',
       '| Wtorek | Interwały |',
       '| Czwartek | Spokojny bieg |'
-    ].join('\n')
+    ].join('\n'),
+    fileSample: 'Plan jest w pliku `docs/plany/plan-treningu.md`.'
   },
   es: {
     code: 'Bloque de código omitido.',
@@ -77,7 +81,8 @@ export const READER_WORDS = {
       '|---|---|',
       '| Martes | Series |',
       '| Jueves | Rodaje suave |'
-    ].join('\n')
+    ].join('\n'),
+    fileSample: 'El plan está en el archivo `docs/planes/plan-de-entrenamiento.md`.'
   },
   fr: {
     code: 'Bloc de code ignoré.',
@@ -95,7 +100,8 @@ export const READER_WORDS = {
       '|---|---|',
       '| Mardi | Fractionné |',
       '| Jeudi | Footing |'
-    ].join('\n')
+    ].join('\n'),
+    fileSample: 'Le plan est dans le fichier `docs/plans/plan-entrainement.md`.'
   },
   pt: {
     code: 'Bloco de código omitido.',
@@ -113,7 +119,8 @@ export const READER_WORDS = {
       '|---|---|',
       '| Terça | Intervalos |',
       '| Quinta | Corrida leve |'
-    ].join('\n')
+    ].join('\n'),
+    fileSample: 'O plano está no arquivo `docs/planos/plano-de-treino.md`.'
   },
   zh: {
     code: '已跳过代码块。',
@@ -128,7 +135,8 @@ export const READER_WORDS = {
     linkSample: '来源：[世卫组织报告](https://www.who.int/news)',
     tableSample: ['| 日期 | 训练 |', '|---|---|', '| 周二 | 间歇跑 |', '| 周四 | 轻松跑 |'].join(
       '\n'
-    )
+    ),
+    fileSample: '计划在文件 `docs/plans/training-plan.md` 里。'
   },
   ja: {
     code: 'コードブロックを省略しました。',
@@ -146,7 +154,8 @@ export const READER_WORDS = {
       '|---|---|',
       '| 火曜日 | インターバル |',
       '| 木曜日 | ジョグ |'
-    ].join('\n')
+    ].join('\n'),
+    fileSample: '計画はファイル `docs/plans/training-plan.md` にあります。'
   },
   ko: {
     code: '코드 블록을 건너뜁니다.',
@@ -164,7 +173,8 @@ export const READER_WORDS = {
       '|---|---|',
       '| 화요일 | 인터벌 |',
       '| 목요일 | 가벼운 달리기 |'
-    ].join('\n')
+    ].join('\n'),
+    fileSample: '계획은 `docs/plans/training-plan.md` 파일에 있습니다.'
   }
 } satisfies Record<string, ReaderWords>
 

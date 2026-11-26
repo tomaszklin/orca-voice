@@ -15,6 +15,7 @@ import { useBuiltInPagePreference } from './built-in-page-preference'
 import { useBackgroundReadingPreference } from './background-reading'
 import {
   CHIME_MODES,
+  FILE_READINGS,
   LINK_READINGS,
   PROJECT_NAME_MODES,
   READ_SCOPES,
@@ -32,11 +33,21 @@ import {
 import { useChimeMode, useProjectNameMode } from './project-name-announcement'
 import { useReadScopePreference } from './read-scope-preference'
 import { playChimeSample } from './reader-samples'
-import { useHeadphonesOnly, useLinkReading, useTableReading } from './reading-preferences'
-import { speakLinkSample, speakTableSample, useSpeechOptions } from './speech-options'
+import {
+  useFileReading,
+  useHeadphonesOnly,
+  useLinkReading,
+  useTableReading
+} from './reading-preferences'
+import {
+  speakFileSample,
+  speakLinkSample,
+  speakTableSample,
+  useSpeechOptions
+} from './speech-options'
 import { voiceNativeModule } from './voice-native-module'
 
-type ChoiceKey = 'links' | 'tables' | 'scope' | 'projectName' | 'chime'
+type ChoiceKey = 'links' | 'files' | 'tables' | 'scope' | 'projectName' | 'chime'
 
 type Choice = {
   label: string
@@ -58,6 +69,7 @@ function selectedLabel(choice: Choice): string {
 function useChoices(): Record<ChoiceKey, Choice> {
   const { value: linkReading, setValue: setLinkReading } = useLinkReading()
   const { value: tableReading, setValue: setTableReading } = useTableReading()
+  const { value: fileReading, setValue: setFileReading } = useFileReading()
   const { readScope, setReadScope } = useReadScopePreference()
   const { value: projectNameMode, setValue: setProjectNameMode } = useProjectNameMode()
   const { value: chimeMode, setValue: setChimeMode } = useChimeMode()
@@ -81,6 +93,16 @@ function useChoices(): Record<ChoiceKey, Choice> {
       onSelect: (mode: (typeof TABLE_READINGS)[number]['value']) => {
         setTableReading(mode)
         speakTableSample(mode)
+      }
+    },
+    files: {
+      label: 'File paths',
+      note: 'Examples for “The plan is in the file docs/plans/training-plan.md”.',
+      options: FILE_READINGS,
+      selected: fileReading,
+      onSelect: (mode: (typeof FILE_READINGS)[number]['value']) => {
+        setFileReading(mode)
+        speakFileSample(mode)
       }
     },
     scope: {
@@ -261,8 +283,12 @@ export default function ReadAloudSettingsScreen() {
 
         <ReadAloudVoiceGroup state={speechOptions} onOpenPicker={setPicker} />
 
-        <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>LINKS AND TABLES</Text>
-        <ChoiceRows choices={choices} keys={['links', 'tables']} onOpen={openChoiceDrawer} />
+        <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>LINKS, FILES AND TABLES</Text>
+        <ChoiceRows
+          choices={choices}
+          keys={['links', 'files', 'tables']}
+          onOpen={openChoiceDrawer}
+        />
 
         <Text style={[styles.groupHeading, readAloudStyles.groupGap]}>AUTO-READ</Text>
         <Text style={readAloudStyles.groupDescription}>

@@ -1,5 +1,6 @@
-import type { LinkReading, TableReading } from '../storage/speech-preferences'
+import type { FileReading, LinkReading, TableReading } from '../storage/speech-preferences'
 import { readerWords, type ReaderWords } from './reader-words'
+import { fileLinkText, speakableFiles } from './speech-files'
 import { speakableTables } from './speech-tables'
 
 // Android's TextToSpeech rejects longer inputs (TextToSpeech.getMaxSpeechInputLength() is 4000).
@@ -7,28 +8,11 @@ export const MAX_SPEECH_CHUNK_LENGTH = 3900
 
 type Placeholders = Pick<ReaderWords, 'code' | 'table' | 'link' | 'at' | 'dot'>
 
-const FILE_EXTENSION = /\.[a-z]\w{0,4}(?::\d+)?$/i
-const PATH_START = /^(?:\/|\.{1,2}[\\/]|~|[a-z]:[\\/])/i
+let fileReading: FileReading = 'name'
 
-// Why: a single slash is as often a word pair (`and/or`, `TCP/IP`) as a path.
-function looksLikePath(code: string): boolean {
-  const separators = code.match(/[\\/]/g)?.length ?? 0
-  if (separators === 0 || /\s/.test(code)) {
-    return false
-  }
-  return FILE_EXTENSION.test(code) || PATH_START.test(code) || separators >= 2
-}
-
-/** `src/foo/plan-aktualny.md:12` → "plan aktualny": paths read aloud are noise, the name is not. */
-function speakableInlineCode(code: string): string {
-  if (!looksLikePath(code)) {
-    return code
-  }
-  const last = code.split(/[\\/]/).findLast((part) => part.length > 0) ?? code
-  return last
-    .replace(/:\d+$/, '')
-    .replace(/\.\w{1,5}$/, '')
-    .replace(/[-_]/g, ' ')
+/** From the Read aloud settings; every reading after it uses it. */
+export function setFileReading(mode: FileReading): void {
+  fileReading = mode
 }
 
 let linkReading: LinkReading = 'word-and-text'
@@ -46,6 +30,8 @@ export function setTableReading(mode: TableReading): void {
 }
 
 const ADDRESS = /^<?https?:\/\//i
+// Any other target is a file, read as its text: `[plan.md](docs/plan.md)` is a path, not a link.
+const WEB_TARGET = /^<?(?:https?:|mailto:)/i
 // A link's target, which may hold one level of brackets, e.g. `wiki/Foo_(bar)`, and a title.
 const TARGET = String.raw`\(((?:[^()\s]|\([^()\s]*\))*)[^)]*\)`
 const IMAGE = new RegExp(String.raw`!\[([^\]]*)\]${TARGET}`, 'g')
@@ -98,15 +84,16 @@ function spokenLink(label: string | null, url: string, mode: LinkReading, word: 
 }
 
 /**
- * Turns an agent's markdown reply into text worth hearing: code blocks become a short cue, links
- * and tables are read as `links` and `tables` say, formatting is stripped, and every line ends as
- * a sentence so list items and table rows get a pause instead of running together.
+ * Turns an agent's markdown reply into text worth hearing: code blocks become a short cue, links,
+ * tables and file paths are read as `links`, `tables` and `files` say, formatting is stripped, and
+ * every line ends as a sentence so list items and table rows get a pause instead of running together.
  */
 export function toSpeechText(
   markdown: string,
   placeholders: Placeholders = readerWords(),
   links = linkReading,
-  tables = tableReading
+  tables = tableReading,
+  files = fileReading
 ): string {
   let text = markdown.replace(/\r/g, '')
   text = text.replace(/^[ \t]*```[\s\S]*?^[ \t]*```[^\n]*$/gm, `\n${placeholders.code}\n`)
@@ -114,7 +101,9 @@ export function toSpeechText(
   // An image is read as its alt text; one without any is dropped.
   text = text.replace(IMAGE, (_, alt: string) => alt)
   text = text.replace(LINK, (_, label: string, url: string) =>
-    spokenLink(ADDRESS.test(label) ? null : label, url, links, placeholders.link)
+    WEB_TARGET.test(url)
+      ? spokenLink(ADDRESS.test(label) ? null : label, url, links, placeholders.link)
+      : fileLinkText(label, files)
   )
   text = text.replace(/<?(https?:\/\/[^\s<>]+)>?/g, (_, found: string) => {
     const end = addressEnd(found)
@@ -123,23 +112,26 @@ export function toSpeechText(
   text = text.replace(EMAIL, (_, local: string, domain: string) =>
     spokenEmail(local, domain, placeholders.at, placeholders.dot)
   )
-  text = text.replace(/`([^`\n]+)`/g, (_, code: string) => speakableInlineCode(code))
+  // Arrows first, so a rename like `plan.py→trip.py` is read as two files.
+  text = text.replace(/\s*[→⇒➜]\s*/g, ', ')
+  text = speakableFiles(text, files)
   text = text.replace(/^[ \t]{0,3}#{1,6}[ \t]*/gm, '')
   text = text.replace(/^[ \t]*(?:[-*+]|\d+[.)])[ \t]+/gm, '')
   text = text.replace(/^[ \t]*>[ \t]?/gm, '')
   text = text.replace(/\*\*|__|~~/g, '')
   text = text.replace(/(?<![\w*])\*(?!\s)([^*\n]+?)\*(?!\w)/g, '$1')
-  text = text.replace(/\s*[→⇒➜]\s*/g, ', ')
   text = text.replace(/\p{Extended_Pictographic}|️|‍/gu, '')
 
   return (
     text
       .split('\n')
-      // A skipped link leaves the punctuation after it behind a space.
+      // A skipped link or path leaves the punctuation after it behind a space, and a lone
+      // comma or colon before more punctuation: "Plan: ," → "Plan,".
       .map((line) =>
         line
           .replace(/\s+/g, ' ')
           .replace(/\s+([.,;:!?)])/g, '$1')
+          .replace(/[,;:](?=[.,;!?])/g, '')
           .trim()
       )
       .filter((line) => line.length > 0)

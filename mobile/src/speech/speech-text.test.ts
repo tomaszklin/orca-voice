@@ -73,7 +73,7 @@ describe('toSpeechText', () => {
       'See [zones](trening/strefy.md) or https://example.com/x'
     ].join('\n')
     expect(toSpeechText(markdown, placeholders)).toBe(
-      'Summary. Changed plan in plan aktualny. Tuesday, intervals. See link zones or link.'
+      'Summary. Changed plan in plan aktualny. Tuesday, intervals. See zones or link.'
     )
   })
 
@@ -87,21 +87,31 @@ describe('toSpeechText', () => {
     const read = (mode: Parameters<typeof toSpeechText>[2]) =>
       toSpeechText(markdown, placeholders, mode)
 
+    // A link to a file is a path, read by the file option: only its text, never "link".
     it('says "link" before the text, and only "link" for a bare address', () => {
       expect(read('word-and-text')).toBe(
-        'Sources: link WHO report 2025. link. Details in link the plan.'
+        'Sources: link WHO report 2025. link. Details in the plan.'
       )
     })
 
     it('can add the site, or read only the text', () => {
       expect(read('word-text-site')).toBe(
-        'Sources: link WHO report 2025, who.int. link example.com. Details in link the plan.'
+        'Sources: link WHO report 2025, who.int. link example.com. Details in the plan.'
       )
       expect(read('text')).toBe('Sources: WHO report 2025. link. Details in the plan.')
     })
 
     it('can skip links altogether', () => {
-      expect(read('off')).toBe('Sources: Details in.')
+      expect(read('off')).toBe('Sources: Details in the plan.')
+    })
+
+    it('reads a link to a file by the file option', () => {
+      const markdown =
+        'See [Tools/Fleet.ps1:613](Tools/Fleet.ps1:613) and [Content/Maps](Content/Maps).'
+      expect(toSpeechText(markdown, placeholders, 'word-and-text')).toBe('See Fleet and Maps.')
+      expect(toSpeechText(markdown, placeholders, 'word-and-text', 'with-headers', 'full')).toBe(
+        'See Tools/Fleet.ps1:613 and Content/Maps.'
+      )
     })
 
     it('treats a link whose text is its address as a bare address', () => {
@@ -148,6 +158,18 @@ describe('toSpeechText', () => {
     expect(read('and/or')).toBe('See and/or.')
     expect(read('TCP/IP')).toBe('See TCP/IP.')
     expect(read('GET /api/users')).toBe('See GET /api/users.')
+  })
+
+  it('reads paths outside backticks too, and leaves no stray punctuation when they are skipped', () => {
+    const markdown = 'Plik: E:\\Projects\\Home\\docs\\heat-pump.md\nZmiany: `docs/a.md`, gotowe.'
+    expect(toSpeechText(markdown, placeholders)).toBe('Plik: heat pump. Zmiany: a, gotowe.')
+    expect(toSpeechText(markdown, placeholders, 'word-and-text', 'with-headers', 'skip')).toBe(
+      'Plik: Zmiany, gotowe.'
+    )
+  })
+
+  it('reads a renamed file as two names', () => {
+    expect(toSpeechText('Renamed `plan.py→trip.py`', placeholders)).toBe('Renamed plan, trip.')
   })
 })
 

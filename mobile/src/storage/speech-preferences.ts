@@ -107,3 +107,14 @@ export type TableReading = 'with-headers' | 'values' | 'skip'
 
 // Why: the owner asked for tables to be read (2026-10-29); agents answer with them often.
 export const DEFAULT_TABLE_READING: TableReading = 'with-headers'
+
+export const FILE_READING_KEY = 'orca:voiceFiles'
+
+/**
+ * How a file path is read: `name` only the file's name, `src/plan-aktualny.md:12` as "plan
+ * aktualny"; `full` the whole path as written; `skip` not at all.
+ */
+export type FileReading = 'name' | 'full' | 'skip'
+
+// Why: the name — the owner found whole paths noise and asked for the choice (2026-11-26).
+export const DEFAULT_FILE_READING: FileReading = 'name'

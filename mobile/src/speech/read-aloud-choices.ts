@@ -1,5 +1,6 @@
 import type {
   ChimeMode,
+  FileReading,
   LinkReading,
   ProjectNameMode,
   ReadScope,
@@ -78,4 +79,19 @@ export const TABLE_READINGS: Option<TableReading>[] = [
     sublabel: '“Day, Run. Tuesday, Intervals.”'
   },
   { value: 'skip', label: 'Skip tables', sublabel: '“Table skipped.”' }
+]
+
+// The sublabels quote what "The plan is in the file `docs/plans/training-plan.md`" becomes.
+export const FILE_READINGS: Option<FileReading>[] = [
+  {
+    value: 'name',
+    label: 'Only the file name',
+    sublabel: '“The plan is in the file training plan”'
+  },
+  {
+    value: 'full',
+    label: 'The whole path',
+    sublabel: '“The plan is in the file docs/plans/training-plan.md”'
+  },
+  { value: 'skip', label: 'Skip file paths', sublabel: '“The plan is in the file”' }
 ]
