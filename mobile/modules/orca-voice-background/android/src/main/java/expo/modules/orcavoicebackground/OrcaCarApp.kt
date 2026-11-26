@@ -279,6 +279,15 @@ internal object CarWords {
   private fun say(polish: String, english: String) = if (pl) polish else english
 
   val agents get() = say("Agenci", "Agents")
+  val computers get() = say("Komputery", "Computers")
+  val listenLast get() = say("Słuchaj ostatniej wiadomości", "Listen to the last message")
+  val liveOnHint get() = say("Włączone: czytam każdą nową wiadomość tej sesji.", "On: reading each new message of this session.")
+  val liveOffHint get() = say("Czyta każdą nową wiadomość tej sesji, a innych nie.", "Reads each new message of this session, no others.")
+  val replyHint get() = say("Przyjdzie wiadomość. Odpowiedz na nią głosem.", "A message comes. Answer it by voice.")
+  val replyPrompt get() = say("Podyktuj odpowiedź.", "Say your reply.")
+  val replyChannel get() = say("Odpowiedzi z auta", "Replies from the car")
+  val you get() = say("Ty", "You")
+  val done get() = say("Przeczytane", "Read")
   val recent get() = say("Ostatnie wiadomości", "Recent messages")
   val noRecent get() = say("Brak wiadomości.", "No messages yet.")
   val noHosts get() = say("Brak komputerów. Otwórz Orkę na telefonie.", "No computers. Open Orca on the phone.")

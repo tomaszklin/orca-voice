@@ -112,8 +112,9 @@ object CarData {
     listener?.invoke("onCarRead", mapOf("paneKey" to paneKey, "recentId" to recentId))
   }
 
-  fun setLive(paneKey: String?) {
-    listener?.invoke("onCarLive", mapOf("paneKey" to paneKey))
+  /** `announce`: the reader says so, for the media list, which has no toast. */
+  fun setLive(paneKey: String?, announce: Boolean = false) {
+    listener?.invoke("onCarLive", mapOf("paneKey" to paneKey, "announce" to announce))
   }
 
   /** Main thread. `onResult` runs once: with JS's answer, or a failure when JS is gone or silent. */

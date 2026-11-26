@@ -7,8 +7,10 @@ import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import type { AutoReadAgentRow } from './auto-read-agent-rows'
 import { setCarSessionActive } from './background-reading-state'
 import { createCarAgentMessages } from './car-agent-messages'
-import { carReplyWords, sendCarReply, type CarReplyOutcome } from './car-replies'
+import { carReplyWords, sendCarReply, type CarReplyResult } from './car-replies'
+import { readerLanguage } from './reader-words'
 import { speakReply } from './reply-speaker'
+import { structuredSessionId } from './structured-reply-text'
 import { logSpeechEvent } from './speech-diagnostics'
 import { toSpeechText } from './speech-text'
 import { voiceNativeModule } from './voice-native-module'
@@ -16,7 +18,14 @@ import { voiceNativeModule } from './voice-native-module'
 // Orca Voice fork: what Orca's Android Auto screens show (OrcaCarApp.kt, CarMediaBrowser.kt), and their requests.
 
 type HostClient = { hostId: string; client: RpcClient }
-type CarSession = { hostId: string; address: string | null; project: string | null }
+type CarSession = {
+  hostId: string
+  address: string | null
+  /** An Orca chat's session id; replies go there rather than to a terminal. */
+  chatSessionId: string | null
+  project: string | null
+  title: string
+}
 
 const SNIPPET_LENGTH = 400
 const HOST_NAMES_EVERY_MS = 60_000
@@ -78,7 +87,14 @@ export function publishCarData(
     .map((row) => {
       const hostId = row.paneKey.slice(0, row.paneKey.length - row.rawPaneKey.length - 1)
       const address = row.address ?? null
-      sessions.set(row.paneKey, { hostId, address, project: row.project })
+      const chatSessionId = structuredSessionId(row.rawPaneKey)
+      sessions.set(row.paneKey, {
+        hostId,
+        address,
+        chatSessionId,
+        project: row.project,
+        title: row.title ?? 'Agent'
+      })
       return {
         paneKey: row.paneKey,
         hostId,
@@ -86,7 +102,8 @@ export function publishCarData(
         title: row.title ?? 'Agent',
         state: mainAgentState(row),
         snippet: snippet(messages.sync(row)),
-        canReply: address !== null && parseOrcaSessionAddress(address) === null
+        canReply:
+          chatSessionId !== null || (address !== null && parseOrcaSessionAddress(address) === null)
       }
     })
   const data = {
@@ -133,16 +150,29 @@ async function replyFromCar(
 ): Promise<void> {
   const target = sessions.get(paneKey)
   const client = target ? hosts.find(({ hostId }) => hostId === target.hostId)?.client : undefined
-  let outcome: CarReplyOutcome = 'gone'
+  let result: CarReplyResult = { outcome: 'gone' }
   if (target && !client) {
-    outcome = 'offline'
+    result = { outcome: 'offline' }
   } else if (target && client) {
-    outcome = await sendCarReply(client, target.address, text).catch(
-      (): CarReplyOutcome => 'unknown'
-    )
+    result = await sendCarReply(client, target, text).catch((error: unknown): CarReplyResult => ({
+      outcome: 'unknown',
+      reason: error instanceof Error ? error.message : undefined
+    }))
   }
-  logSpeechEvent(`car reply ${outcome}: ${paneKey}`)
-  voiceNativeModule()?.carReplyResult(requestId, outcome === 'sent', carReplyWords(outcome))
+  logSpeechEvent(
+    `car reply ${result.outcome}${result.reason ? ` (${result.reason})` : ''}: ${paneKey}`
+  )
+  voiceNativeModule()?.carReplyResult(requestId, result.outcome === 'sent', carReplyWords(result))
+}
+
+// The media list has no toast, so the reader says what Live did.
+function liveWords(paneKey: string | null): string {
+  const polish = readerLanguage() === 'pl'
+  if (!paneKey) {
+    return polish ? 'Na żywo wyłączone.' : 'Live off.'
+  }
+  const title = sessions.get(paneKey)?.title ?? 'Agent'
+  return polish ? `Na żywo: ${title}.` : `Live: ${title}.`
 }
 
 function subscribeCarSession(listener: () => void): () => void {
@@ -175,10 +205,13 @@ export function useCarControls(autoRead: boolean): boolean {
     const subscriptions = [
       native.addListener('onCarSession', ({ active }) => setSession(active)),
       native.addListener('onCarRead', ({ paneKey, recentId }) => readForCar(paneKey, recentId)),
-      native.addListener('onCarLive', ({ paneKey }) => {
+      native.addListener('onCarLive', ({ paneKey, announce }) => {
         live = paneKey
         logSpeechEvent(paneKey ? `car follows live: ${paneKey}` : 'car stopped following live')
         publishCarData(lastRows, lastHosts)
+        if (announce) {
+          speakReply(`car-live@${Date.now()}`, liveWords(paneKey), 'interrupt')
+        }
       }),
       native.addListener('onCarReply', ({ requestId, paneKey, text }) => {
         void replyFromCar(rpc.getAllClients(), requestId, paneKey, text)

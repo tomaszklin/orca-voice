@@ -26,6 +26,9 @@
         <category android:name="androidx.car.app.category.IOT" />
       </intent-filter>
     </service>
+    <receiver
+      android:name="expo.modules.orcavoicebackground.CarReplyReceiver"
+      android:exported="false" />
     <service
       android:name="expo.modules.orcavoicebackground.CarMediaBrowser"
       android:exported="true"

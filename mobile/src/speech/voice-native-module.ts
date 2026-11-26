@@ -107,7 +107,7 @@ export type VoiceNativeModule = {
   /** Follow a session live, or stop (null). */
   addListener(
     event: 'onCarLive',
-    listener: (payload: { paneKey: string | null }) => void
+    listener: (payload: { paneKey: string | null; announce?: boolean }) => void
   ): { remove(): void }
   /** A reply spoken in the car; answered with `carReplyResult`. */
   addListener(

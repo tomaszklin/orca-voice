@@ -1382,3 +1382,27 @@ w DHU tak. Droga oficjalna: Google Play (Internal App Sharing albo ścieżka tes
 przeglądu), czyli konto dewelopera Play właściciela i instalacja z Play (inny podpis niż nasz klucz
 debug: jednorazowa reinstalacja, aktualizacje przez Play). Bez Play zostają: aplikacja multimedialna
 (lista może mieć foldery) i powiadomienia z odpowiedzią przez Asystenta.
+
+## Foldery w odtwarzaczu i odpowiedź przez wiadomość (build 83, 2026-11-26)
+
+**Stan: zbudowane, niesprawdzone w aucie.**
+
+Pełny ekran z buildu 82 nie pokaże się w aucie przy instalacji z GitHuba (zob. wyżej), więc właściciel
+wybrał wersję bez Sklepu Play: ścieżka komputer → projekt → sesja w aplikacji multimedialnej,
+odpowiedź głosem przez wiadomość Android Auto.
+
+- `CarMediaBrowser.kt`: zakładki „Komputery” i „Ostatnie”; foldery komputer → projekt → sesja;
+  w sesji pozycje „Słuchaj ostatniej wiadomości”, „Na żywo: włącz/wyłącz” (czytnik mówi, co
+  zrobił) i „Odpowiedz”. Odświeżane są foldery, które auto już otworzyło.
+- `CarReplyNotification.kt`: „Odpowiedz” wystawia wiadomość `MessagingStyle` od tej sesji
+  („Podyktuj odpowiedź.”) z akcją odpowiedzi i ukrytym „przeczytane”; podyktowany tekst idzie przez
+  `CarData.reply` do JS. Po wysłaniu wiadomość znika; przy błędzie wraca z powodem (auto go
+  przeczyta). Wróciło `<uses name="notification"/>` (opcja „nieznane źródła” obejmuje powiadomienia).
+- **Sesje właściciela to czaty Orki** (`structured-agent-session-…`, sprawdzone `orca worktree ps
+  --json` 2026-11-26: 12 z 12), a desktop 1.4.264 nie wysyła `address`. Dlatego odpowiedź z buildu 74
+  („Reply was not sent”) nie mogła dojść: szukała terminala. Teraz `car-replies.ts` wysyła do czatu jak
+  okno czatu: najpierw `agentSession.history` (limit 1) po aktualny `fence`, potem
+  `sendMobileStructuredAgentSessionMessage` bez `delivery` (w trakcie tury wiadomość „steruje” turą,
+  jak wpisana ręcznie). Terminale nadal przez `address` (hosty od 1.4.265).
+- Ryzyko do sprawdzenia: z `notification` w deklaracji ikona Orki w aucie może otwierać widok
+  wiadomości zamiast odtwarzacza (tak było w buildach 74–76, gdy nie było odtwarzacza).
