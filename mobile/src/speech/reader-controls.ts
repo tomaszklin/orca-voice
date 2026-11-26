@@ -17,22 +17,24 @@ import { setLanguageVoices } from './language-segments'
 import { setLinkReading, setTableReading } from './speech-text'
 import { voiceNativeModule, type ReaderControl } from './voice-native-module'
 
-function handleControl(action: ReaderControl): void {
+// `from`: the app that pressed it (Android Auto, a watch), so the reader's log tells them apart.
+function handleControl(action: ReaderControl, from: string | null): void {
+  const by = (button: string) => (from ? `${button} (${from})` : button)
   switch (action) {
     case 'pause':
-      pauseReading('pause button')
+      pauseReading(by('pause button'))
       return
     case 'play':
-      playReading('play button')
+      playReading(by('play button'))
       return
     case 'next':
-      nextMessage('next button')
+      nextMessage(by('next button'))
       return
     case 'previous':
-      previousMessage('previous button')
+      previousMessage(by('previous button'))
       return
     case 'stop':
-      stopReading('stop button')
+      stopReading(by('stop button'))
   }
 }
 
@@ -51,8 +53,8 @@ export function useReaderControls(): void {
   useEffect(() => setAutoReadNeedsHeadphones(headphonesOnly === 'on'), [headphonesOnly])
   useEffect(() => setLanguageVoices(languageVoices === 'on'), [languageVoices])
   useEffect(() => {
-    const subscription = voiceNativeModule()?.addListener('onReaderControl', ({ action }) =>
-      handleControl(action)
+    const subscription = voiceNativeModule()?.addListener('onReaderControl', ({ action, from }) =>
+      handleControl(action, from ?? null)
     )
     return () => subscription?.remove()
   }, [])

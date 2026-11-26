@@ -37,12 +37,16 @@ internal object ReadAloudMediaSession {
     if (!kept) release()
   }
 
+  // The controller's app (Android Auto, the system for a headset), so the log says who pressed it.
+  private fun caller(): String? = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) null
+  else runCatching { session?.currentControllerInfo?.packageName }.getOrNull()
+
   private val callback = object : MediaSession.Callback() {
-    override fun onPlay() = ReadAloudControls.send(ReadAloudControls.PLAY)
-    override fun onPause() = ReadAloudControls.send(ReadAloudControls.PAUSE)
-    override fun onSkipToNext() = ReadAloudControls.send(ReadAloudControls.NEXT)
-    override fun onSkipToPrevious() = ReadAloudControls.send(ReadAloudControls.PREVIOUS)
-    override fun onStop() = ReadAloudControls.send(ReadAloudControls.STOP_READING)
+    override fun onPlay() = ReadAloudControls.send(ReadAloudControls.PLAY, caller())
+    override fun onPause() = ReadAloudControls.send(ReadAloudControls.PAUSE, caller())
+    override fun onSkipToNext() = ReadAloudControls.send(ReadAloudControls.NEXT, caller())
+    override fun onSkipToPrevious() = ReadAloudControls.send(ReadAloudControls.PREVIOUS, caller())
+    override fun onStop() = ReadAloudControls.send(ReadAloudControls.STOP_READING, caller())
     override fun onPlayFromMediaId(mediaId: String?, extras: Bundle?) = CarMediaBrowser.play(mediaId)
   }
 

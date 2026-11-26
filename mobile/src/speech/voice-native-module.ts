@@ -104,7 +104,7 @@ export type VoiceNativeModule = {
   /** The notification's and the headset's reading buttons. */
   addListener(
     event: 'onReaderControl',
-    listener: (payload: { action: ReaderControl }) => void
+    listener: (payload: { action: ReaderControl; from?: string | null }) => void
   ): { remove(): void }
   addListener(
     event: 'onSpeech',

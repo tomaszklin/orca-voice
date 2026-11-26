@@ -1303,3 +1303,14 @@ Build 79 (2026-11-25): poprawki po przeglądzie kodu całej funkcji i porządki.
   z hosta zastępuje starszą przeczytaną wiadomość (test `car-agents.test.ts`).
 - Sesja mediów trzymana dla auta: po rozłączeniu auta pauza dłuższa niż 10 minut zwalnia sesję od
   razu (wcześniej mogła zostać do śmierci procesu i zabierać przyciski muzyce).
+
+Build 80 (2026-11-26): build 79 działa w aucie (lista agentów, wybór czyta wiadomość), ale głos urywa
+się po kilku sekundach w każdej rozmowie. Przyczyny nie znamy. Najbardziej prawdopodobna: Orka jest
+w aucie źródłem multimediów, a mowa szła jako komunikat nawigacji, więc auto lub Android Auto
+wstrzymywało „multimedia” (nasz przycisk pauzy). Dwie zmiany:
+
+- Póki Android Auto przegląda Orkę (`CarMediaBrowser` połączony), mowa gra jako multimedia
+  (`ReadAloudSpeech.setForCar`, te same atrybuty co opcja nagrywania ekranu).
+- Dziennik czytnika podaje, która aplikacja nacisnęła pauzę, stop lub odtwarzanie (np.
+  `pause button (com.google.android.projection.gearhead)`), z `MediaSession.getCurrentControllerInfo`.
+  Przy następnym urwaniu: Settings → Read aloud → dziennik czytnika.

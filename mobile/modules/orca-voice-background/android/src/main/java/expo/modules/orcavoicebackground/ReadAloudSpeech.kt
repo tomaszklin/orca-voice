@@ -75,8 +75,18 @@ object ReadAloudSpeech : UtteranceProgressListener() {
     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
     .build()
 
+  // While Android Auto plays Orca as a media app, speech is that media, not a navigation prompt.
+  @Volatile private var forCar = false
+
   internal val attributes: AudioAttributes
-    get() = if (appContext?.let { recordable(it) } == true) mediaAttributes else navigationAttributes
+    get() = if (forCar || appContext?.let { recordable(it) } == true) mediaAttributes else navigationAttributes
+
+  /** From the next utterance on, like [setRecordable]. */
+  @Synchronized
+  fun setForCar(on: Boolean) {
+    forCar = on
+    tts?.setAudioAttributes(attributes)
+  }
 
   fun recordable(context: Context): Boolean =
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(PREF_RECORDABLE, false)

@@ -16,10 +16,12 @@ class CarMediaBrowser : MediaBrowserService() {
     super.onCreate()
     instance = this
     sessionToken = ReadAloudMediaSession.keep(this)
+    ReadAloudSpeech.setForCar(true)
   }
 
   override fun onDestroy() {
     instance = null
+    ReadAloudSpeech.setForCar(false)
     ReadAloudMediaSession.letGo()
     super.onDestroy()
   }

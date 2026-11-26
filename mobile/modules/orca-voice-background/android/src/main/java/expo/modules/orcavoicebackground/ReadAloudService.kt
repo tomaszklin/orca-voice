@@ -318,9 +318,10 @@ object ReadAloudControls {
   const val PLAY = "play"
   const val NEXT = "next"
 
-  @Volatile var listener: ((String) -> Unit)? = null
+  @Volatile var listener: ((control: String, from: String?) -> Unit)? = null
 
-  fun send(control: String) {
-    listener?.invoke(control)
+  /** `from`: the app whose media controller pressed it, for the reader's log. */
+  fun send(control: String, from: String? = null) {
+    listener?.invoke(control, from)
   }
 }

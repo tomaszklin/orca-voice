@@ -23,11 +23,11 @@ class OrcaVoiceBackgroundModule : Module() {
       ReadAloudSpeech.listener = { event, id, message ->
         sendEvent("onSpeech", mapOf("event" to event, "id" to id, "message" to message))
       }
-      ReadAloudControls.listener = { control ->
+      ReadAloudControls.listener = { control, from ->
         if (control == ReadAloudControls.TOGGLE_AUTO_READ) {
           sendEvent("onAutoReadToggle", emptyMap<String, Any>())
         } else {
-          sendEvent("onReaderControl", mapOf("action" to control))
+          sendEvent("onReaderControl", mapOf("action" to control, "from" to from))
         }
       }
       UpdateInstaller.listener = { event, percent, message ->
