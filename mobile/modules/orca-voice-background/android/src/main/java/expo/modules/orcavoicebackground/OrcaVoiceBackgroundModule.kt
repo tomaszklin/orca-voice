@@ -16,7 +16,7 @@ class OrcaVoiceBackgroundModule : Module() {
 
     Events(
       "onTick", "onSpeech", "onAutoReadToggle", "onReaderControl", "onUpdateDownload",
-      "onCarRead", "onCarReply", "onCarLive", "onCarSession"
+      "onCarRead", "onCarReply", "onCarLive", "onCarSession", "onCarHistory"
     )
 
     // Wired at creation rather than on first observer: a module instance exists only while the
@@ -46,6 +46,11 @@ class OrcaVoiceBackgroundModule : Module() {
     /** What Orca's Android Auto screens show, as JSON: hosts, sessions, recent and live. */
     Function("setCarData") { json: String ->
       CarData.set(json)
+    }
+
+    /** A session's messages for the car, newest first, as JSON: `[{ id, fromUser, at, snippet }]`. */
+    Function("setCarHistory") { paneKey: String, json: String ->
+      CarData.setHistory(paneKey, json)
     }
 
     /** How a reply spoken in the car went; the car shows `message`. */

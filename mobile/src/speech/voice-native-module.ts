@@ -91,6 +91,8 @@ export type VoiceNativeModule = {
   openInstallPermission(): boolean
   /** What Orca's Android Auto screens show, as JSON (`car-agents.ts`). */
   setCarData(json: string): void
+  /** A session's messages for the car, newest first, as JSON (`car-agents.ts`). */
+  setCarHistory(paneKey: string, json: string): void
   /** How a reply spoken in the car went; the car shows `message`. */
   carReplyResult(requestId: string, ok: boolean, message: string): void
   /** Whether Orca's screen is open in Android Auto; `onCarSession` reports changes. */
@@ -99,10 +101,15 @@ export type VoiceNativeModule = {
     event: 'onCarSession',
     listener: (payload: { active: boolean }) => void
   ): { remove(): void }
-  /** Read a session's last message, or one of the recent messages. */
+  /** Read a session's last message, or one message of its history or of the recent list. */
   addListener(
     event: 'onCarRead',
-    listener: (payload: { paneKey: string | null; recentId: string | null }) => void
+    listener: (payload: { paneKey: string | null; messageId: string | null }) => void
+  ): { remove(): void }
+  /** A car view of the session opened: send its messages with `setCarHistory`. */
+  addListener(
+    event: 'onCarHistory',
+    listener: (payload: { paneKey: string }) => void
   ): { remove(): void }
   /** Follow a session live, or stop (null). */
   addListener(

@@ -146,7 +146,7 @@ object UpdateInstaller {
     leaveForeground()
     running = false
     if (failure == null) {
-      notify(context, "Update downloaded", "Tap to install", null, installerIntent(context))
+      notify(context, "Update downloaded", "Tap to install", null, unknownAutoIntent(context) ?: installerIntent(context))
       listener?.invoke("done", null, null)
     } else {
       notify(context, "Update failed", failure, null, null)
@@ -160,6 +160,15 @@ object UpdateInstaller {
    */
   fun openInstaller(context: Context): Boolean {
     if (!apkFile(context).exists()) return false
+    unknownAutoIntent(context)?.let { intent ->
+      return try {
+        context.startActivity(intent)
+        notificationManager(context).cancel(NOTIFICATION_ID)
+        true
+      } catch (_: Exception) {
+        false
+      }
+    }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       notificationManager(context).cancel(NOTIFICATION_ID)
       // Why a thread: copying 60 MB into the session would hold up JS for a second or more.
@@ -256,6 +265,18 @@ object UpdateInstaller {
   private fun updatesDir(context: Context) = File(context.cacheDir, "updates")
 
   private fun apkFile(context: Context) = File(updatesDir(context), "orca-voice-update.apk")
+
+  /**
+   * Orca installed through UnknownAuto keeps Google Play as its installer of record, which Android
+   * Auto needs to show Orca's own car screens; an update through our session would make Orca the
+   * installer and hide them again, so updates go back through UnknownAuto when it is there.
+   */
+  private fun unknownAutoIntent(context: Context): Intent? {
+    val intent = installerIntent(context).setPackage(UNKNOWN_AUTO)
+    return intent.takeIf { it.resolveActivity(context.packageManager) != null }
+  }
+
+  private const val UNKNOWN_AUTO = "com.mag.unknownauto"
 
   private fun installerIntent(context: Context): Intent {
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.orcavoice.updates", apkFile(context))

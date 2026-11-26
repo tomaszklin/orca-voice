@@ -8,6 +8,10 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
   <!-- Lets Orca update itself without the installer's screens (Android 12+). -->
   <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+  <!-- Orca Voice fork: updates go through UnknownAuto when it is installed (UpdateInstaller.kt). -->
+  <queries>
+    <package android:name="com.mag.unknownauto" />
+  </queries>
   <application>
     <!-- Orca Voice fork: Orca as an Android Auto media app listing the agents (CarMediaBrowser.kt). -->
     <meta-data

@@ -85,15 +85,26 @@ class CarMediaBrowser : MediaBrowserService() {
       .toMutableList()
   }
 
+  // Reply first, then the session's messages newest first (owner, 2026-11-26), then Read new.
   private fun actionItems(paneKey: String): MutableList<MediaBrowser.MediaItem> {
     val session = CarData.session(paneKey) ?: return mutableListOf(note(CarWords.ended, null))
-    val live = CarData.live == paneKey
-    return mutableListOf(
-      playable(id(READ, paneKey), CarWords.listenLast, firstLine(session.snippet) ?: CarWords.noMessage),
-      playable(id(LIVE, paneKey), if (live) CarWords.liveStop else CarWords.liveStart, if (live) CarWords.liveOnHint else CarWords.liveOffHint),
+    val items = mutableListOf(
       if (session.canReply) playable(id(REPLY, paneKey), CarWords.reply, CarWords.replyHint)
       else note(CarWords.reply, CarWords.cannotReply)
     )
+    val history = CarData.history(paneKey)
+    val time = DateFormat.getTimeInstance(DateFormat.SHORT, Locale.getDefault())
+    when {
+      history == null -> items.add(note(CarWords.loading, null))
+      history.isEmpty() -> items.add(note(CarWords.noMessage, null))
+      else -> history.forEach {
+        val who = if (it.fromUser) CarWords.you else CarWords.agent
+        items.add(playable(id(MESSAGE, paneKey, it.id), firstLine(it.snippet) ?: CarWords.noMessage, "$who · ${time.format(Date(it.at))}"))
+      }
+    }
+    val live = CarData.live == paneKey
+    items.add(playable(id(LIVE, paneKey), "${CarWords.readNew}: ${if (live) CarWords.on else CarWords.off}", CarWords.readNewHint))
+    return items
   }
 
   private fun recentItems(): MutableList<MediaBrowser.MediaItem> {
@@ -132,7 +143,7 @@ class CarMediaBrowser : MediaBrowserService() {
     private const val HOST = "host"
     private const val PROJECT = "project"
     private const val SESSION = "session"
-    private const val READ = "read"
+    private const val MESSAGE = "message"
     private const val LIVE = "live"
     private const val REPLY = "reply"
     private const val RECENT_ITEM = "recent"
@@ -155,7 +166,7 @@ class CarMediaBrowser : MediaBrowserService() {
       val parts = mediaId?.split(SEPARATOR) ?: return
       val paneKey = parts.getOrNull(1) ?: return
       when (parts[0]) {
-        READ -> CarData.read(paneKey)
+        MESSAGE -> CarData.read(paneKey, parts.getOrNull(2))
         RECENT_ITEM -> CarData.read(parts.getOrNull(2), paneKey)
         LIVE -> CarData.setLive(if (CarData.live == paneKey) null else paneKey, announce = true)
         REPLY -> instance?.let { CarReplyNotification.post(it.applicationContext, paneKey) }

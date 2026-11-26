@@ -17,6 +17,7 @@ import androidx.car.app.model.Pane
 import androidx.car.app.model.PaneTemplate
 import androidx.car.app.model.Row
 import androidx.car.app.model.Template
+import androidx.car.app.model.Toggle
 import androidx.car.app.validation.HostValidator
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -157,51 +158,107 @@ class SessionsScreen(carContext: CarContext, private val hostId: String, private
   }
 }
 
+/** Who wrote a message and when, for its row. */
+private fun messageLabel(message: CarData.Message): String {
+  val time = DateFormat.getTimeInstance(DateFormat.SHORT, Locale.getDefault()).format(Date(message.at))
+  return "${if (message.fromUser) CarWords.you else CarWords.agent} · $time"
+}
+
+/**
+ * Reply first, then the newest messages (owner, 2026-11-26). Rows are named by place, newest first,
+ * so a new message is a refresh, not another step; all of them are one row further on.
+ */
 class SessionScreen(carContext: CarContext, private val paneKey: String, private val title: String) :
   OrcaScreen(carContext) {
   override fun onGetTemplate(): Template {
     val session = CarData.session(paneKey)
-    val message = Row.Builder().setTitle(CarWords.lastMessage)
-    val lines = firstLines(session?.snippet, 2, 160)
-    if (lines.isEmpty()) message.addText(CarWords.noMessage) else lines.forEach { message.addText(it) }
-    val pane = Pane.Builder()
-      .addRow(Row.Builder().setTitle(CarWords.status).addText(sessionStatus(session)).build())
-      .addRow(message.build())
-      .addAction(action(CarWords.listen) { CarData.read(paneKey) })
-      .addAction(
-        action(CarWords.reply) {
-          if (session?.canReply == true) screenManager.push(ReplyScreen(carContext, paneKey, title))
-          else CarToast.makeText(carContext, CarWords.cannotReply, CarToast.LENGTH_LONG).show()
-        }
-      )
-    val live = paneKey == CarData.live
-    val liveAction = action(if (live) CarWords.liveStop else CarWords.liveStart) {
-      CarData.setLive(if (live) null else paneKey)
-      CarToast.makeText(carContext, if (live) CarWords.liveStopped else CarWords.liveStarted, CarToast.LENGTH_SHORT).show()
+    val history = CarData.history(paneKey)
+    val list = ItemList.Builder()
+    val reply = Row.Builder().setTitle(CarWords.reply).addText(sessionStatus(session))
+    if (session?.canReply == true) {
+      reply.setBrowsable(true).setOnClickListener { screenManager.push(ReplyScreen(carContext, paneKey, title)) }
+    } else {
+      reply.addText(CarWords.cannotReply)
     }
-    return PaneTemplate.Builder(pane.build()).setTitle(title).setHeaderAction(Action.BACK)
-      .setActionStrip(ActionStrip.Builder().addAction(liveAction).addAction(readerAction()).build()).build()
+    list.addItem(reply.build())
+    PLACES.forEachIndexed { index, place ->
+      val message = history?.getOrNull(index)
+      val row = Row.Builder().setTitle(place())
+      when {
+        history == null -> row.addText(CarWords.loading)
+        message == null -> row.addText(CarWords.noMessage)
+        else -> {
+          row.addText(messageLabel(message))
+          firstLines(message.snippet, 1, 160).firstOrNull()?.let { row.addText(it) }
+          row.setOnClickListener { CarData.read(paneKey, message.id) }
+        }
+      }
+      list.addItem(row.build())
+    }
+    list.addItem(
+      Row.Builder().setTitle(CarWords.allMessages).setBrowsable(true)
+        .setOnClickListener { screenManager.push(HistoryScreen(carContext, paneKey, title)) }.build()
+    )
+    val live = paneKey == CarData.live
+    list.addItem(
+      Row.Builder().setTitle(CarWords.readNew).addText(CarWords.readNewHint)
+        .setToggle(Toggle.Builder { on -> CarData.setLive(if (on) paneKey else null) }.setChecked(live).build()).build()
+    )
+    return ListTemplate.Builder().setTitle(title).setHeaderAction(Action.BACK).setSingleList(list.build())
+      .setActionStrip(ActionStrip.Builder().addAction(readerAction()).build()).build()
+  }
+
+  private companion object {
+    val PLACES = listOf({ CarWords.newest }, { CarWords.previous }, { CarWords.earlier })
   }
 }
 
-/** Listens through the car's microphone; Send types what was heard into the session. */
+/** All of a session's messages as they were when it opened, newest first; Refresh reopens it. */
+class HistoryScreen(carContext: CarContext, private val paneKey: String, private val title: String) :
+  OrcaScreen(carContext) {
+  private val opened = CarData.history(paneKey).orEmpty()
+
+  override fun onGetTemplate(): Template {
+    val list = ItemList.Builder().setNoItemsMessage(CarWords.noMessage)
+    opened.forEach { message ->
+      list.addItem(
+        Row.Builder().setTitle(firstLines(message.snippet, 1, 120).firstOrNull() ?: CarWords.noMessage)
+          .addText(messageLabel(message)).setOnClickListener { CarData.read(paneKey, message.id) }.build()
+      )
+    }
+    return ListTemplate.Builder().setTitle(title).setHeaderAction(Action.BACK).setSingleList(list.build())
+      .setActionStrip(listStrip { HistoryScreen(carContext, paneKey, title) }).build()
+  }
+}
+
+/**
+ * Listens through the car's microphone until Send: each pause ends one recognition and the next
+ * starts at once, so a pause never ends the reply (Android Auto's own dictation did, owner
+ * 2026-11-26). It stops after a long silence; Continue picks it up again.
+ */
 class ReplyScreen(carContext: CarContext, private val paneKey: String, private val title: String) :
   OrcaScreen(carContext) {
   private val input = CarVoiceInput(carContext)
-  private var status = CarWords.listening
-  private var heard: String? = null
-  private var busy = false
-  private var listenedOnce = false
+  private val parts = mutableListOf<String>()
+  private var listening = false
+  private var sending = false
+  private var quietRounds = 0
+  private var problem: String? = null
+  private var started = false
   // Paused here for the microphone, so leaving the screen lets it go on.
   private var resumeReader = false
 
   init {
     lifecycle.addObserver(object : DefaultLifecycleObserver {
       override fun onStart(owner: LifecycleOwner) {
-        if (!listenedOnce) listen()
+        if (!started) {
+          started = true
+          listen()
+        }
       }
 
       override fun onDestroy(owner: LifecycleOwner) {
+        listening = false
         input.cancel()
         if (resumeReader) ReadAloudControls.send(ReadAloudControls.PLAY)
       }
@@ -209,49 +266,82 @@ class ReplyScreen(carContext: CarContext, private val paneKey: String, private v
   }
 
   private fun listen() {
-    if (busy) return
-    listenedOnce = true
-    busy = true
-    heard = null
-    status = CarWords.listening
+    if (sending) return
     // The reader would talk over the user and into the microphone.
     if (CarData.readerState == "reading") {
       resumeReader = true
       ReadAloudControls.send(ReadAloudControls.PAUSE)
     }
-    input.listen { text, error ->
-      busy = false
-      heard = text
-      status = text ?: error ?: CarWords.notHeard
-      invalidate()
-    }
+    listening = true
+    quietRounds = 0
+    problem = null
+    next()
     invalidate()
   }
 
+  private fun next() {
+    input.listen { text, error ->
+      if (!listening) return@listen
+      when {
+        text != null -> {
+          parts.add(text)
+          quietRounds = 0
+        }
+        error != null -> {
+          problem = error
+          listening = false
+        }
+        ++quietRounds >= QUIET_ROUNDS -> listening = false
+      }
+      if (listening) next()
+      invalidate()
+    }
+  }
+
+  private fun stop() {
+    listening = false
+    input.cancel()
+  }
+
   private fun send() {
-    val text = heard
-    if (busy || text == null) {
-      CarToast.makeText(carContext, if (busy) CarWords.wait else CarWords.sayFirst, CarToast.LENGTH_SHORT).show()
+    if (sending) return
+    stop()
+    val text = parts.joinToString(" ").trim()
+    if (text.isEmpty()) {
+      CarToast.makeText(carContext, CarWords.sayFirst, CarToast.LENGTH_SHORT).show()
+      invalidate()
       return
     }
-    busy = true
-    status = CarWords.sending
+    sending = true
     invalidate()
-    CarData.reply(paneKey, text) { _, message ->
-      busy = false
-      heard = null
-      status = message
+    CarData.reply(paneKey, text) { ok, message ->
+      sending = false
       CarToast.makeText(carContext, message, CarToast.LENGTH_LONG).show()
-      if (screenManager.top === this) screenManager.pop() else invalidate()
+      if (ok) parts.clear() else problem = message
+      if (ok && screenManager.top === this) screenManager.pop() else invalidate()
     }
   }
 
   override fun onGetTemplate(): Template {
-    val pane = Pane.Builder()
-      .addRow(Row.Builder().setTitle(CarWords.yourReply).addText(status).build())
+    val heard = parts.joinToString(" ").trim()
+    val status = when {
+      sending -> CarWords.sending
+      listening -> CarWords.listening
+      else -> problem ?: CarWords.stopped
+    }
+    val row = Row.Builder().setTitle(CarWords.yourReply).addText(heard.ifEmpty { CarWords.sayNow }).addText(status)
+    val pane = Pane.Builder().addRow(row.build())
       .addAction(action(CarWords.send) { send() })
-      .addAction(action(CarWords.again) { listen() })
+      .addAction(
+        if (listening) action(CarWords.startOver) { stop(); parts.clear(); listen() }
+        else action(CarWords.goOn) { listen() }
+      )
     return PaneTemplate.Builder(pane.build()).setTitle(title).setHeaderAction(Action.BACK).build()
+  }
+
+  private companion object {
+    // About a minute of silence: each quiet round is the recognizer's own timeout.
+    const val QUIET_ROUNDS = 6
   }
 }
 
@@ -279,10 +369,21 @@ internal object CarWords {
   private fun say(polish: String, english: String) = if (pl) polish else english
 
   val agents get() = say("Agenci", "Agents")
+  val agent get() = say("Agent", "Agent")
+  val newest get() = say("Najnowsza", "Newest")
+  val previous get() = say("Poprzednia", "Previous")
+  val earlier get() = say("Wcześniejsza", "Earlier")
+  val allMessages get() = say("Wszystkie wiadomości", "All messages")
+  val loading get() = say("Wczytuję…", "Loading…")
+  val readNew get() = say("Czytaj nowe wiadomości tej sesji", "Read this session's new messages")
+  val readNewHint get() = say("Na bieżąco, a innych sesji nie.", "As they come, and no other session's.")
+  val startOver get() = say("Od nowa", "Start over")
+  val goOn get() = say("Mów dalej", "Continue")
+  val stopped get() = say("Przerwa. Wyślij albo mów dalej.", "Paused. Send or continue.")
+  val sayNow get() = say("Mów. Pauzy nie przerywają.", "Speak. Pauses don't stop it.")
   val computers get() = say("Komputery", "Computers")
-  val listenLast get() = say("Słuchaj ostatniej wiadomości", "Listen to the last message")
-  val liveOnHint get() = say("Włączone: czytam każdą nową wiadomość tej sesji.", "On: reading each new message of this session.")
-  val liveOffHint get() = say("Czyta każdą nową wiadomość tej sesji, a innych nie.", "Reads each new message of this session, no others.")
+  val on get() = say("włączone", "on")
+  val off get() = say("wyłączone", "off")
   val replyHint get() = say("Przyjdzie wiadomość. Odpowiedz na nią głosem.", "A message comes. Answer it by voice.")
   val replyPrompt get() = say("Podyktuj odpowiedź.", "Say your reply.")
   val replyChannel get() = say("Odpowiedzi z auta", "Replies from the car")
@@ -296,27 +397,17 @@ internal object CarWords {
   val noMessage get() = say("Brak wiadomości.", "No message yet.")
   val disconnected get() = say("Rozłączony", "Disconnected")
   val ended get() = say("Sesja zakończona", "Session ended")
-  val status get() = say("Stan", "Status")
-  val lastMessage get() = say("Ostatnia wiadomość", "Last message")
-  val listen get() = say("Słuchaj", "Listen")
   val reply get() = say("Odpowiedz", "Reply")
   val cannotReply get() = say("Ta sesja nie przyjmuje odpowiedzi z auta.", "This session can't take replies from the car.")
-  val liveStart get() = say("Na żywo", "Live")
-  val liveStop get() = say("Wyłącz na żywo", "Stop live")
-  val liveOn get() = say("na żywo", "live")
-  val liveStarted get() = say("Czytam nowe wiadomości tej sesji.", "Reading this session's new messages.")
-  val liveStopped get() = say("Na żywo wyłączone.", "Live off.")
+  val liveOn get() = say("czytam na bieżąco", "reading as it comes")
   val refresh get() = say("Odśwież", "Refresh")
   val pause get() = say("Pauza", "Pause")
   val play get() = say("Wznów", "Play")
   val stop get() = say("Stop", "Stop")
   val yourReply get() = say("Twoja odpowiedź", "Your reply")
   val listening get() = say("Słucham…", "Listening…")
-  val notHeard get() = say("Nie usłyszałem. Naciśnij Jeszcze raz.", "Didn't catch that. Press Again.")
   val send get() = say("Wyślij", "Send")
-  val again get() = say("Jeszcze raz", "Again")
   val sending get() = say("Wysyłam…", "Sending…")
-  val wait get() = say("Chwilę…", "One moment…")
   val sayFirst get() = say("Najpierw powiedz odpowiedź.", "Say your reply first.")
   val noRecognizer get() = say("Telefon nie rozpoznaje mowy.", "The phone has no speech recognition.")
   val recognizerFailed get() = say("Rozpoznawanie mowy nie zadziałało.", "Speech recognition failed.")

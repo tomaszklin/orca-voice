@@ -7,6 +7,7 @@ import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import type { AutoReadAgentRow } from './auto-read-agent-rows'
 import { setCarSessionActive } from './background-reading-state'
 import { createCarAgentMessages } from './car-agent-messages'
+import { readCarHistory, wholeCarMessage, type CarHistoryMessage } from './car-history'
 import { carReplyWords, sendCarReply, type CarReplyResult } from './car-replies'
 import { readerLanguage } from './reader-words'
 import { speakReply } from './reply-speaker'
@@ -40,6 +41,10 @@ let lastHosts: readonly HostClient[] = []
 let live: string | null = null
 let autoReadOn = false
 let carSession = false
+// Sessions whose messages a car view asked for, and the activity they were last read at.
+const histories = new Map<string, readonly CarHistoryMessage[]>()
+const historyStamps = new Map<string, number>()
+const loadingHistories = new Set<string>()
 const carSessionListeners = new Set<() => void>()
 
 /** Notes an agent's message for the car; false when the car's choices keep it from being read. */
@@ -89,6 +94,11 @@ export function publishCarData(
       const hostId = row.paneKey.slice(0, row.paneKey.length - row.rawPaneKey.length - 1)
       const address = row.address ?? null
       const chatSessionId = structuredSessionId(row.rawPaneKey)
+      const stamp = lastActive(row)
+      if (histories.has(row.paneKey) && historyStamps.get(row.paneKey) !== stamp) {
+        historyStamps.set(row.paneKey, stamp)
+        void loadHistory(hosts, row.paneKey)
+      }
       sessions.set(row.paneKey, {
         hostId,
         address,
@@ -130,16 +140,66 @@ export function publishCarData(
   }
 }
 
-function readForCar(paneKey: string | null, recentId: string | null): void {
-  const recent = recentId ? messages.recent().find((message) => message.id === recentId) : undefined
-  const pane = recent?.paneKey ?? paneKey
-  const message = recent?.markdown ?? (pane ? messages.get(pane) : null)
-  if (!pane || !message) {
-    logSpeechEvent(`car read without a message: ${pane ?? recentId}`)
+// Without a chat to read, the messages auto-read noted for the pane stand in.
+function notedHistory(paneKey: string): CarHistoryMessage[] {
+  return messages
+    .recent()
+    .filter((message) => message.paneKey === paneKey)
+    .map(({ id, at, markdown }) => ({ id, fromUser: false, at, markdown, shortened: false }))
+}
+
+async function loadHistory(hosts: readonly HostClient[], paneKey: string): Promise<void> {
+  const target = sessions.get(paneKey)
+  const native = voiceNativeModule()
+  if (!target || !native || loadingHistories.has(paneKey)) {
     return
   }
-  speakReply(`car:${recentId ?? pane}@${Date.now()}`, message, 'interrupt', {
-    title: sessions.get(pane)?.project ?? null
+  loadingHistories.add(paneKey)
+  const client = hosts.find(({ hostId }) => hostId === target.hostId)?.client
+  let list = notedHistory(paneKey)
+  try {
+    if (target.chatSessionId && client) {
+      list = await readCarHistory(client, target.chatSessionId)
+    }
+  } catch (error) {
+    logSpeechEvent(`car history failed: ${error instanceof Error ? error.message : String(error)}`)
+    list = histories.get(paneKey)?.slice() ?? list
+  } finally {
+    loadingHistories.delete(paneKey)
+  }
+  histories.set(paneKey, list)
+  const shown = list.map(({ id, fromUser, at, markdown }) => ({
+    id,
+    fromUser,
+    at,
+    snippet: snippet(markdown) ?? ''
+  }))
+  native.setCarHistory(paneKey, JSON.stringify(shown))
+}
+
+/** A session's last message, or one message of its history or of the recent list. */
+async function readForCar(
+  hosts: readonly HostClient[],
+  paneKey: string | null,
+  messageId: string | null
+): Promise<void> {
+  const inHistory =
+    paneKey && messageId ? histories.get(paneKey)?.find(({ id }) => id === messageId) : undefined
+  const recent =
+    !inHistory && messageId ? messages.recent().find(({ id }) => id === messageId) : undefined
+  const pane = recent?.paneKey ?? paneKey
+  let message = inHistory?.markdown ?? recent?.markdown ?? (pane ? messages.get(pane) : null)
+  const target = pane ? sessions.get(pane) : undefined
+  const client = target ? hosts.find(({ hostId }) => hostId === target.hostId)?.client : undefined
+  if (inHistory?.shortened && target?.chatSessionId && client) {
+    message = await wholeCarMessage(client, target.chatSessionId, inHistory).catch(() => message)
+  }
+  if (!pane || !message) {
+    logSpeechEvent(`car read without a message: ${pane ?? messageId}`)
+    return
+  }
+  speakReply(`car:${messageId ?? pane}@${Date.now()}`, message, 'interrupt', {
+    title: target?.project ?? null
   })
 }
 
@@ -166,14 +226,14 @@ async function replyFromCar(
   voiceNativeModule()?.carReplyResult(requestId, result.outcome === 'sent', carReplyWords(result))
 }
 
-// The media list has no toast, so the reader says what Live did.
+// The media list has no toast, so the reader says what Read new did.
 function liveWords(paneKey: string | null): string {
   const polish = readerLanguage() === 'pl'
   if (!paneKey) {
-    return polish ? 'Na żywo wyłączone.' : 'Live off.'
+    return polish ? 'Czytanie na bieżąco wyłączone.' : 'Reading as it comes is off.'
   }
   const title = sessions.get(paneKey)?.title ?? 'Agent'
-  return polish ? `Na żywo: ${title}.` : `Live: ${title}.`
+  return polish ? `Czytam na bieżąco: ${title}.` : `Reading as it comes: ${title}.`
 }
 
 function subscribeCarSession(listener: () => void): () => void {
@@ -205,7 +265,12 @@ export function useCarControls(autoRead: boolean): boolean {
     setSession(native.isCarSessionActive())
     const subscriptions = [
       native.addListener('onCarSession', ({ active }) => setSession(active)),
-      native.addListener('onCarRead', ({ paneKey, recentId }) => readForCar(paneKey, recentId)),
+      native.addListener('onCarRead', ({ paneKey, messageId }) => {
+        void readForCar(rpc.getAllClients(), paneKey, messageId)
+      }),
+      native.addListener('onCarHistory', ({ paneKey }) => {
+        void loadHistory(rpc.getAllClients(), paneKey)
+      }),
       native.addListener('onCarLive', ({ paneKey, announce }) => {
         live = paneKey
         logSpeechEvent(paneKey ? `car follows live: ${paneKey}` : 'car stopped following live')

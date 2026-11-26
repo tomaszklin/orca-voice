@@ -1406,3 +1406,31 @@ odpowiedź głosem przez wiadomość Android Auto.
   jak wpisana ręcznie). Terminale nadal przez `address` (hosty od 1.4.265).
 - Ryzyko do sprawdzenia: z `notification` w deklaracji ikona Orki w aucie może otwierać widok
   wiadomości zamiast odtwarzacza (tak było w buildach 74–76, gdy nie było odtwarzacza).
+
+## Sesja w aucie: odpowiedź na górze, wiadomości od najnowszej; UnknownAuto (build 84, 2026-11-26)
+
+**Stan: zbudowane, niesprawdzone w aucie.**
+
+Uwagi właściciela do buildu 83 (przekazane przez sesję badawczą): zamiast „Słuchaj ostatniej
+wiadomości” wszystkie wiadomości sesji od najnowszej, „Odpowiedz” na samej górze; „Na żywo” niejasne;
+dyktowanie Android Auto (odpowiedź na wiadomość) urywa się przy każdej pauzie. Decyzja: najpierw
+spróbować pełnego ekranu bez Sklepu Play przez UnknownAuto (Shizuku), potem wybrać drogę.
+
+- `car-history.ts`: wiadomości czatu (użytkownika i agenta, bez podagentów i narzędzi) z
+  `agentSession.history` (ogon 80 pozycji, do 30 wiadomości, od najnowszej); skrócone kopie przed
+  czytaniem uzupełniane przez `agentSession.item`. Auto prosi o nie (`onCarHistory`) przy pierwszym
+  otwarciu sesji; JS odświeża je, gdy zmieni się aktywność sesji. Bez czatu: wiadomości z auto-czytania.
+- Odtwarzacz: w folderze sesji „Odpowiedz”, potem wiadomości (dotknięcie czyta), na końcu „Czytaj nowe
+  wiadomości tej sesji: włączone/wyłączone” (dawne „Na żywo”).
+- Pełny ekran (`SessionScreen`, lista): „Odpowiedz”, trzy wiersze o stałych nazwach „Najnowsza”,
+  „Poprzednia”, „Wcześniejsza” (nowa wiadomość to odświeżenie, nie nowy krok szablonu), „Wszystkie
+  wiadomości” (`HistoryScreen`) i przełącznik czytania na bieżąco.
+- Odpowiedź z pełnego ekranu (`ReplyScreen`): mikrofon auta, rozpoznawanie w kółko — każda pauza kończy
+  jeden kawałek, następny startuje od razu, tekst się dokleja; po ok. minucie ciszy przerwa („Mów
+  dalej”), „Wyślij” wysyła całość, „Od nowa” czyści.
+- `UpdateInstaller.kt`: gdy jest `com.mag.unknownauto`, pobrana aktualizacja idzie do UnknownAuto
+  (`ACTION_VIEW` z `setPackage`, `<queries>` w manifeście), żeby Sklep Play został instalatorem
+  i pełny ekran nie znikał po aktualizacji. UnknownAuto wymaga działającego Shizuku.
+- Odtwarzacz dalej odpowiada przez wiadomość Android Auto (dyktowanie Asystenta, urywa się przy
+  pauzach). Dyktowanie telefonem przy zgaszonym ekranie wymagałoby mikrofonu w tle — Android to
+  ogranicza; nie zrobione.

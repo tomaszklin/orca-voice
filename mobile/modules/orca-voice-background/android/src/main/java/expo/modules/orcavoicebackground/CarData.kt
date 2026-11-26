@@ -24,6 +24,9 @@ object CarData {
 
   data class Recent(val id: String, val paneKey: String, val project: String, val at: Long, val snippet: String)
 
+  /** One message of a session's chat, newest first in [history]. */
+  data class Message(val id: String, val fromUser: Boolean, val at: Long, val snippet: String)
+
   private data class Snapshot(
     val hosts: List<Host>,
     val sessions: List<Session>,
@@ -44,8 +47,10 @@ object CarData {
     private set
   @Volatile var sessionActive = false
     private set
+  // Each session's messages, asked of JS when a car view of the session opens.
+  @Volatile private var histories: Map<String, List<Message>> = emptyMap()
 
-  /** JS: `onCarRead`, `onCarReply`, `onCarLive` and `onCarSession`, with their payloads. */
+  /** JS: `onCarRead`, `onCarReply`, `onCarLive`, `onCarHistory` and `onCarSession`, with their payloads. */
   @Volatile var listener: ((event: String, payload: Map<String, Any?>) -> Unit)? = null
 
   private const val TICK_MS = 8_000L
@@ -108,8 +113,28 @@ object CarData {
 
   fun session(paneKey: String): Session? = sessions.firstOrNull { it.paneKey == paneKey }
 
-  fun read(paneKey: String?, recentId: String? = null) {
-    listener?.invoke("onCarRead", mapOf("paneKey" to paneKey, "recentId" to recentId))
+  /** Reads a session's last message, or the message `messageId` (of its history or the recent list). */
+  fun read(paneKey: String?, messageId: String? = null) {
+    listener?.invoke("onCarRead", mapOf("paneKey" to paneKey, "messageId" to messageId))
+  }
+
+  /** Null until JS has sent it; asked for the first time a view of the session opens. */
+  fun history(paneKey: String): List<Message>? {
+    val messages = histories[paneKey]
+    if (messages == null) listener?.invoke("onCarHistory", mapOf("paneKey" to paneKey))
+    return messages
+  }
+
+  fun setHistory(paneKey: String, json: String) {
+    val array = JSONArray(json)
+    val messages = objects(array).map {
+      Message(it.getString("id"), it.optBoolean("fromUser"), it.optLong("at"), it.optString("snippet"))
+    }
+    if (histories[paneKey] != messages) {
+      histories = histories + (paneKey to messages)
+      redraw()
+      CarMediaBrowser.refresh()
+    }
   }
 
   /** `announce`: the reader says so, for the media list, which has no toast. */
