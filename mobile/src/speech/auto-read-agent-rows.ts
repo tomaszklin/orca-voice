@@ -28,6 +28,8 @@ export type AutoReadAgentRow = SpokenAgentRow & {
   title: string | null
   /** The agent's terminal handle or chat address, where a reply from the car goes; old hosts omit it. */
   address?: string
+  /** When the row last changed, by the host's clock; the car lists recent work first. */
+  updatedAt?: number
 }
 
 const stateSchema = z.enum(AGENT_STATUS_STATES)
@@ -48,6 +50,7 @@ const agentRowSchema = z.object({
     .optional()
     .catch(undefined),
   address: z.string().optional().catch(undefined),
+  updatedAt: z.number().optional().catch(undefined),
   conversationName: z.string().nullish().catch(null),
   displayName: z.string().nullish().catch(null),
   taskTitle: z.string().nullish().catch(null),

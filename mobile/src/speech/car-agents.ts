@@ -67,7 +67,7 @@ function refreshHostNames(): void {
     .catch(() => undefined)
 }
 
-/** Sends the car its computers, sessions (working or waiting first) and latest messages. */
+/** Sends the car its computers, sessions (most recently active first) and latest messages. */
 export function publishCarData(
   rows: readonly AutoReadAgentRow[],
   hosts: readonly HostClient[]
@@ -79,11 +79,12 @@ export function publishCarData(
     return
   }
   refreshHostNames()
-  const since = (row: AutoReadAgentRow) => row.mainAgent?.stateStartedAt ?? row.stateStartedAt
-  const busy = (row: AutoReadAgentRow) => (mainAgentState(row) === 'done' ? 0 : 1)
+  // Most recent work first; the car lists projects in the order their sessions come.
+  const lastActive = (row: AutoReadAgentRow) =>
+    Math.max(row.updatedAt ?? 0, row.mainAgent?.stateStartedAt ?? row.stateStartedAt)
   const sessionRows = rows
     .filter((row) => !row.parentPaneKey)
-    .sort((a, b) => busy(b) - busy(a) || since(b) - since(a))
+    .sort((a, b) => lastActive(b) - lastActive(a))
     .map((row) => {
       const hostId = row.paneKey.slice(0, row.paneKey.length - row.rawPaneKey.length - 1)
       const address = row.address ?? null
