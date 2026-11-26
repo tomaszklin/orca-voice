@@ -17,4 +17,6 @@ android {
 dependencies {
   // NotificationCompat/ContextCompat; already on the APK classpath through React Native.
   implementation 'androidx.core:core:1.13.1'
+  // Orca's own Android Auto screens (OrcaCarApp.kt).
+  implementation 'androidx.car.app:app:1.4.0'
 }

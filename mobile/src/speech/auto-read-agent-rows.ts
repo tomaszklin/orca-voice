@@ -24,6 +24,10 @@ export type AutoReadAgentRow = SpokenAgentRow & {
   worktreeId: string | null
   /** Repo or folder-workspace name, said before a message. */
   project: string | null
+  /** The session's name as desktop shows it; the car lists it. */
+  title: string | null
+  /** The agent's terminal handle or chat address, where a reply from the car goes; old hosts omit it. */
+  address?: string
 }
 
 const stateSchema = z.enum(AGENT_STATUS_STATES)
@@ -42,7 +46,12 @@ const agentRowSchema = z.object({
   subagents: z
     .array(z.object({ state: z.string() }))
     .optional()
-    .catch(undefined)
+    .catch(undefined),
+  address: z.string().optional().catch(undefined),
+  conversationName: z.string().nullish().catch(null),
+  displayName: z.string().nullish().catch(null),
+  taskTitle: z.string().nullish().catch(null),
+  agentType: z.string().nullish().catch(null)
 })
 
 function worktreeProjectName(worktree: Record<string, unknown>): string | null {
@@ -68,9 +77,10 @@ export function agentRowsFromWorktreePs(
       if (!parsed.success) {
         continue
       }
-      const agent = parsed.data
+      const { conversationName, displayName, taskTitle, agentType, ...agent } = parsed.data
       rows.push({
         ...agent,
+        title: conversationName || displayName || taskTitle || agentType || null,
         paneKey: `${hostId}:${agent.paneKey}`,
         parentPaneKey: agent.parentPaneKey ? `${hostId}:${agent.parentPaneKey}` : null,
         rawPaneKey: agent.paneKey,

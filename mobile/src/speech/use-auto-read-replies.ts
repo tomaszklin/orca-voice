@@ -14,7 +14,7 @@ import { useAutoReadRepliesPreference } from './auto-read-preference'
 import { useBackgroundReadingPreference, useBackgroundReadingService } from './background-reading'
 import { backgroundReadingActive } from './background-reading-state'
 import { createChatMessageFeeds } from './chat-message-feeds'
-import { noteCarMessage, publishCarAgents, useCarAgentPicks } from './car-agents'
+import { carLetsRead, publishCarData, useCarControls } from './car-agents'
 import {
   chimeBeforeMessage,
   projectNameIntro,
@@ -137,11 +137,11 @@ export function useAutoReadReplies(): void {
   // firing once Orca is off screen.
   const pollRef = useRef<() => void>(() => undefined)
   const onServiceTick = useCallback(() => pollRef.current(), [])
-  useBackgroundReadingService(autoRead && backgroundReading, onServiceTick)
-  useCarAgentPicks()
+  const carActive = useCarControls(autoRead)
+  useBackgroundReadingService((autoRead && backgroundReading) || carActive, onServiceTick)
 
   useEffect(() => {
-    if (!autoRead) {
+    if (!autoRead && !carActive) {
       return
     }
     // Why: a fresh baseline each time auto-read is switched on, so replies that arrived while
@@ -167,8 +167,8 @@ export function useAutoReadReplies(): void {
       otherTurnRepliesRef.current === 'on' || awaitingWake.has(paneKey)
     const speakAutoRead = (id: string, paneKey: string, text: string, agentMessage = true) => {
       const project = projectByPane.get(paneKey) ?? null
-      if (agentMessage) {
-        noteCarMessage(paneKey, text)
+      if (!carLetsRead(paneKey, text, agentMessage)) {
+        return
       }
       // Decided when the message starts, after what was heard before it, not when it was queued.
       const intro = () => {
@@ -242,7 +242,7 @@ export function useAutoReadReplies(): void {
         // A host whose read failed this round is left out rather than treated as having no
         // agents, so its panes keep their baseline and nothing is re-read when it answers again.
         const agents = rows.flatMap((hostRows) => hostRows ?? [])
-        publishCarAgents(agents)
+        publishCarData(agents, known)
         // Merged, not replaced: a host whose read failed this round keeps its panes' projects.
         projectByPane = new Map([
           ...projectByPane,
@@ -367,5 +367,5 @@ export function useAutoReadReplies(): void {
       feeds.closeAll()
       pollRef.current = () => undefined
     }
-  }, [autoRead, rpc])
+  }, [autoRead, carActive, rpc])
 }

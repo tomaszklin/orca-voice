@@ -1,8 +1,6 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { AutoReadAgentRow } from './auto-read-agent-rows'
-import { createCarAgentMessages } from './car-agents'
-
-vi.mock('./reply-speaker', () => ({ speakReply: vi.fn() }))
+import { createCarAgentMessages } from './car-agent-messages'
 
 const pane = 'host:tab:leaf'
 const finished = (message: string, endedAt: number): AutoReadAgentRow => ({
@@ -11,6 +9,7 @@ const finished = (message: string, endedAt: number): AutoReadAgentRow => ({
   parentPaneKey: null,
   worktreeId: 'worktree',
   project: 'project',
+  title: 'Claude',
   state: 'done',
   stateStartedAt: endedAt,
   lastAssistantMessage: message,

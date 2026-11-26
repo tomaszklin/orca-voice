@@ -8,7 +8,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Process
 import android.service.media.MediaBrowserService
-import java.util.Locale
 
 /** Orca Voice fork: Orca as an Android Auto media app; picking an agent reads its last message. */
 class CarMediaBrowser : MediaBrowserService() {
@@ -47,18 +46,16 @@ class CarMediaBrowser : MediaBrowserService() {
   }
 
   private fun agentItems(): MutableList<MediaBrowser.MediaItem> {
-    val agents = CarAgents.list
-    if (agents.isEmpty()) {
-      val updatedAt = CarAgents.updatedAt
-      val note = if (updatedAt == 0L) CarWords.neverUpdated
-      else CarWords.updatedAgo((System.currentTimeMillis() - updatedAt) / 1000)
-      return mutableListOf(item(EMPTY, CarWords.noAgents, note, MediaBrowser.MediaItem.FLAG_PLAYABLE))
+    val sessions = CarData.sessions
+    if (sessions.isEmpty()) {
+      return mutableListOf(item(EMPTY, CarWords.noAgents, CarWords.updated(), MediaBrowser.MediaItem.FLAG_PLAYABLE))
     }
-    return agents.map {
+    return sessions.map {
+      val snippet = it.snippet?.lineSequence()?.map { line -> line.trim() }?.firstOrNull { line -> line.isNotEmpty() }
       item(
         PANE_PREFIX + it.paneKey,
-        "${it.project} · ${CarWords.state(it.state)}",
-        it.snippet ?: CarWords.noMessage,
+        "${it.project} · ${it.title}",
+        listOfNotNull(CarWords.state(it.state), snippet).joinToString(" · "),
         MediaBrowser.MediaItem.FLAG_PLAYABLE
       )
     }.toMutableList()
@@ -82,44 +79,7 @@ class CarMediaBrowser : MediaBrowserService() {
 
     fun play(mediaId: String?) {
       val paneKey = mediaId?.takeIf { it.startsWith(PANE_PREFIX) }?.removePrefix(PANE_PREFIX) ?: return
-      CarAgents.readListener?.invoke(paneKey)
+      CarData.read(paneKey)
     }
-  }
-}
-
-/** The agents auto-read follows, sent by JS; a picked one goes back to JS to be read. */
-object CarAgents {
-  data class Agent(val paneKey: String, val project: String, val state: String, val snippet: String?)
-
-  @Volatile var list: List<Agent> = emptyList()
-    private set
-  /** When JS last sent the list; 0 = never, which the car shows to tell why the list is empty. */
-  @Volatile var updatedAt = 0L
-    private set
-  @Volatile var readListener: ((paneKey: String) -> Unit)? = null
-
-  fun set(next: List<Agent>) {
-    val first = updatedAt == 0L
-    updatedAt = System.currentTimeMillis()
-    if (first || next != list) {
-      list = next
-      CarMediaBrowser.refresh()
-    }
-  }
-}
-
-/** Polish on a Polish phone, English elsewhere. */
-internal object CarWords {
-  private val pl get() = Locale.getDefault().language == "pl"
-  val agents get() = if (pl) "Agenci" else "Agents"
-  val noAgents get() = if (pl) "Brak agentów. Włącz auto-czytanie w Orce na telefonie." else "No agents. Turn on auto-read in Orca on the phone."
-  val noMessage get() = if (pl) "Brak wiadomości." else "No message yet."
-  val neverUpdated get() = if (pl) "Orka na telefonie jeszcze nic nie przysłała." else "Orca on the phone has sent nothing yet."
-  fun updatedAgo(seconds: Long) = if (pl) "Lista z telefonu sprzed $seconds s." else "List from the phone, $seconds s ago."
-  fun state(state: String): String = when (state) {
-    "working" -> if (pl) "pracuje" else "working"
-    "done" -> if (pl) "skończył" else "done"
-    "waiting", "blocked" -> if (pl) "czeka na ciebie" else "waiting for you"
-    else -> state
   }
 }

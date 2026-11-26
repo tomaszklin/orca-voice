@@ -1337,3 +1337,38 @@ czytany „link profil/zawodnik.md”) i sama nazwa pliku z rozszerzeniem („CL
   w kilku słowach zostaje.
 - Strzałki zamieniane przed ścieżkami (`plan.py→trip.py` → „plan, trip”); po pominiętej ścieżce nie
   zostaje samotny przecinek ani dwukropek.
+
+## Orka na ekranie auta: komputer, projekt, sesja (build 82, 2026-11-26)
+
+**Stan: zbudowane, niesprawdzone w aucie ani w emulatorze.**
+
+Właściciel chce pełnego ekranu jak w Home Assistant (szablony Car App Library mogą być interaktywne):
+najpierw komputer, potem projekt, potem sesja; w sesji słuchanie, podsłuch tury na żywo i odpowiedź
+głosem; dodatkowo lista ostatnich wiadomości. Odtwarzacz z buildu 78–80 zostaje obok.
+
+- `OrcaCarApp.kt`: `OrcaCarAppService` (kategoria `IOT`, `HostValidator` z listą
+  `androidx.car.app.R.array.hosts_allowlist_sample`, przy debug wszyscy), ekrany: komputery (pierwszy
+  wiersz „Ostatnie wiadomości”) → projekty → sesje → sesja (Słuchaj, Odpowiedz; pasek: Na żywo,
+  Pauza/Wznów) → odpowiedź (Wyślij, Jeszcze raz).
+- **Zasady szablonów** (dokumentacja ListTemplate/PaneTemplate): aktualizacja jest „odświeżeniem”
+  tylko przy tym samym tytule i tych samych tytułach wierszy; inaczej liczy się do limitu 5 szablonów
+  w zadaniu (przekroczenie = awaria). Dlatego listy zamrażają swoje wiersze przy otwarciu (zmienia się
+  tylko tekst pod tytułem), a „Odśwież” robi pop + push (netto zero kroków). Ekran główny czeka
+  w stanie ładowania na pierwsze dane z telefonu. Ekran odpowiedzi to `PaneTemplate`, bo zmiana treści
+  `MessageTemplate` nie jest odświeżeniem.
+- `CarData.kt`: dane z JS (`setCarData`, JSON), zdarzenia do JS (`onCarRead`, `onCarReply`,
+  `onCarLive`, `onCarSession`), odpowiedź z wynikiem (`carReplyResult`, limit 30 s), tyknięcie co 8 s
+  (`ReadAloudTicker`), póki ekran auta jest otwarty — JS odpytuje komputery także przy zgaszonym
+  ekranie telefonu.
+- `CarVoiceInput.kt`: mikrofon auta (`CarAudioRecord`, API auta 5+, Android 13+) przez rurę do
+  `SpeechRecognizer`; każda próba ma własne nagranie (poprawka z przeglądu).
+- JS: `car-agents.ts` (dane, decyzja o czytaniu: przy „Na żywo” tylko ta sesja, bez — jak
+  auto-czytanie), `car-agent-messages.ts` (ostatnia wiadomość sesji, 20 ostatnich), `car-replies.ts`
+  (wysyłka raz: `sendMobileNativeChatMessageWithOutcome` na `address` z `worktree.ps`; `unknown` nie
+  jest powtarzane; sesje czatu na razie bez odpowiedzi).
+- Otwarty ekran auta uruchamia odpytywanie i usługę w tle nawet przy wyłączonym auto-czytaniu
+  (`useCarControls`), a `backgroundReadingActive()` jest wtedy prawdą (łącze z komputerem nie zamyka się
+  po 30 s).
+- **Emulator**: AVD `orca_auto` (Android 16 z Google Play) i DHU (`extras;google;auto`) zainstalowane,
+  ale Android Auto na emulatorze to zaślepka, którą aktualizuje dopiero Sklep Play po zalogowaniu.
+  Pełny test wymaga logowania do Play na emulatorze albo telefonu podłączonego do komputera (DHU).

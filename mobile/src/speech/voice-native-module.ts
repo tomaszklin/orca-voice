@@ -89,12 +89,30 @@ export type VoiceNativeModule = {
   canInstallUpdates(): boolean
   /** The system screen with Orca's "Install unknown apps" switch; false when it did not open. */
   openInstallPermission(): boolean
-  /** JSON of the agents Android Auto lists: `[{ paneKey, project, state, snippet }]`. */
-  setCarAgents(json: string): number
-  /** An agent picked in Android Auto, whose last message is to be read. */
+  /** What Orca's Android Auto screens show, as JSON (`car-agents.ts`). */
+  setCarData(json: string): void
+  /** How a reply spoken in the car went; the car shows `message`. */
+  carReplyResult(requestId: string, ok: boolean, message: string): void
+  /** Whether Orca's screen is open in Android Auto; `onCarSession` reports changes. */
+  isCarSessionActive(): boolean
+  addListener(
+    event: 'onCarSession',
+    listener: (payload: { active: boolean }) => void
+  ): { remove(): void }
+  /** Read a session's last message, or one of the recent messages. */
   addListener(
     event: 'onCarRead',
-    listener: (payload: { paneKey: string }) => void
+    listener: (payload: { paneKey: string | null; recentId: string | null }) => void
+  ): { remove(): void }
+  /** Follow a session live, or stop (null). */
+  addListener(
+    event: 'onCarLive',
+    listener: (payload: { paneKey: string | null }) => void
+  ): { remove(): void }
+  /** A reply spoken in the car; answered with `carReplyResult`. */
+  addListener(
+    event: 'onCarReply',
+    listener: (payload: { requestId: string; paneKey: string; text: string }) => void
   ): { remove(): void }
   addListener(event: 'onTick' | 'onAutoReadToggle', listener: () => void): { remove(): void }
   addListener(
