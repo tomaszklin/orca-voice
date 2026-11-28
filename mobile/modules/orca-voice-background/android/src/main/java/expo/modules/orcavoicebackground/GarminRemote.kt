@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import com.garmin.android.connectiq.ConnectIQ
 import com.garmin.android.connectiq.IQApp
@@ -26,7 +27,7 @@ object GarminRemote {
   private var connectIQ: ConnectIQ? = null
   private var speech: TextToSpeech? = null
   private var speechReady = false
-  private var pending: String? = null
+  private var pending: Pair<String, (() -> Unit)?>? = null
 
   fun start(context: Context) {
     val app = context.applicationContext
@@ -109,7 +110,7 @@ object GarminRemote {
   }
 
   /** Logcat rotates fast in this app, so the same lines also go to a file adb can read. */
-  private fun note(context: Context, text: String) {
+  fun note(context: Context, text: String) {
     Log.i(TAG, text)
     try {
       val file = java.io.File(context.getExternalFilesDir(null), "garmin-remote.log")
@@ -141,32 +142,41 @@ object GarminRemote {
     } catch (e: Exception) {
       note(context, "Ack failed: $e")
     }
+    // The voice test: these presses make the phone listen and say what it understood.
+    if (event in LISTEN_EVENTS) {
+      main.post { PhoneVoiceTest.listen(context) }
+      return
+    }
     val text = when (event) {
       "nastepna" -> "Następna sesja: $session"
       "poprzednia" -> "Poprzednia sesja: $session"
-      "pauza" -> "Pauza, sesja $session"
-      "wznow" -> "Wznowienie, sesja $session"
-      "kciuk-gora" -> "Kciuk w górę, sesja $session"
       "kciuk-dol" -> "Kciuk w dół, sesja $session"
-      "test" -> "Test z zegarka"
       else -> "Zegarek: $event"
     }
     main.post { say(context, text) }
   }
 
-  private fun say(context: Context, text: String) {
+  private val LISTEN_EVENTS = setOf("test", "pauza", "wznow", "kciuk-gora")
+
+  private val afterSpeech = mutableMapOf<String, () -> Unit>()
+  private var utterances = 0
+
+  /** Says [text] on Orca Remote's own voice; [then] runs on the main thread once it is said. */
+  fun say(context: Context, text: String, then: (() -> Unit)? = null) {
     val engine = speech
     if (engine != null && speechReady) {
-      engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "garmin-remote")
+      val id = "garmin-remote-${++utterances}"
+      if (then != null) afterSpeech[id] = then
+      engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
       return
     }
-    pending = text
+    pending = text to then
     if (engine != null) return
     speech = TextToSpeech(context) { status ->
       main.post {
         val tts = speech ?: return@post
         if (status != TextToSpeech.SUCCESS) {
-          Log.w(TAG, "No speech engine: $status")
+          note(context, "No speech engine: $status")
           speech = null
           return@post
         }
@@ -177,8 +187,20 @@ object GarminRemote {
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .build()
         )
+        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+          override fun onStart(utteranceId: String?) = Unit
+
+          override fun onDone(utteranceId: String?) {
+            main.post { afterSpeech.remove(utteranceId)?.invoke() }
+          }
+
+          @Deprecated("Deprecated in Java")
+          override fun onError(utteranceId: String?) {
+            main.post { afterSpeech.remove(utteranceId)?.invoke() }
+          }
+        })
         speechReady = true
-        pending?.let { tts.speak(it, TextToSpeech.QUEUE_FLUSH, null, "garmin-remote") }
+        pending?.let { (waiting, after) -> say(context, waiting, after) }
         pending = null
       }
     }

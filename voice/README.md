@@ -1471,3 +1471,16 @@ spróbować pełnego ekranu bez Sklepu Play przez UnknownAuto (Shizuku), potem w
   `unregisterAppFromUsingBinderService` przy okazji wyłącza SDK, więc build 90 już go nie woła.
   Od buildu 90 wiadomości przychodzą (do ogólnego słuchacza, bez nazwy zegarka). Dziennik telefonu:
   `/sdcard/Android/data/com.stably.orca.mobile/files/garmin-remote.log` (adb).
+
+## Test dyktowania z zegarka (build 91, 2026-11-28)
+
+**Stan: zbudowane, niesprawdzone.**
+
+- Cel: sprawdzić, czy Orka nagra odpowiedź przy zgaszonym ekranie, przez mikrofon Shokzów.
+- `PhoneVoiceTest.kt`: „Test sygnalu”, pauza/wznowienie albo kciuk w górę na zegarku powodują, że
+  telefon mówi „Słucham”, nagrywa (`AudioRecord`, mikrofon słuchawek przez `setCommunicationDevice`),
+  podaje dźwięk rozpoznawaniu mowy (jak `CarVoiceInput`) i mówi „Usłyszałam: …”. Nic nie wysyła.
+- `ReadAloudService` bierze typ `microphone` obok `mediaPlayback`, gdy Orka ma zgodę na mikrofon i
+  startuje na ekranie; z tła Android odmawia i usługa działa bez mikrofonu (`hasMicrophone`).
+- W dzienniku `garmin-remote.log`: czy usługa ma mikrofon, który mikrofon, najgłośniejsza próbka
+  (0 = Android wyciszył mikrofon) i wynik.

@@ -70,7 +70,21 @@ class ReadAloudService : Service() {
     }
     tickIntervalMs = intent?.getLongExtra(EXTRA_TICK_MS, DEFAULT_TICK_MS) ?: DEFAULT_TICK_MS
     val notification = buildNotification()
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && micAllowed()) {
+      // Orca Remote's voice test (PhoneVoiceTest.kt): the microphone works with the screen off only
+      // for a service that claimed it while Orca was on screen. From the background Android
+      // refuses the claim, and the service carries on without it.
+      hasMicrophone = try {
+        startForeground(
+          NOTIFICATION_ID, notification,
+          ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        )
+        true
+      } catch (e: SecurityException) {
+        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        false
+      }
+    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
     } else {
       startForeground(NOTIFICATION_ID, notification)
@@ -92,6 +106,10 @@ class ReadAloudService : Service() {
     return START_STICKY
   }
 
+  private fun micAllowed() =
+    ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) ==
+      android.content.pm.PackageManager.PERMISSION_GRANTED
+
   override fun onTaskRemoved(rootIntent: Intent?) {
     // Swiping Orca away is the user ending it; the reading goes with it. JS can outlive the task,
     // so its reader is told too, or it would still show the message as being read.
@@ -107,6 +125,7 @@ class ReadAloudService : Service() {
     wakeLock?.let { if (it.isHeld) it.release() }
     wakeLock = null
     isRunning = false
+    hasMicrophone = false
     // Why: a refresh that ran after Android dropped the foreground notification posted it again as
     // a plain ongoing one, which then stayed with the service gone.
     (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).cancel(NOTIFICATION_ID)
@@ -222,6 +241,9 @@ class ReadAloudService : Service() {
     private const val CHANNEL_ID = "orca-voice-read-aloud"
     private const val NOTIFICATION_ID = 7417
     @Volatile var isRunning = false
+      private set
+    /** Whether the running service holds the microphone for use with the screen off. */
+    @Volatile var hasMicrophone = false
       private set
     @Volatile var autoReadPaused = false
       private set
