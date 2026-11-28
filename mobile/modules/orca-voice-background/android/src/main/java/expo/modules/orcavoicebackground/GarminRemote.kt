@@ -19,11 +19,8 @@ import java.util.Locale
 object GarminRemote {
   private const val TAG = "OrcaGarmin"
 
-  // The watch app's id from its manifest, plain and in the dashed form the SDK's samples use.
-  private val APP_IDS = listOf(
-    "95cae03779794fb2a2083a15b2848da5",
-    "95cae037-7979-4fb2-a208-3a15b2848da5"
-  )
+  // The watch app's id from its manifest (the SDK strips dashes, so one form is enough).
+  private val APP_IDS = listOf("95cae03779794fb2a2083a15b2848da5")
 
   private val main = Handler(Looper.getMainLooper())
   private var connectIQ: ConnectIQ? = null
@@ -58,6 +55,19 @@ object GarminRemote {
   }
 
   private fun listen(context: Context, ciq: ConnectIQ) {
+    val onMessage = ConnectIQ.IQApplicationEventListener { device, app, messages, status ->
+      Log.i(TAG, "From ${device.friendlyName}: $status $messages")
+      if (status == ConnectIQ.IQMessageStatus.SUCCESS) messages.forEach { handle(context, ciq, device, app, it) }
+    }
+    // Current Garmin Connect delivers messages by binding to the SDK's IQGarminBindingService,
+    // which hands them to this one app-wide listener; older versions broadcast them to the
+    // per-device listeners below.
+    try {
+      ciq.registerForAppEvents(onMessage)
+      ciq.registerAppToUseBinderService(APP_IDS[0])
+    } catch (e: Exception) {
+      Log.w(TAG, "Binder service registration failed", e)
+    }
     val devices = try {
       ciq.knownDevices.orEmpty()
     } catch (e: Exception) {
@@ -66,11 +76,11 @@ object GarminRemote {
     }
     Log.i(TAG, "Listening on ${devices.size} Garmin device(s)")
     for (device in devices) {
-      register(context, ciq, device)
+      register(ciq, device, onMessage)
       try {
         ciq.registerForDeviceEvents(device) { changed, status ->
           Log.i(TAG, "${changed.friendlyName}: $status")
-          if (status == IQDevice.IQDeviceStatus.CONNECTED) register(context, ciq, changed)
+          if (status == IQDevice.IQDeviceStatus.CONNECTED) register(ciq, changed, onMessage)
         }
       } catch (e: Exception) {
         Log.w(TAG, "No device events for ${device.friendlyName}", e)
@@ -78,23 +88,35 @@ object GarminRemote {
     }
   }
 
-  private fun register(context: Context, ciq: ConnectIQ, device: IQDevice) {
-    for (id in APP_IDS) {
-      try {
-        ciq.registerForAppEvents(device, IQApp(id)) { _, _, messages, status ->
-          Log.i(TAG, "From ${device.friendlyName}: $status $messages")
-          if (status == ConnectIQ.IQMessageStatus.SUCCESS) messages.forEach { handle(context, it) }
-        }
-      } catch (e: Exception) {
-        Log.w(TAG, "Could not listen for $id on ${device.friendlyName}", e)
-      }
+  private fun register(ciq: ConnectIQ, device: IQDevice, onMessage: ConnectIQ.IQApplicationEventListener) {
+    try {
+      ciq.registerForAppEvents(device, IQApp(APP_IDS[0]), onMessage)
+    } catch (e: Exception) {
+      Log.w(TAG, "Could not listen on ${device.friendlyName}", e)
     }
   }
 
-  private fun handle(context: Context, message: Any?) {
+  private var lastMessage: String? = null
+  private var lastMessageAt = 0L
+
+  private fun handle(context: Context, ciq: ConnectIQ, device: IQDevice, app: IQApp, message: Any?) {
     val map = message as? Map<*, *> ?: return
     val event = map["event"] as? String ?: return
     val session = map["session"] as? String ?: ""
+    // Both delivery paths may carry the same message; say it once.
+    val key = "$event/$session"
+    val now = System.currentTimeMillis()
+    if (key == lastMessage && now - lastMessageAt < 1500) return
+    lastMessage = key
+    lastMessageAt = now
+    // Tells the watch's log that the phone got it, whatever happens to the speech.
+    try {
+      ciq.sendMessage(device, app, mapOf("ack" to event)) { _, _, status ->
+        Log.i(TAG, "Ack $event: $status")
+      }
+    } catch (e: Exception) {
+      Log.w(TAG, "Ack failed", e)
+    }
     val text = when (event) {
       "nastepna" -> "Następna sesja: $session"
       "poprzednia" -> "Poprzednia sesja: $session"

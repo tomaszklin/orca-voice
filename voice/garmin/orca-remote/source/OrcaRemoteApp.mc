@@ -4,6 +4,7 @@
 // See voice/garmin/README.md.
 
 import Toybox.Application;
+import Toybox.Communications;
 import Toybox.Lang;
 import Toybox.Media;
 import Toybox.WatchUi;
@@ -12,6 +13,19 @@ class OrcaRemoteApp extends Application.AudioContentProviderApp {
 
     function initialize() {
         AudioContentProviderApp.initialize();
+        if (Communications has :registerForPhoneAppMessages) {
+            Communications.registerForPhoneAppMessages(method(:onPhone));
+        }
+    }
+
+    // Orca on the phone confirms each signal it got; the log shows it as "tel ...".
+    function onPhone(msg) {
+        var data = msg.data;
+        if (data instanceof Dictionary && data["ack"] != null) {
+            OrcaLog.add("tel ok " + data["ack"]);
+        } else {
+            OrcaLog.add("tel " + data);
+        }
     }
 
     function getContentDelegate(args) {
