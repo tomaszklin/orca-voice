@@ -1462,3 +1462,7 @@ spróbować pełnego ekranu bez Sklepu Play przez UnknownAuto (Shizuku), potem w
 - Telefon (`GarminRemote.kt`, SDK `ciq-companion-app-sdk` 2.4.0): po starcie modułu nasłuchuje
   aplikacji Orca Remote na zegarkach znanych w Garmin Connect i mówi na głos, co przyszło
   („Następna sesja: …”, „Pauza…”). Nic poza tym nie robi.
+- Build 88: R8 w wydaniu zmieniał nazwy klas SDK Garmina, a Garmin Connect przysyła `IQDevice`
+  jako Parcelable po nazwie klasy. Każda wiadomość z zegarka wyłączała Orkę
+  (`ClassNotFoundException: com.garmin.android.connectiq.IQDevice`). Reguła `-keep` w
+  `consumer-rules.pro` modułu to naprawia.

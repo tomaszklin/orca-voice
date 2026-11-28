@@ -12,6 +12,10 @@ useDefaultAndroidSdkVersions()
 
 android {
   namespace 'expo.modules.orcavoicebackground'
+  defaultConfig {
+    // Keeps the Connect IQ SDK intact in minified release builds (consumer-rules.pro).
+    consumerProguardFiles 'consumer-rules.pro'
+  }
 }
 
 dependencies {
