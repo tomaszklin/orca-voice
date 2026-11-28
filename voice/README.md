@@ -1453,7 +1453,7 @@ spróbować pełnego ekranu bez Sklepu Play przez UnknownAuto (Shizuku), potem w
 
 ## Orca Remote na zegarku Garmin, prototyp (build 86, 2026-11-28)
 
-**Stan: telefon zbudowany; aplikacja na zegarek czeka na pliki urządzenia z konta Garmin.**
+**Stan (build 90): działa od zegarka do telefonu.** Na zegarku dziennik pokazuje `tx ok`, `web 200` i `tel ok`, a telefon mówi, co przyszło. Słuchawki muszą być połączone z zegarkiem, żeby odtwarzacz ruszył; OpenRun Pro ma multipoint.
 
 - Cel: odpowiadać i przełączać sesje w biegu bez dotykania telefonu. Przycisk słuchawek odpada,
   bo trafia do aplikacji, która ostatnio grała (np. YouTube). Wbudowane sterowanie muzyką na
@@ -1466,3 +1466,8 @@ spróbować pełnego ekranu bez Sklepu Play przez UnknownAuto (Shizuku), potem w
   jako Parcelable po nazwie klasy. Każda wiadomość z zegarka wyłączała Orkę
   (`ClassNotFoundException: com.garmin.android.connectiq.IQDevice`). Reguła `-keep` w
   `consumer-rules.pro` modułu to naprawia.
+- Build 89–90: build 88 poprosił Garmin Connect o dostarczanie przez `IQGarminBindingService`
+  (`registerAppToUseBinderService`) i nic nie dochodziło; build 89 to odwołał, ale
+  `unregisterAppFromUsingBinderService` przy okazji wyłącza SDK, więc build 90 już go nie woła.
+  Od buildu 90 wiadomości przychodzą (do ogólnego słuchacza, bez nazwy zegarka). Dziennik telefonu:
+  `/sdcard/Android/data/com.stably.orca.mobile/files/garmin-remote.log` (adb).
