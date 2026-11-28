@@ -6,7 +6,7 @@ import Toybox.Lang;
 import Toybox.Media;
 
 class OrcaSyncDelegate extends Communications.SyncDelegate {
-    const TRACK_URL = "https://cdn.jsdelivr.net/gh/tomaszklin/orca-voice@voice/voice/garmin/audio/orca-remote-track.mp3";
+    const TRACK_URL = "https://cdn.jsdelivr.net/gh/tomaszklin/orca-voice@113a5e8e71a44009067ec510a4589abd86958dff/voice/garmin/audio/orca-remote-track.mp3";
 
     function initialize() {
         SyncDelegate.initialize();

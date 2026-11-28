@@ -20,7 +20,7 @@ Prototyp ma sprawdzić trzy rzeczy:
 
 - `orca-remote/` to projekt Connect IQ (Monkey C): manifest, źródła i zasoby.
 - `audio/orca-remote-track.mp3` to jedyny „utwór”: krótki ton i 5 minut ciszy. Zegarek
-  pobiera go przy synchronizacji z jsDelivr (gałąź `voice` tego repo). jsDelivr podaje typ
+  pobiera go przy synchronizacji z jsDelivr (z commitu, bo adres z gałęzią `voice` jsDelivr zwracał jako 404). jsDelivr podaje typ
   `audio/mpeg`, którego wymaga Garmin, a raw.githubusercontent.com tego nie robi.
 - Część na telefonie: `mobile/modules/orca-voice-background/android/.../GarminRemote.kt` oraz
   zależność `com.garmin.connectiq:ciq-companion-app-sdk`. Wiadomości z zegarka idą przez aplikację
