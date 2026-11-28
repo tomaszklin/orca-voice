@@ -104,22 +104,35 @@ object PhoneVoiceTest {
       .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
       .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pl-PL")
       .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+      .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
       .putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE, source)
       .putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT, 1)
       .putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
       .putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE, RATE)
     val speech = SpeechRecognizer.createSpeechRecognizer(context)
     recognizer = speech
+    // Build 91 heard the recognizer finish with speech and still got no text in the final
+    // results, so the last partial result stands in for an empty final one.
+    var lastPartial: String? = null
+    fun textOf(bundle: Bundle?) = bundle?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+      ?.firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
     speech.setRecognitionListener(object : RecognitionListener {
       override fun onResults(results: Bundle?) {
-        val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-          ?.firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
-        finish(context, text, null)
+        val heard = textOf(results)
+        GarminRemote.note(context, "Voice test: final '${heard ?: ""}' ${results?.keySet()}, last partial '${lastPartial ?: ""}'")
+        finish(context, heard ?: lastPartial, null)
+      }
+
+      override fun onPartialResults(partialResults: Bundle?) {
+        textOf(partialResults)?.let { lastPartial = it }
       }
 
       override fun onError(error: Int) {
+        GarminRemote.note(context, "Voice test: recognizer error $error, last partial '${lastPartial ?: ""}'")
         val nothingHeard = error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
-        finish(context, null, if (nothingHeard) null else "Błąd rozpoznawania $error")
+        val partial = lastPartial
+        if (partial != null) finish(context, partial, null)
+        else finish(context, null, if (nothingHeard) null else "Błąd rozpoznawania $error")
       }
 
       override fun onEndOfSpeech() {
@@ -130,7 +143,6 @@ object PhoneVoiceTest {
       override fun onBeginningOfSpeech() = Unit
       override fun onRmsChanged(rmsdB: Float) = Unit
       override fun onBufferReceived(buffer: ByteArray?) = Unit
-      override fun onPartialResults(partialResults: Bundle?) = Unit
       override fun onEvent(eventType: Int, params: Bundle?) = Unit
     })
     speech.startListening(intent)
@@ -150,9 +162,9 @@ object PhoneVoiceTest {
       }
       GarminRemote.note(context, "Voice test: ${text ?: error ?: "nothing heard"}")
       val reply = when {
-        text != null -> "Usłyszałam: $text"
+        text != null -> "Usłyszałem: $text"
         error != null -> error
-        else -> "Nic nie usłyszałam"
+        else -> "Nic nie usłyszałem"
       }
       // A moment for the headset to leave the call mode before speaking again.
       main.postDelayed({
