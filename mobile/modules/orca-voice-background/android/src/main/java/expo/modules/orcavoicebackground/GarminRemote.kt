@@ -39,7 +39,7 @@ object GarminRemote {
           override fun onSdkReady() = listen(app, ciq)
 
           override fun onInitializeError(status: ConnectIQ.IQSdkErrorStatus) {
-            Log.w(TAG, "Connect IQ not available: $status")
+            note(app, "Connect IQ not available: $status")
             connectIQ = null
           }
 
@@ -56,17 +56,17 @@ object GarminRemote {
 
   private fun listen(context: Context, ciq: ConnectIQ) {
     val onMessage = ConnectIQ.IQApplicationEventListener { device, app, messages, status ->
-      Log.i(TAG, "From ${device.friendlyName}: $status $messages")
+      note(context, "From ${device.friendlyName}: $status $messages")
       if (status == ConnectIQ.IQMessageStatus.SUCCESS) messages.forEach { handle(context, ciq, device, app, it) }
     }
-    // Current Garmin Connect delivers messages by binding to the SDK's IQGarminBindingService,
-    // which hands them to this one app-wide listener; older versions broadcast them to the
-    // per-device listeners below.
+    // Garmin Connect broadcasts messages to the per-device listeners below (build 86-87 got them
+    // that way). Build 88 also asked it to bind to IQGarminBindingService instead, after which
+    // nothing arrived, so that request is withdrawn; the app-wide listener stays for that path.
     try {
       ciq.registerForAppEvents(onMessage)
-      ciq.registerAppToUseBinderService(APP_IDS[0])
+      ciq.unregisterAppFromUsingBinderService(APP_IDS[0], context)
     } catch (e: Exception) {
-      Log.w(TAG, "Binder service registration failed", e)
+      note(context, "Binder service unregistration failed: $e")
     }
     val devices = try {
       ciq.knownDevices.orEmpty()
@@ -74,12 +74,24 @@ object GarminRemote {
       Log.w(TAG, "No Garmin devices", e)
       return
     }
-    Log.i(TAG, "Listening on ${devices.size} Garmin device(s)")
+    note(context, "Listening on ${devices.size} Garmin device(s)")
     for (device in devices) {
+      note(context, "${device.friendlyName}: ${runCatching { ciq.getDeviceStatus(device) }.getOrNull()}")
       register(ciq, device, onMessage)
       try {
+        ciq.getApplicationInfo(APP_IDS[0], device, object : ConnectIQ.IQApplicationInfoListener {
+          override fun onApplicationInfoReceived(app: IQApp) =
+            note(context, "Watch app ${app.status} v${app.version()} on ${device.friendlyName}")
+
+          override fun onApplicationNotInstalled(id: String) =
+            note(context, "Watch app not installed on ${device.friendlyName}")
+        })
+      } catch (e: Exception) {
+        note(context, "App info failed: $e")
+      }
+      try {
         ciq.registerForDeviceEvents(device) { changed, status ->
-          Log.i(TAG, "${changed.friendlyName}: $status")
+          note(context, "${changed.friendlyName}: $status")
           if (status == IQDevice.IQDeviceStatus.CONNECTED) register(ciq, changed, onMessage)
         }
       } catch (e: Exception) {
@@ -93,6 +105,18 @@ object GarminRemote {
       ciq.registerForAppEvents(device, IQApp(APP_IDS[0]), onMessage)
     } catch (e: Exception) {
       Log.w(TAG, "Could not listen on ${device.friendlyName}", e)
+    }
+  }
+
+  /** Logcat rotates fast in this app, so the same lines also go to a file adb can read. */
+  private fun note(context: Context, text: String) {
+    Log.i(TAG, text)
+    try {
+      val file = java.io.File(context.getExternalFilesDir(null), "garmin-remote.log")
+      if (file.length() > 64_000) file.delete()
+      file.appendText("${java.text.SimpleDateFormat("MM-dd HH:mm:ss", Locale.US).format(java.util.Date())} $text
+")
+    } catch (_: Exception) {
     }
   }
 
@@ -112,10 +136,10 @@ object GarminRemote {
     // Tells the watch's log that the phone got it, whatever happens to the speech.
     try {
       ciq.sendMessage(device, app, mapOf("ack" to event)) { _, _, status ->
-        Log.i(TAG, "Ack $event: $status")
+        note(context, "Ack $event: $status")
       }
     } catch (e: Exception) {
-      Log.w(TAG, "Ack failed", e)
+      note(context, "Ack failed: $e")
     }
     val text = when (event) {
       "nastepna" -> "Następna sesja: $session"
