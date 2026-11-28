@@ -60,13 +60,13 @@ object GarminRemote {
       if (status == ConnectIQ.IQMessageStatus.SUCCESS) messages.forEach { handle(context, ciq, device, app, it) }
     }
     // Garmin Connect broadcasts messages to the per-device listeners below (build 86-87 got them
-    // that way). Build 88 also asked it to bind to IQGarminBindingService instead, after which
-    // nothing arrived, so that request is withdrawn; the app-wide listener stays for that path.
+    // that way). Build 88 asked it to bind to IQGarminBindingService instead, after which nothing
+    // arrived; build 89 withdrew that request (the withdrawal also shuts the SDK down, so it is
+    // not repeated). The app-wide listener stays in case Garmin Connect binds anyway.
     try {
       ciq.registerForAppEvents(onMessage)
-      ciq.unregisterAppFromUsingBinderService(APP_IDS[0], context)
     } catch (e: Exception) {
-      note(context, "Binder service unregistration failed: $e")
+      note(context, "App-wide listener failed: $e")
     }
     val devices = try {
       ciq.knownDevices.orEmpty()
