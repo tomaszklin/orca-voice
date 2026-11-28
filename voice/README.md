@@ -1450,3 +1450,15 @@ spróbować pełnego ekranu bez Sklepu Play przez UnknownAuto (Shizuku), potem w
   Auto). Nowa sesja ma w JS tymczasowy klucz `new:<id>`, dopóki host nie poda jej panelu.
 - Porządki: wspólny stan auta w `car-sessions.ts`, historia i czytanie w `car-history-store.ts`
   (car-agents.ts przekroczył limit 300 linii).
+
+## Orca Remote na zegarku Garmin, prototyp (build 86, 2026-11-28)
+
+**Stan: telefon zbudowany; aplikacja na zegarek czeka na pliki urządzenia z konta Garmin.**
+
+- Cel: odpowiadać i przełączać sesje w biegu bez dotykania telefonu. Przycisk słuchawek odpada,
+  bo trafia do aplikacji, która ostatnio grała (np. YouTube). Wbudowane sterowanie muzyką na
+  Forerunnerze 970 działa w trakcie biegu i przyjmuje własne źródła muzyki z Connect IQ.
+- Szczegóły, pliki i budowanie: `voice/garmin/README.md`.
+- Telefon (`GarminRemote.kt`, SDK `ciq-companion-app-sdk` 2.4.0): po starcie modułu nasłuchuje
+  aplikacji Orca Remote na zegarkach znanych w Garmin Connect i mówi na głos, co przyszło
+  („Następna sesja: …”, „Pauza…”). Nic poza tym nie robi.

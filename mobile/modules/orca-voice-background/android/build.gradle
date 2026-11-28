@@ -19,4 +19,6 @@ dependencies {
   implementation 'androidx.core:core:1.13.1'
   // Orca's own Android Auto screens (OrcaCarApp.kt).
   implementation 'androidx.car.app:app:1.4.0'
+  // Orca Remote on a Garmin watch's music controls (GarminRemote.kt).
+  implementation 'com.garmin.connectiq:ciq-companion-app-sdk:2.4.0@aar'
 }

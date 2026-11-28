@@ -40,6 +40,7 @@ class OrcaVoiceBackgroundModule : Module() {
       appContext.reactContext?.let {
         ReadAloudOutput.watch(it)
         UpdateInstaller.dismissUpdated(it)
+        GarminRemote.start(it)
       }
     }
 
