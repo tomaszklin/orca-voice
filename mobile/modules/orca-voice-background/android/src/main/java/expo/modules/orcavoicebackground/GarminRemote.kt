@@ -114,8 +114,8 @@ object GarminRemote {
     try {
       val file = java.io.File(context.getExternalFilesDir(null), "garmin-remote.log")
       if (file.length() > 64_000) file.delete()
-      file.appendText("${java.text.SimpleDateFormat("MM-dd HH:mm:ss", Locale.US).format(java.util.Date())} $text
-")
+      val time = java.text.SimpleDateFormat("MM-dd HH:mm:ss", Locale.US).format(java.util.Date())
+      file.appendText("$time $text\n")
     } catch (_: Exception) {
     }
   }
